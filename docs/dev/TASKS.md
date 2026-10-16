@@ -35,7 +35,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
   - The scene bundle is a pure graph traversal that includes the GM's active secrets only in the GM view.
   - Replay stays byte-identical.
 
-### T0.3 Spatial: ZoneGraph — `ready`
+### T0.3 Spatial: ZoneGraph — `done`
 - **Plan:** P0.10 · §1.4, §8.2
 - **Deliverables:** `kernel/spatial.py` with the `SpatialBackend` interface and `ZoneGraph`. Scene regions and adjacency become part of `set_scene`. `move` is validated against adjacency. Per-observer `visible_to` is supported.
 - **Acceptance:**
@@ -44,7 +44,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
   - The scene schema matches §8.2 for the fields implemented.
   - Replay stays byte-identical.
 
-### T0.4 Candidate generator and mastery tiering — `blocked` (T0.3)
+### T0.4 Candidate generator and mastery tiering — `ready`
 - **Plan:** P0.10 · §1.4.2, §1.4.3, §2.3 (`spatial.tactical_profile`)
 - **Deliverables:**
   - `enumerate_moves` and `enumerate_actions` return annotated, tiered candidates.
@@ -57,7 +57,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
   - The candidate cap of 12 holds.
   - No coordinates appear in any output.
 
-### T0.5 Spatial: RangeBands — `blocked` (T0.3)
+### T0.5 Spatial: RangeBands — `ready`
 - **Plan:** P0.10 · §1.4
 - **Acceptance:** same tool surface as ZoneGraph; the band set comes from the pack; `tidewrack` declares and uses it.
 

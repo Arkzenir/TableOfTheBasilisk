@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from . import dice, expr
+from . import dice, expr, spatial
 from .determinism import CONTROLS, ROLES, STRICT, expand
 from .effects import PRIMITIVES, RESERVED, TARGET_SYMBOLS, references
 from .packs import ResolvedPack
@@ -291,6 +291,20 @@ def lint(pack: ResolvedPack) -> list[Finding]:
         err("rules-text", f"inline rules text is ~{len(text) // 4} tokens; budget {RULES_TEXT_TOKEN_BUDGET}")
     if not abstract and not text.strip():
         warn("rules-text", "no inline rules text")
+
+    # spatial (§1.4) -------------------------------------------------------
+    sp = pack.get("spatial")
+    if sp not in (None, "none") and not isinstance(sp, dict):
+        err("spatial", "spatial must be a mapping with backends, or none")
+    for backend in spatial.declared_backends(pack):
+        if backend not in spatial.BACKENDS:
+            planned = " (planned, not built yet)" if backend in ("range_bands", "square_grid") else ""
+            err("spatial", f"unknown backend {backend!r}{planned}; available: {', '.join(spatial.BACKENDS)}")
+    for key in ("terrain", "cover"):
+        ids = [v.get("id") for v in spatial.values(pack, key)]
+        dupes = {i for i in ids if ids.count(i) > 1}
+        if dupes:
+            err("duplicate-id", f"spatial.{key}: {sorted(dupes)}")
 
     # tool schemas generate under every preset ----------------------------
     for preset in ("strict", "standard"):

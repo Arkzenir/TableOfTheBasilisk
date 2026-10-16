@@ -13,7 +13,7 @@ import copy
 from datetime import datetime, timezone
 from typing import Any, Callable, Iterable
 
-from . import KERNEL_VERSION, canon, dice, expr
+from . import KERNEL_VERSION, canon, dice, expr, spatial
 from .canon import CanonCommands
 from .canonical import hash_obj
 from .command import EngineError, _suggest, atomic
@@ -23,6 +23,7 @@ from .events import EventStore
 from .packlint import readiness
 from .packs import ResolvedPack
 from .rng import Randomizer
+from .spatial import SpatialCommands
 
 MAX_TRIGGER_DEPTH = 5
 
@@ -67,7 +68,7 @@ EVENT_TYPES = frozenset({
     "determinism_changed", "session_started", "session_ended", "scene_set", "roll_made",
     "effect_applied", "character_created", "entity_spawned", "clock_created",
     "action_committed", "gm_ruling_requested", "gm_ruling_filled",
-}) | canon.EVENT_TYPES | _PASSIVE
+}) | canon.EVENT_TYPES | spatial.EVENT_TYPES | _PASSIVE
 
 
 def apply_event(state: dict, ev: dict) -> None:
@@ -89,6 +90,9 @@ def apply_event(state: dict, ev: dict) -> None:
     elif t == "scene_set":
         state["scene"] = {"id": p["scene_id"], "index": p["index"], "flags": dict(p.get("flags") or {}),
                           "encounter": bool(p.get("encounter"))}
+        layout = spatial.scene_spatial(p)
+        if layout is not None:  # absent for non-spatial scenes, so older logs fold unchanged
+            state["scene"]["spatial"] = layout
     elif t == "roll_made":
         state["roll_counter"] = p["counter"] + 1
     elif t == "effect_applied":
@@ -110,6 +114,8 @@ def apply_event(state: dict, ev: dict) -> None:
         state["open_rulings"].pop(p["slot"], None)
     elif t in canon.EVENT_TYPES:
         canon.apply_event(state, ev)
+    elif t in spatial.EVENT_TYPES:
+        spatial.apply_event(state, ev)
     elif t in _PASSIVE:
         pass
     else:
@@ -125,7 +131,7 @@ def fold(events: Iterable[dict], state: dict | None = None) -> dict:
 
 # ====================================================================== engine
 
-class Engine(CanonCommands):
+class Engine(CanonCommands, SpatialCommands):
     def __init__(self, pack: ResolvedPack, seed: str, store: EventStore | None = None,
                  campaign_id: str = "campaign", clock: Callable[[], str | None] | None = None):
         if pack.data["meta"].get("abstract"):
@@ -313,14 +319,25 @@ class Engine(CanonCommands):
         return self._emit("session_ended", {"number": self.state["session"]}, actor=by or self.gm_seat)
 
     @atomic
-    def set_scene(self, scene_id: str, flags: dict | None = None, encounter: bool = False, by: str | None = None) -> int:
+    def set_scene(self, scene_id: str, flags: dict | None = None, encounter: bool = False, by: str | None = None,
+                  regions: list[dict] | None = None, placements: dict[str, str] | None = None) -> int:
+        """Open a scene (§8.2). With `regions` the scene is spatial (§1.4) and
+        `placements` puts entities in its regions."""
         if not self.state["session"]:
             raise EngineError("start a session before setting a scene")
+        if placements and regions is None:
+            raise EngineError("placements need regions: a scene without regions has no positions")
+        layout = self._spatial_spec(regions) if regions is not None else None
+        by = by or self.gm_seat
         self._expire({"scene"})
         flags = {k: int(v) for k, v in (flags or {}).items()}
         index = self.state["scene"]["index"] + 1
-        self._emit("scene_set", {"scene_id": scene_id, "index": index, "flags": flags, "encounter": bool(encounter)},
-                   actor=by or self.gm_seat)
+        payload = {"scene_id": scene_id, "index": index, "flags": flags, "encounter": bool(encounter)}
+        if layout is not None:
+            payload["spatial"] = layout
+        self._emit("scene_set", payload, actor=by)
+        for eid, region in self._placement_effects(placements):
+            self._place(eid, region, by)
         self._boundary()
         return index
 
@@ -428,6 +445,8 @@ class Engine(CanonCommands):
             raise EngineError("only the GM can spawn entities")
         if entity_id in self.state["entities"]:
             raise EngineError(f"entity {entity_id!r} already exists")
+        if zone is not None:
+            self._check_region(zone)
         ent = self._new_entity(entity_id, name, "npc", "gm", stats or {})
         ent["zone"] = zone
         self._emit("entity_spawned", {"entity": ent}, actor=by)
@@ -503,9 +522,13 @@ class Engine(CanonCommands):
             if not target:
                 raise EngineError(f"{action_id} needs a target entity")
             target_ent = self._entity(target)
+            if not self.visible(by, target):
+                seen = [e for e in self.state["entities"] if e != entity_id and self.visible(by, e)]
+                raise EngineError(_suggest("entity", target, seen))
         elif target_kind == "zone":
             if not target:
                 raise EngineError(f"{action_id} needs a target zone")
+            self._check_region(target)
         elif target:
             raise EngineError(f"{action_id} takes no target")
         if not self._requires_ok(action, ent, target_ent):
@@ -781,6 +804,7 @@ class Engine(CanonCommands):
             to = ids.get("target") if effect["to"] == "$target" else effect["to"]
             if not to:
                 raise EngineError("move: no destination")
+            self._check_move(target_id, to)
             params["to"] = to
             changes.append({"path": ["entities", target_id, "zone"], "value": to})
         elif prim in ("create_item", "destroy_item"):

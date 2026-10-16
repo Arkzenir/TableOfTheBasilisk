@@ -18,7 +18,7 @@ Work is broken into agent-sized tasks in [`docs/dev/TASKS.md`](docs/dev/TASKS.md
 | P0.7 Conformance and authoring | 🟡 | `kernel/packlint.py`, `tob pack new` | Scaffold, static lint, strict-readiness, defect-class tests. **Todo:** generated property tests per action and outcome band; golden fixtures per pack |
 | P0.8 Sheets and chargen | 🟡 | `kernel/engine.py` | Roll, choice, and table steps; `unique_per_table`. **Todo:** full/summary read views (`read_sheet`, `read_party_sheets`) |
 | P0.9 Canon store | ✅ | `kernel/canon.py` | Records in folded state; derived alias table, relation graph, and per-scope indexes (secrets absent from the player index); append-only supersede with history; reveal; scene bundles; digest stub |
-| P0.10 Spatial engine | ⬜ | — | Zones are plain labels today (`move` effect). ZoneGraph, RangeBands, candidate generator, mastery tiering |
+| P0.10 Spatial engine | 🟡 | `kernel/spatial.py` | `SpatialBackend` interface and ZoneGraph: scene regions with undirected adjacency, adjacency-checked moves, GM placement, per-observer `visible_to`, `scene_view`. Scenes without regions keep plain zone labels. **Todo:** RangeBands (T0.5), candidate generator and mastery tiering (T0.4) |
 | P0.11 Clocks and time | 🟡 | `kernel/engine.py` | Create and advance clocks. **Todo:** off-air advancement scheduler, calendar |
 | P0.12 Scripted harness | ✅ | `harness/scripted.py` | Pack-agnostic smoke campaigns with coverage sweep, YAML scenarios, verification, double-run determinism, soak runner |
 | P0.13 Sectioned rules text | ⬜ | — | Section schema, key-first `query_rules`, section lint (T0.14) |
@@ -41,7 +41,7 @@ Work is broken into agent-sized tasks in [`docs/dev/TASKS.md`](docs/dev/TASKS.md
 
 ## Suggested order from here
 
-1. P0.10 spatial (ZoneGraph first), then turn order (P0.4).
+1. P0.10 spatial: candidate generator (T0.4) and RangeBands (T0.5); then turn order (P0.4).
 2. P0.13 sectioned rules text, then its fixture variant; P0.14 excluded terms.
 3. `peek_roll` and decks (P0.2), read views (P0.8), golden fixtures and property tests (P0.7), off-air clocks (P0.11).
 4. Pass Gate P0 with `tob check`, then start P1 with the Anthropic adapter.

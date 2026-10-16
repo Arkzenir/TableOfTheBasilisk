@@ -24,7 +24,19 @@ steps:
 
   # --- Session 1
   - {do: start_session}
-  - {do: set_scene, scene: undercroft, flags: {dim: 1}}
+  # A spatial scene (§1.4, §8.2): regions with adjacency; the engine checks every move.
+  - do: set_scene
+    scene: undercroft
+    flags: {dim: 1}
+    regions:
+      - {id: stair, label: The stair foot, adjacency: [floor]}
+      - {id: floor, label: The flooded floor, adjacency: [gallery, vault]}
+      - {id: gallery, label: The gallery}
+      - {id: vault, label: The tithe vault}
+    placements: {ash: stair, bram: floor, cyra: floor, dov: stair}
+  - {do: place_entity, entity: tithekeeper, region: vault}
+  - {do: set_visibility, entity: tithekeeper, visible_to: [cyra]}     # only Cyra has spotted it
+  - {do: commit_action, actor: cyra, action: climb, target: rooftop, gm: {difficulty: hard}, expect_error: true}  # no such region
   - {do: commit_action, actor: cyra, action: climb, target: gallery, gm: {difficulty: hard, tags: [rushed]}}
   - {do: commit_action, actor: bram, action: recall, gm: {difficulty: 13}}               # GM standard: value allowed
   - {do: commit_action, actor: bram, action: recall, gm: {difficulty: 99}, expect_error: true}  # outside the ladder range

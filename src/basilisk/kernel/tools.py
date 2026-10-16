@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import canon
+from . import canon, spatial
 from .determinism import STANDARD, setting_for
 from .packs import ResolvedPack
 
@@ -52,6 +52,17 @@ def _difficulty_schema(pack: ResolvedPack, mode: str) -> dict | None:
     return _enum(rungs)
 
 
+def _region_schema(pack: ResolvedPack) -> dict:
+    region: dict[str, Any] = {"id": ID, "label": NARRATIVE, "adjacency": {"type": "array", "items": ID}}
+    for key in ("terrain", "cover"):
+        values = [v["id"] for v in spatial.values(pack, key)]
+        if values:
+            region[key] = _enum(values)
+    # elevation is accepted by the engine but not offered to models: it is a free
+    # number, and strict schemas may not carry one (§2.13.4)
+    return {"type": "array", "items": region, "maxItems": spatial.MAX_REGIONS}
+
+
 def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = None) -> dict[str, dict]:
     def mode(control: str) -> str:
         return setting_for(effective, role, control, seat)
@@ -72,6 +83,9 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
     if action_ids:
         tools["commit_action"] = commit
     tools["enumerate_actions"] = {}
+    zones = "zone_graph" in spatial.declared_backends(pack)
+    if zones:
+        tools["look"] = {}  # the caller's own view of the scene: regions and visible tokens (§7.1, §8.2)
 
     if role == "gm":
         tag_ids = [t["id"] for t in pack.catalogue("resolution.situational_tags") if "derive" not in t]
@@ -106,6 +120,11 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
         tools["advance_clock"] = {"clock_id": ID, "amount": _enum([1, 2, 3])}
         tools["spawn_entity"] = {"entity_id": ID, "name": NARRATIVE}
         tools["set_scene"] = {"scene_id": ID}
+        if zones:
+            tools["set_scene"]["regions"] = _region_schema(pack)
+            tools["set_scene"]["placements"] = {"type": "array", "items": {"entity_id": ID, "region_id": ID}}
+            tools["place_entity"] = {"entity_id": ID, "region_id": ID}
+            tools["set_visibility"] = {"entity_id": ID, "visible_to": {"type": "array", "items": ID}}
         ids = {"type": "array", "items": ID}
         tools["write_canon"] = {
             "type": _enum(list(canon.RECORD_TYPES)), "name": NARRATIVE,

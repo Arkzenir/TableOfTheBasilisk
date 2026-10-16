@@ -12,9 +12,9 @@ The code-level list of event types (`EVENT_TYPES` in `src/basilisk/kernel/engine
 | `determinism_changed` | folds | scene or session boundary | `from, to, request_seq, scene_index` |
 | `session_started` | folds | `start_session` | `number` |
 | `session_ended` | folds | `end_session` | `number` |
-| `scene_set` | folds | `set_scene` | `scene_id, index, flags, encounter` |
+| `scene_set` | folds | `set_scene` | `scene_id, index, flags, encounter`, plus `spatial{mode, regions[{id, label, adjacency, terrain, elevation, cover}]}` only for a spatial scene (adjacency normalised: undirected, sorted) |
 | `roll_made` | folds | any roll or weighted draw | `counter, purpose, expression, total, groups, variables` (+ `weights` for draws) |
-| `effect_applied` | folds | every effect primitive | `primitive, target, params, changes[{path, value \| delete}]` |
+| `effect_applied` | folds | every effect primitive; also condition expiry (`params.reason: duration`) and GM placement (`move`, `params.reason: placement`) | `primitive, target, params, changes[{path, value \| delete}]` |
 | `character_created` | folds | `create_character` | `entity, unique_choices, choices` |
 | `entity_spawned` | folds | `spawn_entity` | `entity` |
 | `clock_created` | folds | `create_clock` | `clock_id, label, total, visible` |
@@ -24,6 +24,7 @@ The code-level list of event types (`EVENT_TYPES` in `src/basilisk/kernel/engine
 | `canon_written` | folds | `write_canon`, `supersede_canon` | `record` (full, engine-assigned `id`; the reducer sets `created_at` to the event's seq), `flags[{name, near, record}]` (near-collisions), `supersedes` (only from `supersede_canon`) |
 | `canon_superseded` | folds | `supersede_canon` | `old, new` (sets `superseded_by` on `old`) |
 | `fact_revealed` | folds | `reveal` | `id, from` (sets `knowledge` to `revealed`) |
+| `visibility_set` | folds | `set_visibility` | `entity, visible_to` (sorted seat ids, or `null` to make the entity visible to every seat again); reset by the next `scene_set` |
 | `chargen_started` | passive | `create_character` | `agent, entity` |
 | `judgement_input` | passive | any model-chosen mechanical input | `seat, control, setting, choice, options` |
 | `procedure_resolved` | passive | resolution runner | `procedure, entity, scale, outcome, rank, ranks, total, difficulty, modifiers, roll_seq, direct` |

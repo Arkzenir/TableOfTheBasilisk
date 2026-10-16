@@ -25,10 +25,15 @@ from ..kernel.engine import Engine, EngineError, fold
 from ..kernel.events import EventStore
 from ..kernel.packs import ResolvedPack, resolve
 from ..kernel.rng import Randomizer
+from ..kernel.spatial import declared_backends
 
 PLAYERS = ["ash", "bram", "cyra", "dov"]
 NAMES = {"ash": "Ash", "bram": "Bram", "cyra": "Cyra", "dov": "Dov", "gm": "The GM"}
 NPCS = [("npc_warden", "The Warden"), ("npc_shade", "A Shade")]
+# A three-region line for smoke scenes on packs that permit zone scenes: zone_0 - zone_1 - zone_2.
+SMOKE_REGIONS = [{"id": "zone_0", "label": "Near side", "adjacency": ["zone_1"]},
+                 {"id": "zone_1", "label": "Middle", "adjacency": ["zone_2"]},
+                 {"id": "zone_2", "label": "Far side"}]
 
 
 def logical_clock():
@@ -112,10 +117,12 @@ def _gm_inputs(engine: Engine, action: dict, turn: int) -> dict:
 def _pick_target(engine: Engine, actor: str, action: dict, turn: int) -> str | None:
     kind = action.get("target", "none")
     if kind == "zone":
-        return f"zone_{turn % 3}"
+        reachable = engine.reachable(actor)
+        return reachable[turn % len(reachable)] if reachable else f"zone_{turn % 3}"
     if kind != "entity":
         return None
-    others = sorted(e for e in engine.state["entities"] if e != actor)
+    by = engine.state["entities"][actor]["controller"]
+    others = sorted(e for e in engine.state["entities"] if e != actor and engine.visible(by, e))
     return others[turn % len(others)] if others else None
 
 
@@ -173,6 +180,18 @@ def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
         engine.spawn_entity(npc_id, name)
     engine.create_clock("pressure", "Something is coming", 6, visible=False)
 
+    zones = "zone_graph" in declared_backends(engine.pack)
+    placements = {**{p: "zone_1" for p in players}, "npc_warden": "zone_0", "npc_shade": "zone_2"}
+
+    def open_scene(scene_id: str, flags: dict, encounter: bool) -> None:
+        if not zones:
+            engine.set_scene(scene_id, flags=flags, encounter=encounter)
+            return
+        engine.set_scene(scene_id, flags=flags, encounter=encounter, regions=SMOKE_REGIONS, placements=placements)
+        if encounter and players:
+            # one seat loses sight of the shade: per-observer visibility (§8.2)
+            engine.set_visibility("npc_shade", [p for p in players if p != players[0]])
+
     turn = 0
     for s in range(smoke["sessions"]):
         engine.start_session()
@@ -184,7 +203,7 @@ def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
                 flip = STRICT if STANDARD in current.values() else STANDARD
                 engine.request_determinism_change(by="operator", role="gm", preset=flip)
                 report.settings_changes += 1
-            engine.set_scene(f"s{s + 1}_scene{sc + 1}", flags=flags, encounter=encounter)
+            open_scene(f"s{s + 1}_scene{sc + 1}", flags, encounter)
             for p in players:
                 _play_turn(engine, p, turn, report)
                 turn += 1
@@ -194,7 +213,7 @@ def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
     # coverage sweep: take every action the pack defines at least once (P0.12)
     engine.start_session()
     for encounter in (False, True):
-        engine.set_scene(f"sweep_{int(encounter)}", flags={"danger": 1, "dim": 0, "storm": 0}, encounter=encounter)
+        open_scene(f"sweep_{int(encounter)}", {"danger": 1, "dim": 0, "storm": 0}, encounter)
         for action_id in engine.pack.by_id("actions"):
             if action_id in report.actions_taken:
                 continue
@@ -224,7 +243,12 @@ def _run_steps(engine: Engine, steps: list[dict], report: RunReport) -> None:
             elif do == "end_session":
                 engine.end_session()
             elif do == "set_scene":
-                engine.set_scene(step["scene"], step.get("flags"), step.get("encounter", False))
+                engine.set_scene(step["scene"], step.get("flags"), step.get("encounter", False),
+                                 regions=step.get("regions"), placements=step.get("placements"))
+            elif do == "place_entity":
+                engine.place_entity(step["entity"], step["region"])
+            elif do == "set_visibility":
+                engine.set_visibility(step["entity"], step.get("visible_to"))
             elif do == "commit_action":
                 engine.commit_action(step["actor"], step["action"], target=step.get("target"),
                                      spend=step.get("spend"), gm=step.get("gm"))
