@@ -9,7 +9,7 @@
 
 **Revision notes (1.3):** Determinism settings are per role and per control, defaulting to **players strict, GM standard**, and are changeable mid-campaign — by config between sessions, or by an operator control that applies changes at the next scene boundary (§2.13.3, §9.3).
 
-**Revision notes (1.4):** The broadcast pack is the SRD 5.1 (CC-BY 4.0) with sectioned rules text, which is now in v1 (§1.1, §2.11). Every phase through P3 develops against the kernel test packs, so no work is tuned to one ruleset. P0.13 builds sectioned rules text and proves it on a data-only fixture variant. The broadcast pack is written as late as possible, in P4.0, and gates Phase 4.
+**Revision notes (1.4):** The broadcast pack is the SRD 5.1 (dual-released under CC-BY 4.0 and the OGL 1.0a; licence chosen before P4.0) with sectioned rules text, which is now in v1 (§1.1, §2.11). Every phase through P3 develops against the kernel test packs, so no work is tuned to one ruleset. P0.13 builds sectioned rules text and proves it on a data-only fixture variant. The broadcast pack is written as late as possible, in P4.0, and gates Phase 4.
 
 ---
 
@@ -526,7 +526,7 @@ One regeneration on flag; beat cut on second failure.
 
 Written as late as possible, so nothing before it is tuned to one ruleset.
 
-- `packs/srd51/`, extending `core.roll_over`, with sectioned rules text, `meta.license: CC-BY-4.0`, and the release's attribution text copied verbatim (§1.2)
+- `packs/srd51/`, extending `core.roll_over`, with sectioned rules text, `meta.license` set to the chosen release (CC-BY 4.0 or OGL 1.0a, D-015), and that licence's required notice copied verbatim (§1.2)
 - A digest that names the edition in force (§1.1) and fits the context budget
 - Rule-card data for every action, procedure, condition, currency, and tag; strict-ready on every control
 - Spatial on ZoneGraph and RangeBands: SRD distances map to range bands in the pack. A grid (`SquareGrid`) stays in v2.

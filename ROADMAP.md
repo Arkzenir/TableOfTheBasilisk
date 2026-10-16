@@ -33,7 +33,7 @@ Work is broken into agent-sized tasks in [`docs/dev/TASKS.md`](docs/dev/TASKS.md
 | P2 Scheduler, watchdog, traits, metrics | ⬜ | |
 | P3 Session 0, prep, validation | ⬜ | |
 | P4.4 Rule cards | 🟡 | Text renderer is the reference implementation (`broadcast/cards.py`); graphical renderer to come |
-| P4.0 Broadcast pack (SRD 5.1) | ⬜ | Written as late as possible; sectioned, CC-BY 4.0 (D-012) |
+| P4.0 Broadcast pack (SRD 5.1) | ⬜ | Written as late as possible; sectioned; licence (CC-BY 4.0 or OGL 1.0a) chosen before P4.0 (D-012, D-015) |
 | P4 Renderer, TTS, overlay, stream | ⬜ | Host encode path checked by `tob remote HOST encode-test` |
 | P5 Board, break time, hardening | ⬜ | |
 | Deployment tooling | ✅ | Bootstrap, gated atomic deploys, rollback, doctor, encode test, soak, verified backups |

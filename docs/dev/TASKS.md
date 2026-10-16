@@ -16,7 +16,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 
 ### T0.1 Broadcast pack: SRD 5.1 — `deferred` (moved to P4.0)
 - **Plan:** P4.0 · §1.1, §1.2, §2.11
-- **Decided (D-012):** SRD 5.1, CC-BY 4.0 release; sectioned rules text. By owner direction it is written **as late as possible**, so Gate P0 and Phases 1–3 develop against the test packs only. The owner supplies the source document when P4.0 starts.
+- **Decided (D-012):** SRD 5.1; sectioned rules text. Licence (CC-BY 4.0 or OGL 1.0a) is chosen before P4.0 (D-015). By owner direction it is written **as late as possible**, so Gate P0 and Phases 1–3 develop against the test packs only. The owner supplies the source document when P4.0 starts.
 - **Then (agent):** see BUILD_PLAN P4.0. Copy the attribution text verbatim from the source, use no D&D trademarks, and make zero kernel changes for this pack.
 
 ### T0.2 Canon store — `done`

@@ -85,16 +85,16 @@ Template:
 - Consequences: ARCHITECTURE §6.2 was revised to match this decision (version 1.4, approved by the owner on 2026-10-16). Note tools are task T1.10.
 
 
-## D-012 Broadcast system: SRD 5.1 (CC-BY 4.0), sectioned rules text in v1
+## D-012 Broadcast system: SRD 5.1, sectioned rules text in v1
 - Date: 2026-10-16 · Status: accepted (owner). ARCHITECTURE 1.5, BUILD_PLAN 1.4.
-- Context: the owner chose the D&D 5e SRD (2014 rules) because more viewers know them. The design said v1 ships one inline rules-light pack, with sectioned text deferred to v2. §1.2 does not permit the OGL 1.0a.
+- Context: the owner chose the D&D 5e SRD (2014 rules) because more viewers know them. The design said v1 ships one inline rules-light pack, with sectioned text deferred to v2. §1.2 does not list the OGL 1.0a.
 - Decision:
-  - The source is the **SRD 5.1, CC-BY 4.0 release**, not the OGL release. Attribution text is copied verbatim from the source. The stream uses no D&D trademarks.
+  - The source is the **SRD 5.1**. Its licence is chosen separately (D-015). The required notice is copied verbatim from the source. The stream uses no D&D trademarks.
   - **Sectioned rules text is v1** (§2.11). `query_rules` resolves by key: section ID, then catalogue ref, then alias, then partial match, with key normalisation shared with canon. Vector search over rules stays in v2.
   - **Rules handling is system-agnostic by construction.** The kernel has no section taxonomy, and sections are opaque text. Structure (`parent`, `refs`) is pack data. Inline packs may declare sections too.
   - **The broadcast pack is written as late as possible** (BUILD_PLAN P4.0, gating Phase 4). Gate P0 and Phases 1–3 develop against `lanternlight` and `tidewrack`, plus a data-only sectioned variant. The owner supplies the source document at P4.0.
   - No grid in v1. SRD distances map to range bands. `SquareGrid` stays in v2, to be added when appropriate.
-- Consequences: new tasks T0.14 (sectioned rules text) and T0.15 (sectioned fixture variant). T0.1 is deferred to P4.0. A draft of the edits is kept in `docs/dev/proposals/REV-ARCH-1.5.md` for reference.
+- Consequences: new tasks T0.14 (sectioned rules text) and T0.15 (sectioned fixture variant). T0.1 is deferred to P4.0.
 
 ## D-013 First provider adapter: Anthropic (Claude)
 - Date: 2026-10-16 · Status: accepted (owner, answering HANDOFF question 2)
@@ -104,3 +104,12 @@ Template:
 ## D-014 Finish Track 0 before Track 1
 - Date: 2026-10-16 · Status: accepted (owner, answering HANDOFF question 3)
 - Decision: complete the Track 0 tasks (Gate P0) before starting any Track 1 task, including the parallel-safe ones.
+
+## D-015 SRD 5.1 licence: CC-BY 4.0 or OGL 1.0a (open)
+- Date: 2026-10-16 · Status: open. Decide before P4.0.
+- Context: the owner noted that SRD 5.1 is dual-released: under the OGL 1.0a (since 2016) and under CC-BY 4.0 (since January 2023), with the same text. A user may pick either licence. The owner thinks the OGL may suit the project better. The design text first assumed CC-BY only.
+- What each requires, to verify against the current source and licences at P4.0:
+  - **CC-BY 4.0:** an attribution statement, and nothing else. It is irrevocable and is already on the §1.2 permitted list.
+  - **OGL 1.0a:** the full licence text distributed with the work, a Section 15 copyright notice, an explicit designation of Open Game Content and Product Identity, and no use of trademarks or claims of compatibility beyond what the licence allows. Content derived from Open Game Content becomes Open Game Content itself, a share-alike effect that §1.2 already flags as a caveat for generated content. Choosing it adds the OGL 1.0a to the §1.2 permitted list in an ARCHITECTURE revision note.
+- Until decided: the kernel, packs, and harness are unaffected. `meta.license` and `meta.attribution_text` already hold either licence. Not legal advice.
+

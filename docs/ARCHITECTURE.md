@@ -23,7 +23,7 @@
 - **Character knowledge** (§6.2) no longer scopes canon retrieval. Every player seat queries the same canon, with secrets excluded. Each agent keeps its own copy of what it learned in its notes and recap, and that copy can be wrong (D-011).
 
 **Revision notes (1.5):**
-- The v1 broadcast system is the **System Reference Document 5.1**, used under its **CC-BY 4.0** release (§1.1, §1.2). D-012.
+- The v1 broadcast system is the **System Reference Document 5.1**, which is dual-released under **CC-BY 4.0** and the **OGL 1.0a**. Which licence the pack uses is open until P4.0 (§1.2). D-012, D-015.
 - **Sectioned rules text** (§2.11) moves from v2 into v1. A pack chooses inline or sectioned text as data. A sectioned pack inlines a compact digest and serves the full text through `query_rules`, which resolves by key first. Vector search over rules stays in v2.
 - Rules handling stays system-agnostic. The kernel imposes no section taxonomy, and every rules feature is proven on the kernel test packs before any broadcast pack uses it. The broadcast pack is written as late as possible (BUILD_PLAN 1.4, P4.0).
 
@@ -136,12 +136,12 @@ Adding another system, rules-light or large, is a new pack. Choosing inline or s
 **Decision: open-licensed material only. No exceptions.**
 
 Permitted sources:
-- Creative Commons Attribution 4.0 (the 5.1 SRD is plain CC-BY, no share-alike)
+- Creative Commons Attribution 4.0 (the 5.1 SRD is available under plain CC-BY, no share-alike, as well as under the OGL 1.0a)
 - ORC-licensed material (Paizo and others)
 - CC-BY-SA material, *with the caveat* that derivative work inherits the license — prefer plain BY where you want clean rights over generated content
 - Original homebrew
 
-**v1 broadcast source:** SRD 5.1, CC-BY 4.0 release, with no OGL material. The pack's `meta.license` is `CC-BY-4.0`. Its `meta.attribution_text` carries the attribution statement Wizards of the Coast publishes with that release, copied verbatim from the source document when the pack is written. The licence covers the text, not the trademarks: the stream never uses "Dungeons & Dragons", D&D logos, or trade dress, and describes the game only as "compatible with fifth edition" or "using the SRD 5.1." Product-identity material (named settings, and creatures or characters outside the SRD) is excluded.
+**v1 broadcast source:** SRD 5.1. Wizards of the Coast publishes the same text under two licences, the **OGL 1.0a** and **CC-BY 4.0**, and a user may choose either. **The choice is open and is made before P4.0 (D-015).** The OGL 1.0a is not on the permitted list above, so choosing it adds it to the list in a revision note. Whichever licence is chosen, the pack's `meta.license` names it, and `meta.attribution_text` carries the notice that licence requires, copied verbatim from the source document: the CC attribution statement, or the OGL licence text with its Section 15 copyright notice and the Open Game Content designation. The pack draws from one release only, never a mix. The licence covers the text, not the trademarks: the stream never uses "Dungeons & Dragons", D&D logos, or trade dress, and describes the game only as "compatible with fifth edition" or "using the SRD 5.1." Product-identity material (named settings, and creatures or characters outside the SRD) is excluded.
 
 **Rationale for the hard line:** the exposure is not the stream, it is the pipeline. Ingesting a copyrighted PDF into a retrieval index and emitting chunks of it through TTS is reproduction plus public performance, automated and at scale. "Human streamers reference rulebooks" is not analogous — a human reads silently and speaks a paraphrase. Fan-content policies that permit actual-play streams are aimed at people playing the game, not at people building a product on the text.
 
