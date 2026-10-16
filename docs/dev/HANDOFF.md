@@ -20,6 +20,7 @@ Rewritten at the end of every work session, so the next session — any agent or
 - Pack lint checks `spatial.backends` names and duplicate `spatial.terrain` / `spatial.cover` ids. Tool schemas gain `look`, `set_scene.regions/placements`, `place_entity`, and `set_visibility`; strict schemas still carry no free values.
 - The harness's smoke campaigns now run spatial scenes (a three-region line, one NPC hidden from one seat in encounters). The lanternlight demo scenario has a spatial scene with deliberate refusals. Scenario steps `place_entity` and `set_visibility` were added.
 - `tests/test_spatial.py`: 21 tests covering the T0.3 acceptance criteria. Design choices are recorded in D-016.
+- Refactor, no behaviour change: resolution and effects moved out of `engine.py` into mixins. Smoke and demo log heads and state hashes are identical before and after.
 
 ## Next step
 
@@ -33,7 +34,7 @@ None blocking. Before P4.0: the SRD source document. Before launch: the legal re
 
 ## Notes for the next session
 
-- `src/basilisk/kernel/engine.py` is about 920 lines, past AGENTS.md's ~800 guideline. Split it along a § boundary, for example resolution (§2.5) and effects (§2.6) into mixins like `canon.py` and `spatial.py`, before it grows further.
+- The engine is split along § boundaries. `engine.py` holds the reducer, lifecycle, entities, and actions (about 580 lines). Mixins: `resolution.py` (§2.5 procedures, `resolve_unmodelled`), `effects.py` (§2.6 primitive registry, effect application, ruling slots), `canon.py`, and `spatial.py`. Add new command groups as mixins too.
 - The pre-commit hook needs `tob` on PATH, so activate the venv first.
 - When writing files with Python on Windows, pass `newline` set to LF, or write bytes. Text mode writes CRLF.
 - Kernel comments are noun-linted too. Avoid words that are pack catalogue ids, such as "down", "rest", "recall", "might", "guard", "hope", and "prepared" (`tools/kernel_nouns.txt` plus every pack's catalogue ids).
