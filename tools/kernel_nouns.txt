@@ -1,0 +1,20 @@
+# Game nouns that must never appear in kernel source (ARCHITECTURE §2.2, P8).
+# One per line. Matched case-insensitively against identifiers, their
+# underscore-separated parts, strings and comments. Pack catalogue ids are
+# checked automatically in addition to this list.
+hp
+hit_points
+ac
+armor_class
+armour_class
+stress
+advantage
+disadvantage
+saving_throw
+spell
+spells
+mana
+sanity
+damage
+wound
+wounds

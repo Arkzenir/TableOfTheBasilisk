@@ -1,0 +1,22 @@
+# Campaign configuration (ARCHITECTURE Appendix C). Used from P1 onward;
+# scripted runs embed the same shape under `config:` in scenario files.
+campaign_id: season-1
+system_pack: lanternlight@0.1.0     # pinned with its hash at Session 0 (§2.9)
+master_seed: CHANGE-ME              # secret until the campaign ends; publish afterwards (§5.5)
+
+seats:                              # agent_id: gm | player  (4 players + 1 GM, §3.1)
+  gm: gm
+  ash: player
+  bram: player
+  cyra: player
+  dov: player
+
+determinism:                        # §2.13; changeable mid-campaign at scene boundaries
+  players: {preset: strict}
+  gm: {preset: standard}            # GM strict mode is off by default
+  overrides: {}                     # e.g. {gm: {ruling_slots: strict}}
+  seat_overrides: {}                # e.g. {dov: {fiction_triggers: standard}}
+  min_scenes_between_changes: 1
+
+gm_traits:
+  lethality: 50

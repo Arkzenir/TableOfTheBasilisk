@@ -1,0 +1,160 @@
+# Lanternlight: a tiny original demo game in the roll-over family.
+# It exists to exercise the kernel, not to be fun. Replace with a real,
+# open-licensed rules-light pack for broadcast (ARCHITECTURE §1.1, §1.2).
+meta:
+  id: lanternlight
+  version: 0.1.0
+  extends: core.roll_over@0.1.0
+  name: Lanternlight (demo)
+  license: CC0-1.0
+  attribution_text: "Lanternlight demo rules, original to Table of The Basilisk (CC0)."
+  kernel_compat: ">=0.1,<0.2"
+
+rules_text:
+  mode: inline
+  full_text: |
+    LANTERNLIGHT (demo)
+    Characters have four stats from -1 to +3: Might, Grace, Wits, Heart.
+    To act under pressure, roll a Check: d20 + stat + modifiers, meeting or
+    beating the difficulty the GM sets (Easy 8, Moderate 12, Hard 15, Extreme 18).
+    Strikes are checked against the target's Guard (10 + Grace).
+    Vigor is 8 + 2 x Might. At 0 Vigor you are Down until someone Rallies you.
+    Fatigue has three boxes; filling it leaves you Exhausted until you Rest.
+    Each character starts with 1 Luck (max 3); spend it to Inspire an ally.
+
+vocabulary:
+  might: {label: Might, short: MGT}
+  grace: {label: Grace, short: GRC}
+  wits: {label: Wits, short: WIT}
+  heart: {label: Heart, short: HRT}
+  vigor: {label: Vigor, short: VIG}
+  guard: {label: Guard, short: GRD}
+
+entity_model:
+  stats:
+    - {id: might, range: [-1, 3], default: 0}
+    - {id: grace, range: [-1, 3], default: 0}
+    - {id: wits, range: [-1, 3], default: 0}
+    - {id: heart, range: [-1, 3], default: 0}
+  derived:
+    - {id: guard, expr: "10 + grace"}
+  resources:
+    - id: vigor
+      min: 0
+      max: "8 + might * 2"
+      on_zero:
+        - {primitive: add_condition, target: self, condition: down}
+  tracks:
+    - id: fatigue
+      boxes: 3
+      on_fill:
+        - {primitive: add_condition, target: self, condition: exhausted}
+  conditions:
+    - {id: shaken, modifier: -1, duration: scene}
+    - {id: exhausted, modifier: -2, duration: until_removed}
+    - {id: down, modifier: -5, duration: until_removed}
+
+resolution:
+  situational_tags:
+    - {id: dim_light, value: -1, derive: "scene.dim"}
+    - {id: aided, value: 1}
+    - {id: rushed, value: -1}
+
+actions:
+  - id: strike
+    trigger: declared
+    target: entity
+    stat: might
+    procedure: check
+    difficulty: {derived: "target.guard"}
+    requires: "actor.conditions.down == 0"
+    outcome_effects:
+      pass:
+        - {primitive: modify_resource, target: target, resource: vigor, amount: "-1d6"}
+      fail:
+        - {primitive: add_condition, target: actor, condition: shaken}
+  - id: climb
+    trigger: declared
+    target: zone
+    stat: grace
+    procedure: check
+    difficulty: {ladder: ladder}
+    requires: "actor.conditions.down == 0"
+    outcome_effects:
+      pass:
+        - {primitive: move, target: actor, to: "$target"}
+      fail:
+        - {primitive: mark_track, target: actor, track: fatigue, amount: 1}
+  - id: recall
+    trigger: declared
+    stat: wits
+    procedure: check
+    difficulty: {ladder: ladder}
+    outcome_effects:
+      pass:
+        - {primitive: earn_currency, target: actor, currency: luck, amount: 1}
+  - id: rally
+    trigger: declared
+    target: entity
+    stat: heart
+    procedure: check
+    difficulty: {ladder: ladder}
+    outcome_effects:
+      pass:
+        - {primitive: remove_condition, target: target, condition: down}
+        - {primitive: modify_resource, target: target, resource: vigor, amount: "1d4 + 1"}
+      fail:
+        - {primitive: mark_track, target: actor, track: fatigue, amount: 1}
+  - id: rest
+    trigger: declared
+    procedure: automatic
+    requires: "scene.encounter == 0"
+    outcome_effects:
+      pass:
+        - {primitive: clear_track, target: actor, track: fatigue}
+        - {primitive: remove_condition, target: actor, condition: exhausted}
+  - id: inspire
+    trigger: declared
+    target: entity
+    procedure: automatic
+    cost: {currency: luck, amounts: [1, 2], range: [1, 2]}
+    outcome_effects:
+      pass:
+        - {primitive: modify_resource, target: target, resource: vigor, amount: "{spent} * 2"}
+
+gm:
+  fudgeable_procedures: [check]
+  meta_currencies:
+    - {id: luck, holder: each_player, start: 1, max: 3}
+
+chargen:
+  steps:
+    - {id: stats, kind: roll, targets: [might, grace, wits, heart], roll: "1d4 - 2"}
+    - id: background
+      kind: choice
+      unique_per_table: true
+      options:
+        - {id: soldier, label: Soldier, stats: {might: 2}}
+        - {id: scholar, label: Scholar, stats: {wits: 2}}
+        - {id: smuggler, label: Smuggler, stats: {grace: 2}}
+        - {id: acolyte, label: Acolyte, stats: {heart: 2}}
+        - {id: tinker, label: Tinker, stats: {wits: 1, grace: 1}}
+    - {id: detail, kind: table, table: detail_table}
+
+presentation:
+  nameplate_resources: [vigor]
+  assertion_terms: {"vigor": vigor, "luck": luck}
+  rule_cards:
+    strike:   {title: Strike, summary: "Attack a foe. Check Might against their Guard; on a hit they lose 1d6 Vigor.", category: action, icon_id: blade}
+    climb:    {title: Climb, summary: "Scale a sheer surface under pressure.", category: action, icon_id: rope}
+    recall:   {title: Recall, summary: "Remember something useful. Success earns 1 Luck.", category: action, icon_id: book}
+    rally:    {title: Rally, summary: "Bring an ally back to their feet and restore some Vigor.", category: action, icon_id: hand}
+    rest:     {title: Rest, summary: "Out of danger, clear Fatigue and Exhaustion.", category: action, icon_id: fire}
+    inspire:  {title: Inspire, summary: "Spend Luck to restore 2 Vigor per point to an ally.", category: action, icon_id: star}
+    shaken:   {title: Shaken, summary: "-1 to rolls until the scene ends.", category: condition, icon_id: shaken}
+    exhausted: {title: Exhausted, summary: "-2 to rolls until you Rest.", category: condition, icon_id: tired}
+    down:     {title: Down, summary: "Out of the fight until Rallied.", category: condition, icon_id: down}
+    luck:     {title: Luck, summary: "A personal reserve of good fortune, max 3.", category: currency, icon_id: coin}
+    dim_light: {title: Dim light, summary: "-1, applied automatically in a dim scene.", category: tag, icon_id: moon}
+    aided:    {title: Aided, summary: "+1 when someone genuinely helps.", category: tag, icon_id: plus}
+    rushed:   {title: Rushed, summary: "-1 when acting in haste.", category: tag, icon_id: clock}

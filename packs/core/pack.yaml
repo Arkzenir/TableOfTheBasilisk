@@ -1,0 +1,85 @@
+# Abstract root baseline (ARCHITECTURE §2.8). Not playable on its own.
+meta:
+  id: core
+  version: 0.1.0
+  extends: null
+  abstract: true
+  name: Core baseline
+  license: CC0-1.0
+  attribution_text: null
+  kernel_compat: ">=0.1,<0.2"
+
+rules_text:
+  mode: inline
+  full_text: ""
+
+vocabulary: {}
+
+randomizers:
+  dice_grammar:
+    operators: [sum]
+    max_dice: 20
+    max_sides: 100
+  decks: []
+  tables:
+    - id: detail_table
+      roll: "1d6"
+      entries:
+        - {range: [1, 1], text: "owes a debt to someone dangerous"}
+        - {range: [2, 2], text: "carries a scar they never explain"}
+        - {range: [3, 3], text: "stole something they cannot return"}
+        - {range: [4, 4], text: "is searching for a missing sibling"}
+        - {range: [5, 5], text: "made a promise to a dying stranger"}
+        - {range: [6, 6], text: "once saw something impossible"}
+
+entity_model:
+  stats: []
+  derived: []
+  resources: []
+  tracks: []
+  conditions: []
+  inventory: {model: abstract}
+
+resolution:
+  outcome_scales:
+    - {id: pass_fail, ordered: [fail, pass]}
+  procedures:
+    - id: automatic
+      kind: automatic
+      inputs: [actor]
+      steps:
+        - interpret: {scale: pass_fail, automatic: best}
+  difficulty_ladders: []
+  situational_tags: []
+  tags_cap_per_roll: 2
+  free_modifier_max: 2
+
+actions: []
+
+turn_structure:
+  encounter: {order: spotlight, economy: none}
+
+gm:
+  gm_rolls: true
+  fudgeable_procedures: []
+  lethality_levers: []
+  meta_currencies: []
+  consequence_tables: []
+
+progression: {model: milestone}
+
+chargen:
+  steps: []
+
+spatial:
+  backends: [zone_graph]
+
+presentation:
+  nameplate_resources: []
+  assertion_terms: {}
+  rounding: floor
+  rule_cards:
+    automatic: {title: Automatic, summary: "Happens without a roll.", category: procedure, icon_id: auto}
+
+hooks: []
+fixtures: []

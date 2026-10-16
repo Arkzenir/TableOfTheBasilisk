@@ -1,0 +1,31 @@
+# House rules on Lanternlight, built as data only (BUILD_PLAN P0.7 derived-pack test).
+# Changes: tougher characters, a new Inspired condition from Rally, no Inspire action.
+meta:
+  id: lanternlight_house
+  version: 0.1.0
+  extends: lanternlight@0.1.0
+  name: Lanternlight with house rules (demo)
+  license: CC0-1.0
+  attribution_text: "House rules for Lanternlight (CC0)."
+  kernel_compat: ">=0.1,<0.2"
+
+entity_model:
+  resources:
+    - {id: vigor, max: "10 + might * 2"}
+  conditions:
+    - {id: inspired, modifier: 1, duration: scene}
+
+actions:
+  - id: rally
+    outcome_effects:
+      pass:
+        - {primitive: remove_condition, target: target, condition: down}
+        - {primitive: modify_resource, target: target, resource: vigor, amount: "1d4 + 1"}
+        - {primitive: add_condition, target: target, condition: inspired}
+
+remove:
+  actions: [inspire]
+
+presentation:
+  rule_cards:
+    inspired: {title: Inspired, summary: "+1 to rolls until the scene ends.", category: condition, icon_id: star}

@@ -1,0 +1,163 @@
+# Tidewrack: a tiny original demo game in the banded-outcome family.
+# Fiction-triggered moves, GM-never-rolls, consequence tables for partials and
+# misses. Exists to prove the kernel runs a second family unchanged.
+meta:
+  id: tidewrack
+  version: 0.1.0
+  extends: core.banded@0.1.0
+  name: Tidewrack (demo)
+  license: CC0-1.0
+  attribution_text: "Tidewrack demo rules, original to Table of The Basilisk (CC0)."
+  kernel_compat: ">=0.1,<0.2"
+
+rules_text:
+  mode: inline
+  full_text: |
+    TIDEWRACK (demo)
+    Stats run -1 to +2: Iron, Tide, Salt, Ember. The GM never rolls.
+    When the fiction triggers a move, roll 2d6 + stat: 10+ full success,
+    7-9 success with a cost, 6- the GM makes a hard move.
+    Harm has four boxes; filling it leaves you Battered until you Mend.
+    Hope (start 2, max 5) can be spent to Steady yourself, clearing harm.
+
+vocabulary:
+  iron: {label: Iron}
+  tide: {label: Tide}
+  salt: {label: Salt}
+  ember: {label: Ember}
+  grit: {label: Grit}
+  harm: {label: Harm}
+
+randomizers:
+  dice_grammar:
+    operators: [sum]
+
+entity_model:
+  stats:
+    - {id: iron, range: [-1, 2], default: 0}
+    - {id: tide, range: [-1, 2], default: 0}
+    - {id: salt, range: [-1, 2], default: 0}
+    - {id: ember, range: [-1, 2], default: 0}
+  resources:
+    - id: grit
+      min: 0
+      max: "6"
+      on_zero:
+        - {primitive: add_condition, target: self, condition: battered}
+  tracks:
+    - id: harm
+      boxes: 4
+      on_fill:
+        - {primitive: add_condition, target: self, condition: battered}
+  conditions:
+    - {id: rattled, modifier: -1, duration: scene}
+    - {id: battered, modifier: -2, duration: until_removed}
+
+resolution:
+  situational_tags:
+    - {id: storm, value: -1, derive: "scene.storm"}
+    - {id: outnumbered, value: -1}
+    - {id: prepared, value: 1}
+
+actions:
+  - id: defy_danger
+    trigger: fiction
+    stat: tide
+    procedure: banded_roll
+    eligibility: "scene.danger == 1"
+    outcome_effects:
+      partial: [{primitive: request_gm_ruling, table: costs}]
+      miss: [{primitive: request_gm_ruling, table: hard_moves}]
+  - id: face_down
+    trigger: fiction
+    target: entity
+    stat: iron
+    procedure: banded_roll
+    eligibility: "scene.encounter == 1"
+    outcome_effects:
+      full: [{primitive: modify_resource, target: target, resource: grit, amount: -2}]
+      partial:
+        - {primitive: modify_resource, target: target, resource: grit, amount: -1}
+        - {primitive: request_gm_ruling, table: costs}
+      miss: [{primitive: request_gm_ruling, table: hard_moves}]
+  - id: read_the_waters
+    trigger: fiction
+    stat: salt
+    procedure: banded_roll
+    eligibility: "1"
+    outcome_effects:
+      full: [{primitive: earn_currency, target: actor, currency: hope, amount: 1}]
+      partial:
+        - {primitive: earn_currency, target: actor, currency: hope, amount: 1}
+        - {primitive: request_gm_ruling, table: costs}
+      miss: [{primitive: request_gm_ruling, table: hard_moves}]
+  - id: mend
+    trigger: declared
+    stat: ember
+    procedure: banded_roll
+    requires: "scene.encounter == 0"
+    outcome_effects:
+      full:
+        - {primitive: clear_track, target: actor, track: harm}
+        - {primitive: remove_condition, target: actor, condition: battered}
+      partial:
+        - {primitive: mark_track, target: actor, track: harm, amount: -1}
+        - {primitive: remove_condition, target: actor, condition: battered}
+      miss: [{primitive: request_gm_ruling, table: hard_moves}]
+  - id: steady
+    trigger: declared
+    procedure: automatic
+    cost: {currency: hope, amounts: [1, 2, 3], range: [1, 3]}
+    outcome_effects:
+      pass:
+        - {primitive: mark_track, target: actor, track: harm, amount: "-{spent}"}
+
+gm:
+  meta_currencies:
+    - {id: hope, holder: each_player, start: 2, max: 5}
+  consequence_tables:
+    - id: costs
+      entries:
+        - {id: take_a_knock, label: "It costs you blood", weight: 2, severity: 2,
+           effects: [{primitive: mark_track, target: actor, track: harm, amount: 1}]}
+        - {id: lose_footing, label: "You are shaken", weight: 2, severity: 1,
+           effects: [{primitive: add_condition, target: actor, condition: rattled}]}
+        - {id: worn_down, label: "It wears you down", weight: 1, severity: 2,
+           effects: [{primitive: modify_resource, target: actor, resource: grit, amount: -1}]}
+    - id: hard_moves
+      entries:
+        - {id: deal_harm, label: "The sea hits hard", weight: 2, severity: 3,
+           effects: [{primitive: mark_track, target: actor, track: harm, amount: 2}]}
+        - {id: separate, label: "You are thrown and shaken", weight: 2, severity: 2,
+           effects: [{primitive: add_condition, target: actor, condition: rattled},
+                     {primitive: mark_track, target: actor, track: harm, amount: 1}]}
+        - {id: grind, label: "It grinds you down", weight: 1, severity: 2,
+           effects: [{primitive: modify_resource, target: actor, resource: grit, amount: -2}]}
+
+chargen:
+  steps:
+    - id: playbook
+      kind: choice
+      unique_per_table: true
+      options:
+        - {id: warden, label: Warden, stats: {iron: 2, tide: 1, salt: 0, ember: -1}}
+        - {id: reaver, label: Reaver, stats: {iron: 1, tide: 2, salt: -1, ember: 0}}
+        - {id: tidecaller, label: Tidecaller, stats: {iron: -1, tide: 1, salt: 2, ember: 0}}
+        - {id: salter, label: Salter, stats: {iron: 0, tide: 0, salt: 1, ember: 2}}
+        - {id: lamplighter, label: Lamplighter, stats: {iron: 0, tide: -1, salt: 2, ember: 1}}
+    - {id: detail, kind: table, table: detail_table}
+
+presentation:
+  nameplate_resources: [grit]
+  rule_cards:
+    defy_danger: {title: Defy Danger, summary: "When you act despite a threat, roll +Tide.", category: action, icon_id: wave}
+    face_down: {title: Face Down, summary: "When you stand against a foe, roll +Iron.", category: action, icon_id: shield}
+    read_the_waters: {title: Read the Waters, summary: "When you study what is coming, roll +Salt.", category: action, icon_id: eye}
+    mend: {title: Mend, summary: "Out of danger, roll +Ember to tend your wounds.", category: action, icon_id: needle}
+    steady: {title: Steady, summary: "Spend Hope to clear one Harm per point.", category: action, icon_id: anchor}
+    rattled: {title: Rattled, summary: "-1 to rolls until the scene ends.", category: condition, icon_id: shaken}
+    battered: {title: Battered, summary: "-2 to rolls until you Mend.", category: condition, icon_id: crack}
+    hope: {title: Hope, summary: "Spend to Steady yourself; max 5.", category: currency, icon_id: light}
+    storm: {title: Storm, summary: "-1, applied automatically in a storm.", category: tag, icon_id: storm}
+    outnumbered: {title: Outnumbered, summary: "-1 when facing more foes than friends.", category: tag, icon_id: crowd}
+    prepared: {title: Prepared, summary: "+1 when you planned for exactly this.", category: tag, icon_id: plus}

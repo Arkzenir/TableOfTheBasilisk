@@ -1,0 +1,320 @@
+"""Pack conformance: static lint and strict-readiness (§2.10, §2.13).
+
+`lint()` returns findings; any finding with level "error" fails the load.
+`readiness()` reports which determinism controls the pack can support on strict.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from . import dice, expr
+from .determinism import CONTROLS, ROLES, STRICT, expand
+from .effects import PRIMITIVES, RESERVED, TARGET_SYMBOLS, references
+from .packs import ResolvedPack
+from .tools import generate
+
+CARD_TITLE_MAX = 32
+CARD_SUMMARY_MAX = 120
+RULES_TEXT_TOKEN_BUDGET = 30_000  # rough: chars / 4
+REQUIRED_SECTIONS = ("randomizers", "entity_model", "resolution", "presentation")
+
+
+@dataclass
+class Finding:
+    level: str  # "error" | "warning"
+    code: str
+    message: str
+
+    def __str__(self) -> str:
+        return f"[{self.level.upper()}] {self.code}: {self.message}"
+
+
+def _effects_in(pack: ResolvedPack):
+    """Yield (where, effect) for every effect anywhere in the pack."""
+    for action in pack.catalogue("actions"):
+        for outcome, effects in (action.get("outcome_effects") or {}).items():
+            for e in effects or []:
+                yield f"action {action['id']} [{outcome}]", e
+    for track in pack.catalogue("entity_model.tracks"):
+        for e in track.get("on_fill") or []:
+            yield f"track {track['id']} on_fill", e
+    for res in pack.catalogue("entity_model.resources"):
+        for e in res.get("on_zero") or []:
+            yield f"resource {res['id']} on_zero", e
+    for table in pack.catalogue("gm.consequence_tables"):
+        for entry in table.get("entries") or []:
+            for e in entry.get("effects") or []:
+                yield f"consequence {table['id']}.{entry['id']}", e
+
+
+def _expressions_in(pack: ResolvedPack):
+    for d in pack.catalogue("entity_model.derived"):
+        yield f"derived {d['id']}", d.get("expr")
+    for r in pack.catalogue("entity_model.resources"):
+        yield f"resource {r['id']} max", r.get("max")
+    for t in pack.catalogue("resolution.situational_tags"):
+        if "derive" in t:
+            yield f"tag {t['id']} derive", t["derive"]
+    for a in pack.catalogue("actions"):
+        for key in ("requires", "eligibility"):
+            if key in a:
+                yield f"action {a['id']} {key}", a[key]
+        if isinstance(a.get("difficulty"), dict) and "derived" in a["difficulty"]:
+            yield f"action {a['id']} difficulty", a["difficulty"]["derived"]
+
+
+def _rolls_in(pack: ResolvedPack):
+    for p in pack.catalogue("resolution.procedures"):
+        for step in p.get("steps") or []:
+            if "roll" in step:
+                yield f"procedure {p['id']}", step["roll"]
+    for t in pack.catalogue("randomizers.tables"):
+        yield f"table {t['id']}", t.get("roll", "")
+    for s in pack.get("chargen.steps") or []:
+        if s.get("kind") == "roll":
+            yield f"chargen {s['id']}", s.get("roll", "")
+    for where, e in _effects_in(pack):
+        for key in ("amount", "value"):
+            if isinstance(e.get(key), str):
+                yield f"{where} {key}", e[key]
+
+
+def readiness(pack: ResolvedPack) -> dict[str, bool]:
+    procs = pack.by_id("resolution.procedures")
+    ready = {c: True for c in CONTROLS}
+    for a in pack.catalogue("actions"):
+        proc = procs.get(a.get("procedure"))
+        if proc and "difficulty" in (proc.get("inputs") or []) and not a.get("difficulty"):
+            ready["difficulty"] = False
+        if a.get("trigger") == "fiction" and "eligibility" not in a:
+            ready["fiction_triggers"] = False
+        cost = a.get("cost") or {}
+        if "range" in cost and "amounts" not in cost:
+            ready["spend_amounts"] = False
+    tables = pack.by_id("gm.consequence_tables")
+    for _, e in _effects_in(pack):
+        if e.get("primitive") == "request_gm_ruling":
+            t = tables.get(e.get("table"))
+            if not t or not t.get("entries") or any("effects" not in en for en in t["entries"]):
+                ready["ruling_slots"] = False
+    if not any(p.get("kind", "roll") == "roll" for p in procs.values()):
+        ready["unmodelled_actions"] = False
+    return ready
+
+
+def lint(pack: ResolvedPack) -> list[Finding]:
+    out: list[Finding] = []
+
+    def err(code, msg):
+        out.append(Finding("error", code, msg))
+
+    def warn(code, msg):
+        out.append(Finding("warning", code, msg))
+
+    abstract = pack.data["meta"].get("abstract", False)
+    for section in REQUIRED_SECTIONS:
+        if section not in pack.data:
+            err("schema", f"missing section {section!r}")
+    if any(f.level == "error" for f in out):
+        return out
+
+    # duplicate ids --------------------------------------------------------
+    for cat in ("entity_model.stats", "entity_model.derived", "entity_model.resources",
+                "entity_model.tracks", "entity_model.conditions", "resolution.outcome_scales",
+                "resolution.procedures", "resolution.difficulty_ladders", "resolution.situational_tags",
+                "actions", "gm.meta_currencies", "gm.consequence_tables", "randomizers.tables"):
+        ids = [i["id"] for i in pack.catalogue(cat)]
+        dupes = {i for i in ids if ids.count(i) > 1}
+        if dupes:
+            err("duplicate-id", f"{cat}: {sorted(dupes)}")
+
+    stats = pack.by_id("entity_model.stats")
+    resources = pack.by_id("entity_model.resources")
+    tracks = pack.by_id("entity_model.tracks")
+    conditions = pack.by_id("entity_model.conditions")
+    currencies = pack.by_id("gm.meta_currencies")
+    scales = pack.by_id("resolution.outcome_scales")
+    procs = pack.by_id("resolution.procedures")
+    ladders = pack.by_id("resolution.difficulty_ladders")
+    tags = pack.by_id("resolution.situational_tags")
+    ctables = pack.by_id("gm.consequence_tables")
+    rtables = pack.by_id("randomizers.tables")
+    known = {"resource": resources, "track": tracks, "condition": conditions,
+             "currency": currencies, "consequence_table": ctables}
+
+    # outcome scales are totally ordered lists of unique outcomes ----------
+    for s in scales.values():
+        ordered = s.get("ordered") or []
+        if len(ordered) < 2 or len(set(ordered)) != len(ordered):
+            err("outcome-scale", f"{s['id']}: needs at least two unique, ordered outcomes")
+
+    # procedures -----------------------------------------------------------
+    for p in procs.values():
+        interp = next((st["interpret"] for st in p.get("steps") or [] if "interpret" in st), None)
+        if not interp:
+            err("procedure", f"{p['id']}: no interpret step")
+            continue
+        scale = scales.get(interp.get("scale"))
+        if not scale:
+            err("reference", f"procedure {p['id']}: unknown outcome scale {interp.get('scale')!r}")
+            continue
+        n = len(scale["ordered"])
+        if "bands" in interp:
+            bands = interp["bands"]
+            if len(bands) != n:
+                err("procedure", f"{p['id']}: {len(bands)} bands for a {n}-outcome scale")
+            for (a_lo, a_hi), (b_lo, _) in zip(bands, bands[1:]):
+                if b_lo != a_hi + 1:
+                    err("procedure", f"{p['id']}: bands are not contiguous at {a_hi}/{b_lo}")
+        elif "compare" in interp:
+            if n != 2:
+                err("procedure", f"{p['id']}: compare needs a two-outcome scale")
+            if interp["compare"] not in (">=", "<="):
+                err("procedure", f"{p['id']}: compare must be >= or <=")
+        elif not interp.get("automatic"):
+            err("procedure", f"{p['id']}: interpret needs bands, compare, or automatic")
+
+    # actions --------------------------------------------------------------
+    for a in pack.catalogue("actions"):
+        proc = procs.get(a.get("procedure"))
+        if not proc:
+            err("reference", f"action {a['id']}: unknown procedure {a.get('procedure')!r}")
+            continue
+        if "stat" in (proc.get("inputs") or []) and a.get("stat") not in stats:
+            err("reference", f"action {a['id']}: unknown stat {a.get('stat')!r}")
+        diff = a.get("difficulty")
+        if isinstance(diff, dict) and "ladder" in diff and diff["ladder"] not in ladders:
+            err("reference", f"action {a['id']}: unknown ladder {diff['ladder']!r}")
+        interp = next((st["interpret"] for st in proc.get("steps") or [] if "interpret" in st), {})
+        outcomes = set((scales.get(interp.get("scale")) or {}).get("ordered") or [])
+        extra = set(a.get("outcome_effects") or {}) - outcomes
+        if extra:
+            err("reference", f"action {a['id']}: outcomes {sorted(extra)} are not on scale {interp.get('scale')}")
+        cost = a.get("cost") or {}
+        if cost and cost.get("currency") not in currencies:
+            err("reference", f"action {a['id']}: unknown currency {cost.get('currency')!r}")
+        if a.get("trigger", "declared") not in ("declared", "fiction"):
+            err("action", f"action {a['id']}: trigger must be declared or fiction")
+
+    # effects --------------------------------------------------------------
+    for where, e in _effects_in(pack):
+        prim = e.get("primitive")
+        if prim not in PRIMITIVES:
+            err("effect", f"{where}: unknown primitive {prim!r}")
+            continue
+        if prim in RESERVED:
+            err("effect", f"{where}: primitive {prim!r} is reserved and not implemented in this kernel")
+        missing = [p for p in PRIMITIVES[prim] if p not in e]
+        if missing:
+            err("effect", f"{where}: {prim} is missing {missing}")
+        tgt = e.get("target")
+        if tgt is not None and tgt not in TARGET_SYMBOLS:
+            warn("effect", f"{where}: target {tgt!r} is a literal entity id")
+        for kind, ref in references(e).items():
+            if kind in known and ref not in known[kind]:
+                err("reference", f"{where}: unknown {kind} {ref!r}")
+
+    # conditions have exits ------------------------------------------------
+    removable = {e.get("condition") for _, e in _effects_in(pack) if e.get("primitive") == "remove_condition"}
+    for c in conditions.values():
+        if c.get("duration", "until_removed") == "until_removed" and c["id"] not in removable:
+            err("condition-exit", f"condition {c['id']} lasts until removed but nothing removes it")
+        if c.get("duration", "until_removed") not in ("scene", "session", "until_removed"):
+            err("condition", f"condition {c['id']}: duration must be scene, session or until_removed")
+
+    # roll expressions -----------------------------------------------------
+    grammar = pack.get("randomizers.dice_grammar", {}) or {}
+    enabled = set(grammar.get("operators") or ["sum"])
+    for where, src in _rolls_in(pack):
+        for problem in dice.check_expression(src, enabled, int(grammar.get("max_dice", 20)), int(grammar.get("max_sides", 100))):
+            err("roll", f"{where}: {problem}")
+
+    # other expressions ----------------------------------------------------
+    for where, src in _expressions_in(pack):
+        if src is None:
+            continue
+        try:
+            expr.compile_expr(str(src))
+        except expr.ExprError as e:
+            err("expression", f"{where}: {e}")
+
+    # chargen --------------------------------------------------------------
+    for step in pack.get("chargen.steps") or []:
+        kind = step.get("kind")
+        if kind == "roll":
+            for target in step.get("targets") or []:
+                if target not in stats:
+                    err("chargen", f"step {step['id']}: unknown stat {target!r}")
+        elif kind == "choice":
+            for opt in step.get("options") or []:
+                for sid in (opt.get("stats") or {}):
+                    if sid not in stats:
+                        err("chargen", f"step {step['id']}.{opt.get('id')}: unknown stat {sid!r}")
+        elif kind == "table":
+            if step.get("table") not in rtables:
+                err("chargen", f"step {step['id']}: unknown table {step.get('table')!r}")
+        else:
+            err("chargen", f"step {step.get('id')}: kind must be roll, choice or table")
+    for t in rtables.values():
+        try:
+            rng = dice.value_range(t.get("roll", ""))
+        except dice.DiceError:
+            continue  # already reported
+        covered = sorted(tuple(e["range"]) for e in t.get("entries") or [])
+        if rng and covered:
+            expect = rng[0]
+            for lo, hi in covered:
+                if lo != expect:
+                    err("table-coverage", f"table {t['id']}: no entry for {expect}..{lo - 1}")
+                expect = hi + 1
+            if expect != rng[1] + 1:
+                err("table-coverage", f"table {t['id']}: no entry for {expect}..{rng[1]}")
+
+    # rule cards (§8.6) ----------------------------------------------------
+    cards = pack.get("presentation.rule_cards") or {}
+    if not abstract:
+        needed = [a["id"] for a in pack.catalogue("actions")]
+        needed += list(procs) + list(conditions) + list(currencies) + list(tags)
+        for cid in needed:
+            if cid not in cards:
+                err("rule-card", f"no rule card for {cid!r}")
+    for cid, card in cards.items():
+        if len(str(card.get("title", ""))) > CARD_TITLE_MAX:
+            err("rule-card", f"{cid}: title longer than {CARD_TITLE_MAX}")
+        if len(str(card.get("summary", ""))) > CARD_SUMMARY_MAX:
+            err("rule-card", f"{cid}: summary longer than {CARD_SUMMARY_MAX}")
+
+    # rules text budget ----------------------------------------------------
+    text = pack.get("rules_text.full_text") or ""
+    if len(text) // 4 > RULES_TEXT_TOKEN_BUDGET:
+        err("rules-text", f"inline rules text is ~{len(text) // 4} tokens; budget {RULES_TEXT_TOKEN_BUDGET}")
+    if not abstract and not text.strip():
+        warn("rules-text", "no inline rules text")
+
+    # tool schemas generate under every preset ----------------------------
+    for preset in ("strict", "standard"):
+        eff = expand({"players": {"preset": preset}, "gm": {"preset": preset}})
+        for role in ROLES:
+            try:
+                generate(pack, eff, role)
+            except Exception as e:  # noqa: BLE001 - any failure is a lint error
+                err("tool-schema", f"{role}/{preset}: {e}")
+
+    # licensing ------------------------------------------------------------
+    lic = str(pack.data["meta"].get("license") or "")
+    if not abstract and (not lic or lic.startswith("UNSET")):
+        warn("license", "license not set; the pack cannot be cleared for broadcast (§1.2)")
+
+    return out
+
+
+def strict_report(pack: ResolvedPack) -> dict[str, bool]:
+    return {c: ready for c, ready in readiness(pack).items()}
+
+
+def errors(findings: list[Finding]) -> list[Finding]:
+    return [f for f in findings if f.level == "error"]
+
+
+__all__ = ["Finding", "lint", "readiness", "strict_report", "errors", "STRICT"]

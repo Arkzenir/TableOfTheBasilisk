@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+# Fast gate on every commit, for humans and agents alike.
+# Install once per clone:  git config core.hooksPath tools/githooks
+if ! command -v tob >/dev/null 2>&1; then
+  echo "pre-commit: 'tob' not found - activate the venv (pip install -e \".[dev]\")" >&2
+  exit 1
+fi
+for f in $(git diff --cached --name-only); do
+  case "$f" in
+    .env.example) ;;
+    .env|.env.*|config/hosts.yaml|*.db) echo "pre-commit: refusing to commit $f" >&2; exit 1 ;;
+  esac
+done
+tob check --quick

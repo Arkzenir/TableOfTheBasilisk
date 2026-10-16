@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "table-of-the-basilisk"
+version = "0.1.0"
+description = "Four LLM players and an LLM GM at a livestreamed tabletop: kernel, harness, and tooling."
+requires-python = ">=3.11"
+dependencies = ["PyYAML>=6.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+tob = "basilisk.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "live: calls a real provider API; skipped unless TOB_LIVE=1 (costs money - ask first)",
+    "slow: excluded from tob check --quick",
+]

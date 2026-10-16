@@ -1,0 +1,35 @@
+# Family baseline: roll over a target number (ARCHITECTURE §2.5, §2.8).
+meta:
+  id: core.roll_over
+  version: 0.1.0
+  extends: core@0.1.0
+  abstract: true
+  name: Roll-over family baseline
+  license: CC0-1.0
+  kernel_compat: ">=0.1,<0.2"
+
+randomizers:
+  dice_grammar:
+    operators: [sum, keep]
+
+resolution:
+  procedures:
+    - id: check
+      kind: roll
+      inputs: [actor, stat, difficulty]
+      steps:
+        - modifiers: {from: [stat, conditions, tags]}
+        - roll: "1d20 + {mod}"
+        - interpret: {scale: pass_fail, compare: ">=", against: difficulty}
+  difficulty_ladders:
+    - id: ladder
+      rungs:
+        - {id: easy, label: Easy, value: 8}
+        - {id: moderate, label: Moderate, value: 12}
+        - {id: hard, label: Hard, value: 15}
+        - {id: extreme, label: Extreme, value: 18}
+      range: [5, 25]
+
+presentation:
+  rule_cards:
+    check: {title: Check, summary: "Roll d20 plus modifiers; meet or beat the difficulty.", category: procedure, icon_id: d20}

@@ -1,0 +1,43 @@
+# A hand-written scripted campaign (BUILD_PLAN P0.12 / P2.6 format).
+# Run:  tob sim scenarios/lanternlight_demo.yaml --cards
+# Steps marked expect_error must be refused by the engine; refusals are atomic
+# and leave no events behind.
+campaign_id: demo-lanternlight
+pack: lanternlight@0.1.0
+seed: demo-seed-please-change
+config:
+  seats: {gm: gm, ash: player, bram: player, cyra: player, dov: player}
+  determinism:
+    players: {preset: strict}
+    gm: {preset: standard}        # GM strict mode off by default (§2.13.2)
+  gm_traits: {lethality: 50}
+
+steps:
+  # --- Session 0 output: characters (choices are unique per table)
+  - {do: create_character, agent: ash, name: Ash, choices: {background: soldier}}
+  - {do: create_character, agent: bram, name: Bram, choices: {background: scholar}}
+  - {do: create_character, agent: cyra, name: Cyra, choices: {background: smuggler}}
+  - {do: create_character, agent: dov, name: Dov, choices: {background: soldier}, expect_error: true}
+  - {do: create_character, agent: dov, name: Dov, choices: {background: acolyte}}
+  - {do: spawn_entity, entity: tithekeeper, name: The Tithekeeper, stats: {might: 2, grace: 1}}
+  - {do: create_clock, clock: toll, label: The toll comes due, total: 6, visible: false}
+
+  # --- Session 1
+  - {do: start_session}
+  - {do: set_scene, scene: undercroft, flags: {dim: 1}}
+  - {do: commit_action, actor: cyra, action: climb, target: gallery, gm: {difficulty: hard, tags: [rushed]}}
+  - {do: commit_action, actor: bram, action: recall, gm: {difficulty: 13}}               # GM standard: value allowed
+  - {do: commit_action, actor: bram, action: recall, gm: {difficulty: 99}, expect_error: true}  # outside the ladder range
+  - {do: commit_action, actor: ash, action: rest}
+  - {do: advance_clock, clock: toll, amount: 1}
+
+  # Operator flips the GM to strict; it applies at the next scene boundary.
+  - {do: request_change, role: gm, preset: strict}
+  - {do: set_scene, scene: tollgate, flags: {dim: 0}, encounter: true}
+  - {do: commit_action, actor: ash, action: strike, target: tithekeeper}                 # derived difficulty: target guard
+  - {do: commit_action, actor: dov, action: rally, target: ash, gm: {difficulty: 14}, expect_error: true}  # strict: rung only
+  - {do: commit_action, actor: dov, action: rally, target: ash, gm: {difficulty: moderate, tags: [aided]}}
+  - {do: commit_action, actor: ash, action: rest, expect_error: true}                    # not during an encounter
+  - {do: commit_action, actor: cyra, action: inspire, target: ash, spend: 1}
+  - {do: snapshot}
+  - {do: end_session}

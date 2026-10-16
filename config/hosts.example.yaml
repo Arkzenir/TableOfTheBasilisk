@@ -1,0 +1,10 @@
+# Copy to config/hosts.yaml (gitignored) and edit.
+# Requires key-based SSH from your desktop:  ssh-copy-id you@192.168.1.50
+hosts:
+  office:
+    ssh: you@192.168.1.50          # user@address of the office PC (i7-4770, 32 GB)
+    app_dir: /opt/basilisk          # releases + current symlink (SSD)
+    data_dir: /srv/basilisk/data    # event store, audience store, snapshots, buffer (SSD)
+    media_dir: /mnt/hdd/basilisk    # stream recordings and archive (1.5 TB HDD)
+    lan: 192.168.1.0/24             # SSH is allowed only from this subnet
+    keep_releases: 5

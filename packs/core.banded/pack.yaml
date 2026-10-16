@@ -1,0 +1,28 @@
+# Family baseline: 2d6 with full / partial / miss bands (ARCHITECTURE §2.5, §2.8).
+meta:
+  id: core.banded
+  version: 0.1.0
+  extends: core@0.1.0
+  abstract: true
+  name: Banded-outcome family baseline
+  license: CC0-1.0
+  kernel_compat: ">=0.1,<0.2"
+
+resolution:
+  outcome_scales:
+    - {id: miss_partial_full, ordered: [miss, partial, full]}
+  procedures:
+    - id: banded_roll
+      kind: roll
+      inputs: [actor, stat]
+      steps:
+        - modifiers: {from: [stat, conditions, tags]}
+        - roll: "2d6 + {mod}"
+        - interpret: {scale: miss_partial_full, bands: [[-99, 6], [7, 9], [10, 99]]}
+
+gm:
+  gm_rolls: false
+
+presentation:
+  rule_cards:
+    banded_roll: {title: Roll, summary: "Roll 2d6 plus modifiers: 10+ full success, 7-9 partial, 6- miss.", category: procedure, icon_id: 2d6}
