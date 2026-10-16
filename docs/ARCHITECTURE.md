@@ -23,7 +23,8 @@
 - **Character knowledge** (§6.2) no longer scopes canon retrieval. Every player seat queries the same canon, with secrets excluded. Each agent keeps its own copy of what it learned in its notes and recap, and that copy can be wrong (D-011).
 
 **Revision notes (1.5):**
-- The v1 broadcast system is the **System Reference Document 5.1**, which is dual-released under **CC-BY 4.0** and the **OGL 1.0a**. Which licence the pack uses is open until P4.0 (§1.2). D-012, D-015.
+- The v1 broadcast system is the **System Reference Document 5.1**, used under its **CC-BY 4.0** release. The OGL 1.0a release is not used (§1.2). D-012, D-015.
+- **Excluded terms** (§1.2, §1.3.3, §2.3). A pack lists the names its licence does not cover. They are refused in canon, and checked in every line before TTS and the overlay.
 - **Sectioned rules text** (§2.11) moves from v2 into v1. A pack chooses inline or sectioned text as data. A sectioned pack inlines a compact digest and serves the full text through `query_rules`, which resolves by key first. Vector search over rules stays in v2.
 - Rules handling stays system-agnostic. The kernel imposes no section taxonomy, and every rules feature is proven on the kernel test packs before any broadcast pack uses it. The broadcast pack is written as late as possible (BUILD_PLAN 1.4, P4.0).
 
@@ -136,12 +137,19 @@ Adding another system, rules-light or large, is a new pack. Choosing inline or s
 **Decision: open-licensed material only. No exceptions.**
 
 Permitted sources:
-- Creative Commons Attribution 4.0 (the 5.1 SRD is available under plain CC-BY, no share-alike, as well as under the OGL 1.0a)
+- Creative Commons Attribution 4.0 (the 5.1 SRD is plain CC-BY, no share-alike; it is also published under the OGL 1.0a, which this project does not use)
 - ORC-licensed material (Paizo and others)
 - CC-BY-SA material, *with the caveat* that derivative work inherits the license — prefer plain BY where you want clean rights over generated content
 - Original homebrew
 
-**v1 broadcast source:** SRD 5.1. Wizards of the Coast publishes the same text under two licences, the **OGL 1.0a** and **CC-BY 4.0**, and a user may choose either. **The choice is open and is made before P4.0 (D-015).** The OGL 1.0a is not on the permitted list above, so choosing it adds it to the list in a revision note. Whichever licence is chosen, the pack's `meta.license` names it, and `meta.attribution_text` carries the notice that licence requires, copied verbatim from the source document: the CC attribution statement, or the OGL licence text with its Section 15 copyright notice and the Open Game Content designation. The pack draws from one release only, never a mix. The licence covers the text, not the trademarks: the stream never uses "Dungeons & Dragons", D&D logos, or trade dress, and describes the game only as "compatible with fifth edition" or "using the SRD 5.1." Product-identity material (named settings, and creatures or characters outside the SRD) is excluded.
+**v1 broadcast source: SRD 5.1 under CC-BY 4.0 (D-015).** Wizards of the Coast publishes the same text under the OGL 1.0a too. The OGL is not used. It treats broadcast as distribution, which would require the full licence text with every copy and a clear marking of which portions are Open Game Content, and that is impractical for improvised live narration. It also forbids claiming compatibility with trademarks. The pack's `meta.license` is `CC-BY-4.0`. Its `meta.attribution_text` carries the attribution statement from the CC release, copied verbatim from the source document, plus a note that the text was adapted. Attribution appears in the overlay's about panel and in every VOD description, with links to the SRD and the licence. This is the "reasonable manner based on the medium" that CC-BY 4.0 §3(a) asks for. The licence covers the text, not the trademarks: the stream never uses "Dungeons & Dragons", D&D logos, or trade dress, and describes the game only as "compatible with fifth edition" or "using the SRD 5.1." Material outside the SRD (named settings, and creatures or characters the SRD omits) is not licensed.
+
+**Excluded terms.** Models know far more of a famous game than its open-licensed text, and will produce unlicensed names from memory. A pack therefore declares `meta.excluded_terms`: names its licence does not cover, each with aliases. The list is pack data, inherited like other catalogues, so any system can use it, and the kernel recognises no particular names. Three places enforce it:
+- the canon store refuses a record whose names, aliases, or text contain an excluded term (§1.3.1), with an error that names the term
+- the validation pass flags any excluded term in a line bound for TTS or the overlay, from any seat (§1.3.3)
+- pack lint refuses an excluded term that collides with the pack's own catalogue IDs, vocabulary, or rule-card titles (§2.10)
+
+Matching is deterministic: case-insensitive, whole words, with the same key normalisation as canon (§6.5). It is a string check, not a model judgement, so it costs nothing and replays exactly.
 
 **Rationale for the hard line:** the exposure is not the stream, it is the pipeline. Ingesting a copyrighted PDF into a retrieval index and emitting chunks of it through TTS is reproduction plus public performance, automated and at scale. "Human streamers reference rulebooks" is not analogous — a human reads silently and speaks a paraphrase. Fan-content policies that permit actual-play streams are aimed at people playing the game, not at people building a product on the text.
 
@@ -196,6 +204,7 @@ After GM narration is generated, before it reaches TTS, the Utility Model runs a
 2. Extract asserted facts → compare against canon → flag contradictions
 3. Extract numeric and track assertions ("I'm down to four hit points", "I've got one stress box left") → map terms to resources through the pack's vocabulary (§2.3) → compare against state → flag mismatches
 4. Compare against **active secrets** for the current scene → flag unintended reveals
+5. Match against the pack's **excluded terms** (§1.2) → flag unlicensed names. This check is deterministic, needs no model, and also runs on player lines bound for TTS
 
 Green → proceeds to TTS. Red → conflict returned to the GM, one regeneration. Second failure → beat is cut, floor re-awarded.
 
@@ -311,6 +320,7 @@ system_pack:
   meta:
     id, version, extends            # extends: pack_id@version | null
     name, license, attribution_text
+    excluded_terms: [{ term, aliases }]   # names the licence does not cover (§1.2)
     kernel_compat                   # kernel version range the pack is tested against
 
   rules_text:
@@ -535,6 +545,7 @@ Creating a pack is meant to be routine.
 - tool schemas generate without error
 - rules text fits the context budget (§6.1): an inline pack's full text, or a sectioned pack's digest, with every section within `max_section_tokens`, alias keys unique across sections, every `parent` resolving without cycles, and every action, procedure, and condition covered by at least one section's `refs` (§2.11)
 - every action, procedure, condition, currency, and situational tag has rule-card data within length limits (§8.6)
+- no excluded term (§1.2) collides with a catalogue ID, vocabulary label, rule-card title, or rules-text section title
 - strict-readiness is reported **per control**: ladders or derivations for every difficulty input, consequence tables for every ruling slot, eligibility for every fiction-triggered action, enumerated amounts for spends (§2.13). A control the pack cannot support on strict is unavailable for that pack
 
 **Generated property tests:**
@@ -1991,7 +2002,7 @@ Numbers nobody can reason their way to. Each must be set empirically (see `BUILD
 
 ### 11.3 Verification required before build
 
-- License terms, current, for the source material of every system pack (§1.2)
+- License terms, current, for the source material of every system pack (§1.2), including whether CC-BY 4.0's technological-measures clause (§2(a)(5)) affects streaming on DRM-equipped platforms
 - Provider terms of service for multi-model public performance (§3.3)
 - Legal review of the donation and Board structure (§9.7.5)
 - Platform paid-message and payment-processor terms

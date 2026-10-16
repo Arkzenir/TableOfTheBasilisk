@@ -9,7 +9,7 @@
 
 **Revision notes (1.3):** Determinism settings are per role and per control, defaulting to **players strict, GM standard**, and are changeable mid-campaign — by config between sessions, or by an operator control that applies changes at the next scene boundary (§2.13.3, §9.3).
 
-**Revision notes (1.4):** The broadcast pack is the SRD 5.1 (dual-released under CC-BY 4.0 and the OGL 1.0a; licence chosen before P4.0) with sectioned rules text, which is now in v1 (§1.1, §2.11). Every phase through P3 develops against the kernel test packs, so no work is tuned to one ruleset. P0.13 builds sectioned rules text and proves it on a data-only fixture variant. The broadcast pack is written as late as possible, in P4.0, and gates Phase 4.
+**Revision notes (1.4):** The broadcast pack is the SRD 5.1 under CC-BY 4.0 (not the OGL 1.0a release) with sectioned rules text, which is now in v1 (§1.1, §2.11). Every phase through P3 develops against the kernel test packs, so no work is tuned to one ruleset. P0.13 builds sectioned rules text and proves it on a data-only fixture variant. P0.14 adds pack-declared excluded terms: names a licence does not cover, refused in canon and checked before TTS. The broadcast pack is written as late as possible, in P4.0, and gates Phase 4.
 
 ---
 
@@ -191,6 +191,16 @@ Pack-agnostic: scripts drive the generated tool surface, and a generic smoke scr
 
 **Test:** every section is reachable by its ID and by each alias. Every catalogue ID resolves to a covering section. Misses return suggestions. One defect of each new lint class is caught. Index construction is byte-identical across runs. Inline packs that declare sections are searchable the same way.
 
+### P0.14 Excluded terms
+
+- `meta.excluded_terms` in the pack schema, inherited and merged like other catalogues (§2.3, §2.8)
+- One deterministic matcher, sharing canon's key normalisation: case-insensitive, whole words, aliases included
+- `write_canon` refuses any record whose names, aliases, or text contain an excluded term, naming the term in the error (§1.2)
+- Lint: no excluded term collides with a catalogue ID, vocabulary label, rule-card title, or section title
+- The matcher is exposed for the validation pass (P3.3) and the TTS gate
+
+**Test:** a fixture pack declares excluded terms. Canon writes containing a term, an alias, or a differently cased form are refused atomically. Near-miss words that only contain a term are accepted. A colliding term fails lint. Results are byte-identical across runs.
+
 ### ✅ Gate P0
 
 - [ ] Full campaign replay is byte-identical from the event log, on both packs
@@ -210,6 +220,7 @@ Pack-agnostic: scripts drive the generated tool surface, and a generic smoke scr
 - [ ] Mid-campaign settings changes apply only at scene boundaries and replay byte-identically
 - [ ] Inline and sectioned rules text both pass conformance, and the sectioned variant runs with zero kernel code changes made for it
 - [ ] `query_rules` resolves 100% of section IDs, aliases, and catalogue refs in every shipped pack
+- [ ] Zero canon records containing an excluded term are accepted, across scripted campaigns on a pack that declares them
 
 ---
 
@@ -526,7 +537,8 @@ One regeneration on flag; beat cut on second failure.
 
 Written as late as possible, so nothing before it is tuned to one ruleset.
 
-- `packs/srd51/`, extending `core.roll_over`, with sectioned rules text, `meta.license` set to the chosen release (CC-BY 4.0 or OGL 1.0a, D-015), and that licence's required notice copied verbatim (§1.2)
+- `packs/srd51/`, extending `core.roll_over`, with sectioned rules text, `meta.license: CC-BY-4.0`, and the CC release's attribution statement copied verbatim, noting the text was adapted (§1.2)
+- `meta.excluded_terms`: the well-known non-SRD names agents are likely to produce (named settings, places, characters, and creatures the SRD omits), each with aliases. Extend the list whenever a scenario run surfaces a new one
 - A digest that names the edition in force (§1.1) and fits the context budget
 - Rule-card data for every action, procedure, condition, currency, and tag; strict-ready on every control
 - Spatial on ZoneGraph and RangeBands: SRD distances map to range bands in the pack. A grid (`SquareGrid`) stays in v2.
@@ -621,6 +633,7 @@ Per §8.6: every action or rule used during a campaign appears on the livestream
 ### ✅ Gate P4
 
 - [ ] The broadcast pack (P4.0) passes conformance and was built with zero kernel, orchestrator, or adapter changes made for it
+- [ ] Zero excluded terms reach TTS or the overlay in a full live session on the broadcast pack; every catch is logged
 - [ ] Renderer output is deterministic from state
 - [ ] Every action and rule used in a full session appears as a rule card or, when stacked, in the rules log — none missing
 - [ ] Zero live rule cards reveal a fudge or a `secret` record

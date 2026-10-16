@@ -22,6 +22,7 @@ Work is broken into agent-sized tasks in [`docs/dev/TASKS.md`](docs/dev/TASKS.md
 | P0.11 Clocks and time | 🟡 | `kernel/engine.py` | Create and advance clocks. **Todo:** off-air advancement scheduler, calendar |
 | P0.12 Scripted harness | ✅ | `harness/scripted.py` | Pack-agnostic smoke campaigns with coverage sweep, YAML scenarios, verification, double-run determinism, soak runner |
 | P0.13 Sectioned rules text | ⬜ | — | Section schema, key-first `query_rules`, section lint (T0.14) |
+| P0.14 Excluded terms | ⬜ | — | Pack-declared unlicensed names, refused in canon, linted; matcher for the validation pass (T0.16) |
 
 ## Later phases
 
@@ -33,7 +34,7 @@ Work is broken into agent-sized tasks in [`docs/dev/TASKS.md`](docs/dev/TASKS.md
 | P2 Scheduler, watchdog, traits, metrics | ⬜ | |
 | P3 Session 0, prep, validation | ⬜ | |
 | P4.4 Rule cards | 🟡 | Text renderer is the reference implementation (`broadcast/cards.py`); graphical renderer to come |
-| P4.0 Broadcast pack (SRD 5.1) | ⬜ | Written as late as possible; sectioned; licence (CC-BY 4.0 or OGL 1.0a) chosen before P4.0 (D-012, D-015) |
+| P4.0 Broadcast pack (SRD 5.1) | ⬜ | Written as late as possible; sectioned; CC-BY 4.0; excluded terms for non-SRD names (D-012, D-015) |
 | P4 Renderer, TTS, overlay, stream | ⬜ | Host encode path checked by `tob remote HOST encode-test` |
 | P5 Board, break time, hardening | ⬜ | |
 | Deployment tooling | ✅ | Bootstrap, gated atomic deploys, rollback, doctor, encode test, soak, verified backups |
@@ -41,7 +42,7 @@ Work is broken into agent-sized tasks in [`docs/dev/TASKS.md`](docs/dev/TASKS.md
 ## Suggested order from here
 
 1. P0.10 spatial (ZoneGraph first), then turn order (P0.4).
-2. P0.13 sectioned rules text, then its fixture variant.
+2. P0.13 sectioned rules text, then its fixture variant; P0.14 excluded terms.
 3. `peek_roll` and decks (P0.2), read views (P0.8), golden fixtures and property tests (P0.7), off-air clocks (P0.11).
 4. Pass Gate P0 with `tob check`, then start P1 with the Anthropic adapter.
 5. The broadcast pack (SRD 5.1) waits until P4.0.

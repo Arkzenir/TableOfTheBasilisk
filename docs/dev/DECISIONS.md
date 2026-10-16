@@ -89,7 +89,7 @@ Template:
 - Date: 2026-10-16 · Status: accepted (owner). ARCHITECTURE 1.5, BUILD_PLAN 1.4.
 - Context: the owner chose the D&D 5e SRD (2014 rules) because more viewers know them. The design said v1 ships one inline rules-light pack, with sectioned text deferred to v2. §1.2 does not list the OGL 1.0a.
 - Decision:
-  - The source is the **SRD 5.1**. Its licence is chosen separately (D-015). The required notice is copied verbatim from the source. The stream uses no D&D trademarks.
+  - The source is the **SRD 5.1 under CC-BY 4.0** (D-015). The required notice is copied verbatim from the source. The stream uses no D&D trademarks.
   - **Sectioned rules text is v1** (§2.11). `query_rules` resolves by key: section ID, then catalogue ref, then alias, then partial match, with key normalisation shared with canon. Vector search over rules stays in v2.
   - **Rules handling is system-agnostic by construction.** The kernel has no section taxonomy, and sections are opaque text. Structure (`parent`, `refs`) is pack data. Inline packs may declare sections too.
   - **The broadcast pack is written as late as possible** (BUILD_PLAN P4.0, gating Phase 4). Gate P0 and Phases 1–3 develop against `lanternlight` and `tidewrack`, plus a data-only sectioned variant. The owner supplies the source document at P4.0.
@@ -105,11 +105,18 @@ Template:
 - Date: 2026-10-16 · Status: accepted (owner, answering HANDOFF question 3)
 - Decision: complete the Track 0 tasks (Gate P0) before starting any Track 1 task, including the parallel-safe ones.
 
-## D-015 SRD 5.1 licence: CC-BY 4.0 or OGL 1.0a (open)
-- Date: 2026-10-16 · Status: open. Decide before P4.0.
+## D-015 SRD 5.1 licence: CC-BY 4.0, not the OGL 1.0a
+- Date: 2026-10-16 · Status: accepted (owner chose CC-BY 4.0 after the research below). ARCHITECTURE §1.2 and BUILD_PLAN P4.0 and P0.14 updated.
 - Context: the owner noted that SRD 5.1 is dual-released: under the OGL 1.0a (since 2016) and under CC-BY 4.0 (since January 2023), with the same text. A user may pick either licence. The owner thinks the OGL may suit the project better. The design text first assumed CC-BY only.
 - What each requires, to verify against the current source and licences at P4.0:
   - **CC-BY 4.0:** an attribution statement, and nothing else. It is irrevocable and is already on the §1.2 permitted list.
   - **OGL 1.0a:** the full licence text distributed with the work, a Section 15 copyright notice, an explicit designation of Open Game Content and Product Identity, and no use of trademarks or claims of compatibility beyond what the licence allows. Content derived from Open Game Content becomes Open Game Content itself, a share-alike effect that §1.2 already flags as a caveat for generated content. Choosing it adds the OGL 1.0a to the §1.2 permitted list in an ARCHITECTURE revision note.
 - Until decided: the kernel, packs, and harness are unaffected. `meta.license` and `meta.attribution_text` already hold either licence. Not legal advice.
+- **Research (2026-10-16, not legal advice). Recommendation: CC-BY 4.0.**
+  - CC-BY 4.0 permits this use. "Share" explicitly includes public performance. Adapting the text and commercial use (donations) are allowed. Attribution may be given "in any reasonable manner based on the medium": the overlay about panel plus the VOD description, each with a link to the SRD and the licence, noting that the text was adapted. A breach is cured automatically if fixed within 30 days of discovery. The licence is irrevocable, and the licensor gives no endorsement, so the stream must not imply any WotC connection.
+  - The OGL 1.0a fits a live AI stream poorly. Its "Distribute" includes broadcast and public display. That triggers its terms on every stream: a copy of the licence "with every copy" (§10), clear identification of which portions are Open Game Content (§8), which is impractical for improvised narration, and the §6 and §15 notices. §7 also forbids indicating compatibility with trademarks, whereas the CC release's notice explicitly allows "compatible with fifth edition." On top of that come the 2023 deauthorization episode and OGL share-alike for derived content.
+  - **The main real risk is the same under either licence:** non-SRD WotC IP. Trademarks are not licensed (CC-BY §2(b)), and much of D&D's IP is absent from the SRD, for example named settings, beholders, and mind flayers. LLMs will produce these names from memory. Mitigation: a pack-supplied list of excluded terms, checked by the validation pass (§1.3.3) before TTS, and canon seeded only from the SRD and original material. Do not rely on WotC's Fan Content Policy as a fallback, because WotC can withdraw it.
+  - Minor: CC 4.0 forbids applying effective technological measures to the material (§2(a)(5)), and CC's wiki notes that platforms with built-in DRM are an unsettled area. The risk is low, because the SRD remains freely available at its source, but a lawyer should confirm it as part of the §11.3 review.
+  - Separate issues: purely AI-generated output may get little copyright protection in the US (Copyright Office, AI report Part 2, January 2025), which affects control over clips, not compliance. Provider terms for public performance are already listed in §11.3.
+  - Sources: https://creativecommons.org/licenses/by/4.0/legalcode.en · https://creativecommons.org/using-cc-licensed-works-for-ai-training-2/ · https://wiki.creativecommons.org/wiki/4.0/Technical_protection_measures · https://rpgbot.net/dnd35/ogl/ (OGL 1.0a text) · https://slyflourish.com/what_5e_in_cc_means_to_you.html · https://company.wizards.com/en/legal/fancontentpolicy · https://copyright.gov/newsnet/2025/1060.html
 

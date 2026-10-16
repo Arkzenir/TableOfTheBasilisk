@@ -16,7 +16,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 
 ### T0.1 Broadcast pack: SRD 5.1 — `deferred` (moved to P4.0)
 - **Plan:** P4.0 · §1.1, §1.2, §2.11
-- **Decided (D-012):** SRD 5.1; sectioned rules text. Licence (CC-BY 4.0 or OGL 1.0a) is chosen before P4.0 (D-015). By owner direction it is written **as late as possible**, so Gate P0 and Phases 1–3 develop against the test packs only. The owner supplies the source document when P4.0 starts.
+- **Decided (D-012):** SRD 5.1 under CC-BY 4.0 (D-015); sectioned rules text; `meta.excluded_terms` for non-SRD names. By owner direction it is written **as late as possible**, so Gate P0 and Phases 1–3 develop against the test packs only. The owner supplies the source document when P4.0 starts.
 - **Then (agent):** see BUILD_PLAN P4.0. Copy the attribution text verbatim from the source, use no D&D trademarks, and make zero kernel changes for this pack.
 
 ### T0.2 Canon store — `done`
@@ -119,6 +119,17 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Plan:** P0.6 · §2.8, §2.11
 - **Deliverables:** a data-only derived pack (e.g. `lanternlight.sectioned`) that extends `lanternlight`, switches `rules_text` to sectioned with a digest, and changes nothing else.
 - **Acceptance:** it passes conformance with zero kernel changes. Its scripted campaign matches its parent's event stream apart from rules-lookup events. `query_rules` reaches every section by ID and alias.
+
+### T0.16 Excluded terms — `ready`
+- **Plan:** P0.14 · §1.2, §1.3.3, §2.3, §2.10
+- **Deliverables:**
+  - `meta.excluded_terms: [{ term, aliases }]` in the pack loader, inherited and merged like other catalogues.
+  - One matcher in the kernel, reusing canon's key normalisation (D-010): case-insensitive and whole-word.
+  - `write_canon` refuses records containing an excluded term in names, aliases, or text. The error names the term.
+  - A lint class for collisions with catalogue IDs, vocabulary, rule-card titles, and section titles.
+  - A fixture pack (e.g. a data-only variant of `tidewrack`) declaring a few invented terms, so tests stay system-agnostic.
+- **Rules:** the kernel names no real-world IP; every term comes from pack data. Keep the noun lint clean.
+- **Acceptance:** BUILD_PLAN P0.14's test. The validation-pass and TTS-gate integration is done later, in P3.3.
 
 ### T0.13 Gate P0 sign-off — `human`
 - **Agent prepares:** evidence for every Gate P0 item in `HANDOFF.md`, as the commands run and their results.
