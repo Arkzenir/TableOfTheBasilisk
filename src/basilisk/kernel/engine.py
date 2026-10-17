@@ -13,9 +13,10 @@ import copy
 from datetime import datetime, timezone
 from typing import Any, Callable, Iterable
 
-from . import KERNEL_VERSION, canon, dice, expr, spatial, turns
+from . import KERNEL_VERSION, canon, decks, dice, expr, spatial, turns
 from .canon import CanonCommands
 from .canonical import hash_obj
+from .decks import DeckCommands
 from .command import EngineError, _suggest, atomic
 from .determinism import STANDARD, STRICT, apply_change, expand, setting_for, unsupported_strict
 from .effects import EffectCommands
@@ -69,7 +70,7 @@ EVENT_TYPES = frozenset({
     "determinism_changed", "session_started", "session_ended", "scene_set", "roll_made",
     "effect_applied", "character_created", "entity_spawned", "clock_created",
     "action_committed", "gm_ruling_requested", "gm_ruling_filled",
-}) | canon.EVENT_TYPES | spatial.EVENT_TYPES | turns.EVENT_TYPES | _PASSIVE
+}) | canon.EVENT_TYPES | spatial.EVENT_TYPES | turns.EVENT_TYPES | decks.EVENT_TYPES | _PASSIVE
 
 
 def apply_event(state: dict, ev: dict) -> None:
@@ -119,6 +120,8 @@ def apply_event(state: dict, ev: dict) -> None:
         spatial.apply_event(state, ev)
     elif t in turns.EVENT_TYPES:
         turns.apply_event(state, ev)
+    elif t in decks.EVENT_TYPES:
+        decks.apply_event(state, ev)
     elif t in _PASSIVE:
         pass
     else:
@@ -135,7 +138,7 @@ def fold(events: Iterable[dict], state: dict | None = None) -> dict:
 # ====================================================================== engine
 
 class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands, TacticalCommands,
-             TurnCommands):
+             TurnCommands, DeckCommands):
     def __init__(self, pack: ResolvedPack, seed: str, store: EventStore | None = None,
                  campaign_id: str = "campaign", clock: Callable[[], str | None] | None = None):
         if pack.data["meta"].get("abstract"):
@@ -315,7 +318,9 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
     @atomic
     def start_session(self, by: str | None = None) -> int:
         self._boundary()
-        return self._emit("session_started", {"number": self.state["session"] + 1}, actor=by or self.gm_seat)
+        seq = self._emit("session_started", {"number": self.state["session"] + 1}, actor=by or self.gm_seat)
+        self._reshuffle_at("session")
+        return seq
 
     def _close_encounter(self, by: str) -> None:
         if self.state.get("encounter") is not None:  # an encounter never outlives its scene
@@ -351,6 +356,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         if layout is not None:
             payload["spatial"] = layout
         self._emit("scene_set", payload, actor=by)
+        self._reshuffle_at("scene")
         for eid, region in self._placement_effects(placements):
             self._place(eid, region, by)
         self._boundary()

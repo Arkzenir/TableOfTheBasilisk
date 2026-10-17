@@ -30,6 +30,9 @@ The code-level list of event types (`EVENT_TYPES` in `src/basilisk/kernel/engine
 | `turn_started` | folds | `start_encounter`, `end_turn` | `round, index, actor` (entity id, or side `players` / `gm`), `budgets` (refreshed for whoever is in play) |
 | `economy_spent` | folds | `commit_action` during an encounter | `entity, key` (slot id or `points`), `amount, remaining` |
 | `encounter_ended` | folds | `end_encounter`; also `set_scene` and `end_session` while an encounter runs | `round` (removes `state.encounter`) |
+| `deck_shuffled` | folds | first draw from a deck, `reshuffle_deck`, reshuffle rules (`every_draw`, `when_empty`, `scene`, `session`) | `deck, counter, cards` (shuffled, in pack order, hands excluded), `order` (the new pile, top first), `reason`; sets `roll_counter` to `counter + 1` (creates `state.decks` on first use) |
+| `card_drawn` | folds | `draw_card` | `deck, card, by, to` (a holder's hand, or `null` for face up onto the discards) |
+| `card_discarded` | folds | `discard_card` | `deck, card, holder` |
 | `chargen_started` | passive | `create_character` | `agent, entity` |
 | `judgement_input` | passive | any model-chosen mechanical input | `seat, control, setting, choice, options` |
 | `procedure_resolved` | passive | resolution runner | `procedure, entity, scale, outcome, rank, ranks, total, difficulty, modifiers, roll_seq, direct` |

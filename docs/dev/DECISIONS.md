@@ -178,3 +178,18 @@ Template:
   - **Tools:** `end_turn` (with `next` under `handoff`) for every role unless the order is `spotlight`. For the GM: `start_encounter` (with `first` under `handoff`), `end_encounter`, and `next_round` under `spotlight`.
   - NPC turns are taken by the GM seat, like any NPC action.
 - Consequences: Lanternlight now declares `initiative` (`1d20 + {grace}`) with `action` and `minor` slots (Recall is minor; its rules text says so). Tidewrack keeps `spotlight` / `none`. Smoke campaigns play encounter scenes turn by turn under each pack's structure. P0.4 is complete apart from the reserved `trigger_procedure` primitive.
+
+## D-020 Decks: shuffles record their order; draws are engine commands
+- Date: 2026-10-18 · Status: accepted (T0.8; §2.4, §5.5, P0.2). The docs give `decks: [{id, cards, reshuffle_rule}]` and the event names, and say deck order is game state.
+- Decision:
+  - **Pack data:** `randomizers.decks: [{id, cards: [{id, label} | id], reshuffle_rule, players_draw?}]`. Card ids are lowercase ids. Lint class `deck`.
+  - **Shuffles are logged with their result.** A shuffle consumes one roll counter through `Randomizer.shuffle`. `deck_shuffled` carries `counter`, the `cards` shuffled (pack order, hands excluded), and the resulting `order`. The reducer folds the order and advances `roll_counter`; it never re-runs the shuffle (D-003). `verify --seed` re-derives every shuffle. A deck comes into state with its first shuffle, which happens on its first draw, so older logs fold unchanged.
+  - **Reshuffle rules:**
+    - `when_empty`: an empty pile first shuffles in every card not in a hand
+    - `every_draw`: a fresh shuffle before each draw
+    - `scene` / `session`: a full reshuffle at each boundary, only for decks already in use
+    - `manual`: only `reshuffle_deck` refills; an empty pile refuses draws
+  - **Draws are engine commands, not effect primitives.** The §2.6 primitive set is closed and lists no draw, and adding one would be a design change. Packs that need a draw inside a rule can request it when one exists; until then the GM (or a seat, for `players_draw` decks) draws through the tools. Drawn cards go face up onto the discards, or into a holder's hand (`to=`: a seat or entity id); `discard_card` returns them.
+  - **Hidden information:** pile order is never in any view or tool result. `deck_view` gives the pile size, the face-up discards, and the seat's own hands (including entities it controls); the GM sees every hand.
+  - `turn_structure` `deck` order (D-019) keeps its own equal-weight draws for now. It could be moved onto a pack deck later without changing this module.
+- Consequences: Tidewrack declares an `omens` deck (`when_empty`), and its rules text says the GM turns one over when the weather of the story shifts. Smoke campaigns draw from every declared deck each scene, alternating face up and into a hand. Scenario steps `draw_card`, `reshuffle_deck`, and `discard_card` were added.

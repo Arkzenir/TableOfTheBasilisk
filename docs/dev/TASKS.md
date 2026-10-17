@@ -78,7 +78,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
   - Live rule cards never reveal a peek or a reroll.
   - Replay and seed re-derivation still pass.
 
-### T0.8 Decks — `ready`
+### T0.8 Decks — `done`
 - **Plan:** P0.2 · §2.4
 - **Deliverables:** deck state in events, plus shuffle, draw, and reshuffle per the pack's `reshuffle_rule`.
 - **Acceptance:** draws replay exactly, and a demo pack uses one deck.

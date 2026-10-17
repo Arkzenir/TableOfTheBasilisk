@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import canon, spatial, turns
+from . import canon, decks, spatial, turns
 from .determinism import STANDARD, setting_for
 from .packs import ResolvedPack
 
@@ -84,6 +84,13 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
         tools["commit_action"] = commit
     tools["enumerate_actions"] = {}
     order = turns.structure(pack).get("order")
+    all_decks = pack.catalogue("randomizers.decks")
+    drawable = [d["id"] for d in all_decks if role == "gm" or d.get("players_draw")]
+    if drawable:  # deck order is never offered: draws only (§5.5)
+        tools["draw_card"] = {"deck_id": _enum(drawable), "to": ID}
+        tools["discard_card"] = {"deck_id": _enum(drawable), "card_id": ID}
+    if role == "gm" and all_decks:
+        tools["reshuffle_deck"] = {"deck_id": _enum([d["id"] for d in all_decks])}
     if order != "spotlight":
         tools["end_turn"] = {"next": ID} if order == "handoff" else {}  # handoff: who goes next
     backends = spatial.declared_backends(pack)

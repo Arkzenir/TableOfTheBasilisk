@@ -250,6 +250,8 @@ def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
                 for p in players:
                     _play_turn(engine, p, turn, report)
                     turn += 1
+            for deck in engine.pack.catalogue("randomizers.decks"):  # one draw per deck per scene
+                engine.draw_card(deck["id"], to=players[sc % len(players)] if sc % 2 else None)
             engine.advance_clock("pressure", 1)
         engine.end_session()
 
@@ -301,6 +303,12 @@ def _run_steps(engine: Engine, steps: list[dict], report: RunReport) -> None:
                 engine.next_round()
             elif do == "end_encounter":
                 engine.end_encounter()
+            elif do == "draw_card":
+                engine.draw_card(step["deck"], step.get("by"), step.get("to"))
+            elif do == "reshuffle_deck":
+                engine.reshuffle_deck(step["deck"])
+            elif do == "discard_card":
+                engine.discard_card(step["deck"], step["card"], step["holder"], step.get("by"))
             elif do == "commit_action":
                 engine.commit_action(step["actor"], step["action"], target=step.get("target"),
                                      spend=step.get("spend"), gm=step.get("gm"))
@@ -378,6 +386,11 @@ def verify(store: EventStore, campaign_id: str, pack: ResolvedPack | None = None
             problems.append("seed does not match the published commitment")
         else:
             for ev in events:
+                if ev["type"] == "deck_shuffled":
+                    p = ev["payload"]
+                    if rng.shuffle(p["counter"], p["cards"]) != p["order"]:
+                        problems.append(f"seq {ev['seq']}: deck shuffle does not re-derive from the seed")
+                    continue
                 if ev["type"] != "roll_made":
                     continue
                 p = ev["payload"]

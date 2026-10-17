@@ -10,7 +10,7 @@ Work is broken into agent-sized tasks in [`docs/dev/TASKS.md`](docs/dev/TASKS.md
 | Step | Status | Where | Notes |
 |---|---|---|---|
 | P0.1 Event store | ✅ | `kernel/events.py` | Hash chain, append-only triggers, transactions, snapshots, fork, online backup, pinning checks |
-| P0.2 Randomizer | 🟡 | `kernel/rng.py`, `kernel/dice.py` | Seeded dice, full grammar (keep, explode, count, fate), lookup tables, weighted draws, seed commitment. **Todo:** deck state and draw commands (shuffle primitive exists); `peek_roll` command and the rank-based direction-of-drama constraint (schema presence is already gated) |
+| P0.2 Randomizer | 🟡 | `kernel/rng.py`, `kernel/dice.py` | Seeded dice, full grammar (keep, explode, count, fate), lookup tables, weighted draws, seed commitment; seeded decks (`kernel/decks.py`) with shuffle, draw, hands, discards, and five reshuffle rules, re-derivable by `verify --seed`. **Todo:** `peek_roll` command and the rank-based direction-of-drama constraint (schema presence is already gated) |
 | P0.3 Entity model, expressions | ✅ | `kernel/engine.py`, `kernel/expr.py` | Stats, derived, resources, tracks, conditions, tags, currencies; inventory is a simple list. Noun lint in the gate |
 | P0.4 Effects, resolution, turns | ✅ | `kernel/engine.py`, `kernel/resolution.py`, `kernel/effects.py`, `kernel/turns.py` | All primitives except `trigger_procedure` (reserved); roll-over and banded resolution; ruling slots; fiction triggers; determinism settings with mid-campaign changes; encounter turn controller with all six orders (`spotlight`, `initiative`, `sides`, `handoff`, `fixed`, `deck`) and three economies (`none`, `slots`, `points`), and `current_turn` for the scheduler. `trigger_procedure` stays reserved until a pack needs it |
 | P0.5 Pack loader | 🟡 | `kernel/packs.py`, `kernel/tools.py` | Inheritance, merge rules, removals, hashing, kernel compatibility, tool-schema generation. **Todo:** sandboxed hook runtime (the registry currently refuses every hook, as required until it exists) |
@@ -42,6 +42,6 @@ Work is broken into agent-sized tasks in [`docs/dev/TASKS.md`](docs/dev/TASKS.md
 ## Suggested order from here
 
 1. P0.13 sectioned rules text, then its fixture variant; P0.14 excluded terms.
-2. `peek_roll` and decks (P0.2), read views (P0.8), golden fixtures and property tests (P0.7), off-air clocks (P0.11).
+2. `peek_roll` (P0.2), read views (P0.8), golden fixtures and property tests (P0.7), off-air clocks (P0.11).
 3. Pass Gate P0 with `tob check`, then start P1 with the Anthropic adapter.
 4. The broadcast pack (SRD 5.1) waits until P4.0.

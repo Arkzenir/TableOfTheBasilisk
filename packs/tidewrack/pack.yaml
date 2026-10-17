@@ -15,6 +15,7 @@ rules_text:
   full_text: |
     TIDEWRACK (demo)
     Stats run -1 to +2: Iron, Tide, Salt, Ember. The GM never rolls.
+    When the weather of the story shifts, the GM turns over an omen card.
     When the fiction triggers a move, roll 2d6 + stat: 10+ full success,
     7-9 success with a cost, 6- the GM makes a hard move.
     Harm has four boxes; filling it leaves you Battered until you Mend.
@@ -31,6 +32,17 @@ vocabulary:
 randomizers:
   dice_grammar:
     operators: [sum]
+  # The omen deck: the GM turns one over when the weather of the story shifts.
+  # Played-out omens come back only when the deck runs dry.
+  decks:
+    - id: omens
+      reshuffle_rule: when_empty
+      cards:
+        - {id: gull, label: A gull circles}
+        - {id: squall, label: A squall line}
+        - {id: flat_calm, label: Flat calm}
+        - {id: wreckage, label: Wreckage in the water}
+        - {id: beacon, label: A beacon ashore}
 
 entity_model:
   stats:
