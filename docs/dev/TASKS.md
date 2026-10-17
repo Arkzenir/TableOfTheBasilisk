@@ -104,7 +104,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Plan:** P0.5 · §2.7
 - **Why deferred:** no pack uses hooks, and the loader refuses all hooks until this exists, which satisfies the gate. Build it when a real pack needs one.
 
-### T0.14 Sectioned rules text — `ready`
+### T0.14 Sectioned rules text — `done`
 - **Plan:** P0.13 · §2.3, §2.11, §6.5 Layer 0
 - **Deliverables:**
   - The pack loader accepts `rules_text.mode: sectioned` with `digest`, `sections` (`id`, `title`, `aliases`, `body`, `refs`, optional `parent`), and `max_section_tokens`. Inline packs may also declare `sections`.
@@ -115,7 +115,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Rules:** no section taxonomy in the kernel and no system-specific names; sections are opaque text. Keep the noun lint clean.
 - **Acceptance:** BUILD_PLAN P0.13's test, plus one defect of each new lint class caught with a message naming the valid options.
 
-### T0.15 Sectioned fixture variant — `blocked` (T0.14)
+### T0.15 Sectioned fixture variant — `ready`
 - **Plan:** P0.6 · §2.8, §2.11
 - **Deliverables:** a data-only derived pack (e.g. `lanternlight.sectioned`) that extends `lanternlight`, switches `rules_text` to sectioned with a digest, and changes nothing else.
 - **Acceptance:** it passes conformance with zero kernel changes. Its scripted campaign matches its parent's event stream apart from rules-lookup events. `query_rules` reaches every section by ID and alias.

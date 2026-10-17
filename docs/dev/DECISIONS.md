@@ -223,3 +223,23 @@ Template:
   - Clocks without a schedule or stages keep their old folded shape, and older logs fold unchanged.
   - Calendar and watch tracking (§2.4 "Clocks and time") is not part of this task and stays a roadmap todo.
 - Consequences: smoke campaigns use a scheduled `pressure` clock with two stages, so every campaign run exercises off-air advancement and canon from clocks. Tools: the GM gets `pause_clock`. Creating scheduled clocks belongs to the P3 prep tools.
+
+## D-024 query_rules: a pack-pinned index, ids-only lookup log, inline packs searchable too
+- Date: 2026-10-18 · Status: accepted (T0.14; §2.11, §6.5 Layer 0, §8.6, P0.13).
+- Decision:
+  - **Index:** `SectionIndex` is built once per engine from the pinned, resolved pack, so it never needs invalidating. It holds id → section, catalogue ref → sections (declaration order), name key → sections, and word → sections. Name keys and tokens are canon's own `name_keys` / `tokens` / `FILLER`, imported rather than copied, so the two indexes cannot drift (D-010).
+  - **Resolution order:** exact section id, catalogue id via `refs` (every covering section, in declaration order), alias key (titles count as names), then partial (every non-filler query word appears in a section's title or alias words). A miss returns up to three close titles. A pack with no sections answers with a note that its rules are already inline.
+  - **Logging:** every lookup emits the passive event `rules_queried` {seat, query, via, sections (ids), suggestions}. §2.11 asks for misses to be logged, and §8.6 has a rules-check card showing the title consulted. Section text never enters the log or a card.
+  - **Lint (`rules-text`):**
+    - mode is `inline` or `sectioned`
+    - inline full text within the existing budget
+    - sectioned: a non-empty digest within `DIGEST_TOKEN_BUDGET` (6,000 tokens, approximated as characters / 4 like the inline budget), and at least one section
+    - `max_section_tokens` (default 2,000) caps every body
+    - unique section ids, a title and body for each, no unknown fields
+    - refs must be catalogue ids
+    - titles and aliases unique across sections (by name key)
+    - `parent` must exist, with no loops
+    - sectioned packs only: every action, procedure, and condition is covered by some section's refs
+  - **Context:** `rules_layer()` returns layer 2 (§6.1): the inline text, or the digest. The context assembler (P1.3) uses it.
+  - Tool `query_rules {query}` (narrative text) for every role.
+- Consequences: T0.15 (a shipped, data-only sectioned variant pack) is unblocked. The tests build a sectioned Lanternlight on the fly; T0.15 turns that into a pack under `packs/` that runs in every gate.

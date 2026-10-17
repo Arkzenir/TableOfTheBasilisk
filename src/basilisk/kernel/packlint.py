@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from . import decks, dice, expr, sheets, spatial, tactics, turns
+from . import decks, dice, expr, rules, sheets, spatial, tactics, turns
 from .determinism import CONTROLS, ROLES, STRICT, expand
 from .effects import PRIMITIVES, RESERVED, TARGET_SYMBOLS, references
 from .packs import ResolvedPack
@@ -285,12 +285,12 @@ def lint(pack: ResolvedPack) -> list[Finding]:
         if len(str(card.get("summary", ""))) > CARD_SUMMARY_MAX:
             err("rule-card", f"{cid}: summary longer than {CARD_SUMMARY_MAX}")
 
-    # rules text budget ----------------------------------------------------
-    text = pack.get("rules_text.full_text") or ""
-    if len(text) // 4 > RULES_TEXT_TOKEN_BUDGET:
-        err("rules-text", f"inline rules text is ~{len(text) // 4} tokens; budget {RULES_TEXT_TOKEN_BUDGET}")
-    if not abstract and not text.strip():
-        warn("rules-text", "no inline rules text")
+    # rules text: inline budget, or digest, sections, and coverage (§2.11) --
+    rule_errors, rule_warnings = rules.lint_rules(pack, abstract, RULES_TEXT_TOKEN_BUDGET)
+    for problem in rule_errors:
+        err("rules-text", problem)
+    for problem in rule_warnings:
+        warn("rules-text", problem)
 
     # spatial (§1.4) -------------------------------------------------------
     sp = pack.get("spatial")

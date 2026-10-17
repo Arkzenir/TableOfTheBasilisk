@@ -74,6 +74,7 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
         "read_sheet": {"entity_id": ID} if role == "gm" else {},  # own sheet; the GM names any (§7.1)
         "read_party_sheets": {},  # summaries for players, full for the GM
         "query_canon": {"query": NARRATIVE},  # an id or a name; scoped by the dispatcher (§6.2)
+        "query_rules": {"query": NARRATIVE},  # a section id, a rule id, or words (§2.11)
     }
     commit: dict[str, Any] = {"action_id": _enum(action_ids), "target": ID}
     spend = _spend_schema(pack, mode("spend_amounts"))

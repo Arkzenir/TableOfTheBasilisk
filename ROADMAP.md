@@ -21,7 +21,7 @@ Work is broken into agent-sized tasks in [`docs/dev/TASKS.md`](docs/dev/TASKS.md
 | P0.10 Spatial engine | ✅ | `kernel/spatial.py`, `kernel/tactics.py` | `SpatialBackend` interface with ZoneGraph and RangeBands. ZoneGraph: scene regions with undirected adjacency, adjacency-checked moves, GM placement, per-observer `visible_to`, `scene_view`. Scenes without regions keep plain zone labels. Candidate generator (`kernel/tactics.py`): ranked, mastery-tiered `enumerate_moves`, `enumerate_action_candidates`, and `preview`, scored by kernel features weighted by the pack's tactical profile. RangeBands: pack-declared bands, one band per pair of participants, a move shifts one pair by one band; `tidewrack` uses it. Both backends pass the 10,000-enumeration legality sweep |
 | P0.11 Clocks and time | 🟡 | `kernel/clocks.py` | Create, advance, and pause clocks; off-air advancement on a per-clock schedule at each session start; prepped stages written as canon whenever a clock crosses them. **Todo:** watch/calendar tracking (no task yet; rounds are in the turn controller) |
 | P0.12 Scripted harness | ✅ | `harness/scripted.py` | Pack-agnostic smoke campaigns with coverage sweep, YAML scenarios, verification, double-run determinism, soak runner |
-| P0.13 Sectioned rules text | ⬜ | — | Section schema, key-first `query_rules`, section lint (T0.14) |
+| P0.13 Sectioned rules text | 🟡 | `kernel/rules.py` | Inline or sectioned rules text; deterministic section index; key-first `query_rules` (id, ref, alias, partial) with suggestions and a logged lookup; lint for digest budget, section cap, alias uniqueness, parents, refs, and coverage. **Todo:** the data-only sectioned fixture pack (T0.15) |
 | P0.14 Excluded terms | ⬜ | — | Pack-declared unlicensed names, refused in canon, linted; matcher for the validation pass (T0.16) |
 
 ## Later phases
@@ -41,7 +41,7 @@ Work is broken into agent-sized tasks in [`docs/dev/TASKS.md`](docs/dev/TASKS.md
 
 ## Suggested order from here
 
-1. P0.13 sectioned rules text, then its fixture variant; P0.14 excluded terms.
+1. The sectioned fixture pack (T0.15); P0.14 excluded terms (T0.16).
 2. Golden fixtures and property tests (P0.7).
 3. Pass Gate P0 with `tob check`, then start P1 with the Anthropic adapter.
 4. The broadcast pack (SRD 5.1) waits until P4.0.

@@ -43,6 +43,7 @@ The code-level list of event types (`EVENT_TYPES` in `src/basilisk/kernel/engine
 | `procedure_resolved` | passive | resolution runner | `procedure, entity, scale, outcome, rank, ranks, total, difficulty, modifiers, roll_seq, direct` |
 | `table_rolled` | passive | chargen table step | `table, value, text` |
 | `gm_resolution` | passive | `resolve_unmodelled` | `entity, procedure, stat, direct_outcome` |
+| `rules_queried` | passive | `query_rules` | `seat, query, via` (`id`, `ref`, `alias`, `partial`, or `null` for a miss), `sections` (ids returned, never their text), `suggestions` (titles, on a miss) |
 | `campaign_forked` | passive | `EventStore.fork` | `source_campaign, source_seq, source_hash` |
 
 ## Adding an event type

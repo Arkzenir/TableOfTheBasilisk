@@ -13,7 +13,7 @@ import copy
 from datetime import datetime, timezone
 from typing import Any, Callable, Iterable
 
-from . import KERNEL_VERSION, canon, clocks, decks, dice, expr, fudging, spatial, turns
+from . import KERNEL_VERSION, canon, clocks, decks, dice, expr, fudging, rules, spatial, turns
 from .canon import CanonCommands
 from .canonical import hash_obj
 from .clocks import ClockCommands
@@ -28,6 +28,7 @@ from .packs import ResolvedPack
 from .resolution import ResolutionCommands
 from .sheets import SheetCommands
 from .rng import Randomizer
+from .rules import RulesCommands
 from .spatial import SpatialCommands
 from .tactics import TacticalCommands
 from .turns import TurnCommands
@@ -60,7 +61,7 @@ def _set_path(state: dict, path: list, value: Any, delete: bool = False) -> None
         node[path[-1]] = copy.deepcopy(value)
 
 
-_PASSIVE = {
+_PASSIVE = rules.EVENT_TYPES | {
     "chargen_started", "judgement_input", "procedure_resolved", "table_rolled",
     "gm_resolution", "campaign_forked",
 }
@@ -146,7 +147,7 @@ def fold(events: Iterable[dict], state: dict | None = None) -> dict:
 # ====================================================================== engine
 
 class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands, TacticalCommands,
-             TurnCommands, DeckCommands, FudgeCommands, SheetCommands, ClockCommands):
+             TurnCommands, DeckCommands, FudgeCommands, SheetCommands, ClockCommands, RulesCommands):
     def __init__(self, pack: ResolvedPack, seed: str, store: EventStore | None = None,
                  campaign_id: str = "campaign", clock: Callable[[], str | None] | None = None):
         if pack.data["meta"].get("abstract"):
