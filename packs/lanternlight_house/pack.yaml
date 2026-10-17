@@ -26,6 +26,13 @@ actions:
 remove:
   actions: [inspire]
 
+# The inherited tactical factor names Inspire; with the action removed, the
+# factor is overridden (references are re-checked after the merge, §2.8).
+spatial:
+  tactical_profile:
+    factors:
+      - {id: lift_a_friend, actions: [rally]}
+
 presentation:
   rule_cards:
     inspired: {title: Inspired, summary: "+1 to rolls until the scene ends.", category: condition, icon_id: star}

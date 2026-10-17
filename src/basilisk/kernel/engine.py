@@ -25,6 +25,7 @@ from .packs import ResolvedPack
 from .resolution import ResolutionCommands
 from .rng import Randomizer
 from .spatial import SpatialCommands
+from .tactics import TacticalCommands
 
 
 # ====================================================================== reducer
@@ -130,7 +131,7 @@ def fold(events: Iterable[dict], state: dict | None = None) -> dict:
 
 # ====================================================================== engine
 
-class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands):
+class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands, TacticalCommands):
     def __init__(self, pack: ResolvedPack, seed: str, store: EventStore | None = None,
                  campaign_id: str = "campaign", clock: Callable[[], str | None] | None = None):
         if pack.data["meta"].get("abstract"):
@@ -488,7 +489,9 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands)
         need = cost.get("amount", min(cost.get("amounts") or [cost.get("range", [0])[0]]))
         return ent["currencies"].get(cost["currency"], 0) >= need
 
-    def enumerate_actions(self, entity_id: str, target_id: str | None = None) -> list[str]:
+    def available_actions(self, entity_id: str, target_id: str | None = None) -> list[str]:
+        """Ids of the actions the entity could commit now, in catalogue order. The
+        ranked, annotated view for agents is `enumerate_action_candidates` (§1.4.2)."""
         ent = self._entity(entity_id)
         target = self.state["entities"].get(target_id) if target_id else None
         out = []
@@ -532,7 +535,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands)
             raise EngineError(f"{action_id} takes no target")
         if not self._requires_ok(action, ent, target_ent):
             raise EngineError(f"{action_id}: requirements not met for {entity_id}")
-        options = self.enumerate_actions(entity_id, target if target_kind == "entity" else None)
+        options = self.available_actions(entity_id, target if target_kind == "entity" else None)
         eligible = self._eligible(action, ent, target_ent)
         trigger_mode = None
         if action.get("trigger") == "fiction":

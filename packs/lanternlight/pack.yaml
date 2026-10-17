@@ -62,6 +62,7 @@ resolution:
 
 actions:
   - id: strike
+    annotation_categories: [engagement]
     trigger: declared
     target: entity
     stat: might
@@ -74,6 +75,7 @@ actions:
       fail:
         - {primitive: add_condition, target: actor, condition: shaken}
   - id: climb
+    annotation_categories: [footing]
     trigger: declared
     target: zone
     stat: grace
@@ -94,6 +96,7 @@ actions:
       pass:
         - {primitive: earn_currency, target: actor, currency: luck, amount: 1}
   - id: rally
+    annotation_categories: [support]
     trigger: declared
     target: entity
     stat: heart
@@ -140,6 +143,31 @@ chargen:
         - {id: acolyte, label: Acolyte, stats: {heart: 2}}
         - {id: tinker, label: Tinker, stats: {wits: 1, grace: 1}}
     - {id: detail, kind: table, table: detail_table}
+
+# Tactical profile (§1.4.2): weights for the kernel's generic features, plus this
+# game's own factors and annotation text. Order 1 categories reach mid mastery;
+# order 2 only high mastery (§1.4.3).
+spatial:
+  tactical_profile:
+    categories:
+      - {id: engagement, order: 1}
+      - {id: support, order: 1}
+      - {id: exposure, order: 2}
+      - {id: footing, order: 2}
+    weights: {threats_here: 3, threats_adjacent: 1, allies_here: 1, closer: 2}
+    factors:
+      - {id: high_ground, applies_to: move, when: "elevation_change > 0", weight: 1}
+      - {id: hit_a_foe, applies_to: action, actions: [strike], when: "target_threat == 1", weight: 3}
+      - {id: lift_a_friend, applies_to: action, actions: [rally, inspire], when: "target_ally == 1", weight: 2}
+      - {id: friend_is_down, applies_to: action, actions: [rally], when: "target.conditions.down == 1", weight: 3}
+    annotation_templates:
+      - {id: meet, applies_to: move, category: engagement, when: "threats_here > 0", text: "meets {threats_here} head on"}
+      - {id: beside, applies_to: move, category: support, when: "allies_here > 0", text: "beside {allies_here}"}
+      - {id: crowded, applies_to: move, category: exposure, when: "threats_adjacent > 1", text: "within reach of several foes"}
+      - {id: height, applies_to: move, category: footing, when: "elevation_change > 0", text: "higher than where you stand"}
+      - {id: guarded, applies_to: action, category: engagement, when: "target.guard > 10 + actor.might", text: "{target} is well guarded"}
+      - {id: hurt_ally, applies_to: action, category: support, when: "target.conditions.down == 1", text: "{target} is down and needs you"}
+      - {id: slip, applies_to: action, category: footing, when: "region.elevation > here.elevation", text: "a climb up to {region}"}
 
 presentation:
   nameplate_resources: [vigor]

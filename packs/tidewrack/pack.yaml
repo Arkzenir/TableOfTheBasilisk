@@ -69,6 +69,7 @@ actions:
       partial: [{primitive: request_gm_ruling, table: costs}]
       miss: [{primitive: request_gm_ruling, table: hard_moves}]
   - id: face_down
+    annotation_categories: [pressure, odds]
     trigger: fiction
     target: entity
     stat: iron
@@ -146,6 +147,23 @@ chargen:
         - {id: salter, label: Salter, stats: {iron: 0, tide: 0, salt: 1, ember: 2}}
         - {id: lamplighter, label: Lamplighter, stats: {iron: 0, tide: -1, salt: 2, ember: 1}}
     - {id: detail, kind: table, table: detail_table}
+
+# Tactical profile (§1.4.2). Tidewrack talks about pressure and the odds, not
+# geometry; its range bands arrive with RangeBands (T0.5).
+spatial:
+  tactical_profile:
+    categories:
+      - {id: pressure, order: 1}
+      - {id: odds, order: 2}
+    weights: {threats_here: 2, allies_here: 2, closer: 1}
+    factors:
+      - {id: not_alone, applies_to: move, when: "allies_here >= threats_here and threats_here > 0", weight: 2}
+      - {id: face_a_foe, applies_to: action, actions: [face_down], when: "target_threat == 1", weight: 3}
+    annotation_templates:
+      - {id: into_it, applies_to: move, category: pressure, when: "threats_here > 0", text: "into the thick of it with {threats_here}"}
+      - {id: outmatched, applies_to: move, category: odds, when: "threats_here > allies_here + 1", text: "outnumbered there"}
+      - {id: stare, applies_to: action, category: pressure, when: "threats_here > 0", text: "{target} is right in front of you"}
+      - {id: long_odds, applies_to: action, category: odds, when: "target.grit > 4", text: "{target} still has plenty of fight"}
 
 presentation:
   nameplate_resources: [grit]

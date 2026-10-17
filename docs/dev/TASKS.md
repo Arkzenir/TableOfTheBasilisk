@@ -44,7 +44,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
   - The scene schema matches §8.2 for the fields implemented.
   - Replay stays byte-identical.
 
-### T0.4 Candidate generator and mastery tiering — `ready`
+### T0.4 Candidate generator and mastery tiering — `done`
 - **Plan:** P0.10 · §1.4.2, §1.4.3, §2.3 (`spatial.tactical_profile`)
 - **Deliverables:**
   - `enumerate_moves` and `enumerate_actions` return annotated, tiered candidates.

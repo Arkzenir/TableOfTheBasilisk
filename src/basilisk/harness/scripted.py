@@ -140,7 +140,7 @@ def _spend(engine: Engine, action: dict, actor: str) -> int | None:
 
 def _play_turn(engine: Engine, actor: str, turn: int, report: RunReport, force: str | None = None) -> None:
     actions = engine.pack.by_id("actions")
-    options = engine.enumerate_actions(actor)
+    options = engine.available_actions(actor)
     if force:
         if force not in options:
             return

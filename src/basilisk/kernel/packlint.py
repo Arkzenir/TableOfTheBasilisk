@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from . import dice, expr, spatial
+from . import dice, expr, spatial, tactics
 from .determinism import CONTROLS, ROLES, STRICT, expand
 from .effects import PRIMITIVES, RESERVED, TARGET_SYMBOLS, references
 from .packs import ResolvedPack
@@ -305,6 +305,9 @@ def lint(pack: ResolvedPack) -> list[Finding]:
         dupes = {i for i in ids if ids.count(i) > 1}
         if dupes:
             err("duplicate-id", f"spatial.{key}: {sorted(dupes)}")
+
+    for problem in tactics.lint_profile(pack):
+        err("tactical-profile", problem)
 
     # tool schemas generate under every preset ----------------------------
     for preset in ("strict", "standard"):

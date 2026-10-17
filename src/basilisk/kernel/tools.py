@@ -86,6 +86,12 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
     zones = "zone_graph" in spatial.declared_backends(pack)
     if zones:
         tools["look"] = {}  # the caller's own view of the scene: regions and visible tokens (§7.1, §8.2)
+        # Tactical tools (§1.4.2, §7.1). Results are tiered by the seat's rules_mastery,
+        # which the dispatcher supplies from campaign traits; it is never a model argument.
+        tools["enumerate_moves"] = {}
+        tools["enumerate_actions"] = {"position_id": ID}
+        if action_ids:
+            tools["preview"] = {"action_id": _enum(action_ids), "target": ID}
 
     if role == "gm":
         tag_ids = [t["id"] for t in pack.catalogue("resolution.situational_tags") if "derive" not in t]

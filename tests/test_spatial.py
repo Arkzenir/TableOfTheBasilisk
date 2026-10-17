@@ -99,7 +99,7 @@ def test_pack_terrain_values_are_enforced(packs_dir, tmp_path):
     shutil.copytree(packs_dir, dst)
     path = dst / "lanternlight" / "pack.yaml"
     data = yaml.safe_load(path.read_text())
-    data["spatial"] = {"backends": ["zone_graph"], "terrain": [{"id": "mire"}], "cover": [{"id": "partial"}]}
+    data["spatial"].update({"backends": ["zone_graph"], "terrain": [{"id": "mire"}], "cover": [{"id": "partial"}]})
     path.write_text(yaml.safe_dump(data, sort_keys=False))
     pack = resolve("lanternlight", dst)
     assert errors(lint(pack)) == []
@@ -217,7 +217,7 @@ def test_unknown_backend_fails_lint(packs_dir, tmp_path):
     shutil.copytree(packs_dir, dst)
     path = dst / "lanternlight" / "pack.yaml"
     data = yaml.safe_load(path.read_text())
-    data["spatial"] = {"backends": ["hex_map"]}
+    data["spatial"]["backends"] = ["hex_map"]
     path.write_text(yaml.safe_dump(data, sort_keys=False))
     found = [f for f in errors(lint(resolve("lanternlight", dst))) if f.code == "spatial"]
     assert found and "available: zone_graph" in found[0].message
