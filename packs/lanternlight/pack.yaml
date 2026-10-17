@@ -184,6 +184,8 @@ spatial:
 
 presentation:
   nameplate_resources: [vigor]
+  sheet:
+    public: [guard]   # how hard someone is to hit is plain to see; stats are not
   assertion_terms: {"vigor": vigor, "luck": luck}
   rule_cards:
     strike:   {title: Strike, summary: "Attack a foe. Check Might against their Guard; on a hit they lose 1d6 Vigor.", category: action, icon_id: blade}

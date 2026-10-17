@@ -16,7 +16,7 @@ Work is broken into agent-sized tasks in [`docs/dev/TASKS.md`](docs/dev/TASKS.md
 | P0.5 Pack loader | 🟡 | `kernel/packs.py`, `kernel/tools.py` | Inheritance, merge rules, removals, hashing, kernel compatibility, tool-schema generation. **Todo:** sandboxed hook runtime (the registry currently refuses every hook, as required until it exists) |
 | P0.6 Baselines and packs | 🟡 | `packs/` | `core`, `core.roll_over`, `core.banded`, two demo games from different families, one data-only derived pack. **Todo:** data-only sectioned variant (T0.15). The broadcast pack (SRD 5.1) is P4.0 |
 | P0.7 Conformance and authoring | 🟡 | `kernel/packlint.py`, `tob pack new` | Scaffold, static lint, strict-readiness, defect-class tests. **Todo:** generated property tests per action and outcome band; golden fixtures per pack |
-| P0.8 Sheets and chargen | 🟡 | `kernel/engine.py` | Roll, choice, and table steps; `unique_per_table`. **Todo:** full/summary read views (`read_sheet`, `read_party_sheets`) |
+| P0.8 Sheets and chargen | ✅ | `kernel/engine.py`, `kernel/sheets.py` | Roll, choice, and table steps; `unique_per_table`; `read_sheet` (own, full) and `read_party_sheets` (summaries) in the pack's vocabulary, with summaries built as the full view minus its private fields |
 | P0.9 Canon store | ✅ | `kernel/canon.py` | Records in folded state; derived alias table, relation graph, and per-scope indexes (secrets absent from the player index); append-only supersede with history; reveal; scene bundles; digest stub |
 | P0.10 Spatial engine | ✅ | `kernel/spatial.py`, `kernel/tactics.py` | `SpatialBackend` interface with ZoneGraph and RangeBands. ZoneGraph: scene regions with undirected adjacency, adjacency-checked moves, GM placement, per-observer `visible_to`, `scene_view`. Scenes without regions keep plain zone labels. Candidate generator (`kernel/tactics.py`): ranked, mastery-tiered `enumerate_moves`, `enumerate_action_candidates`, and `preview`, scored by kernel features weighted by the pack's tactical profile. RangeBands: pack-declared bands, one band per pair of participants, a move shifts one pair by one band; `tidewrack` uses it. Both backends pass the 10,000-enumeration legality sweep |
 | P0.11 Clocks and time | 🟡 | `kernel/engine.py` | Create and advance clocks. **Todo:** off-air advancement scheduler, calendar |
@@ -42,6 +42,6 @@ Work is broken into agent-sized tasks in [`docs/dev/TASKS.md`](docs/dev/TASKS.md
 ## Suggested order from here
 
 1. P0.13 sectioned rules text, then its fixture variant; P0.14 excluded terms.
-2. Read views (P0.8), golden fixtures and property tests (P0.7), off-air clocks (P0.11).
+2. Golden fixtures and property tests (P0.7), off-air clocks (P0.11).
 3. Pass Gate P0 with `tob check`, then start P1 with the Anthropic adapter.
 4. The broadcast pack (SRD 5.1) waits until P4.0.

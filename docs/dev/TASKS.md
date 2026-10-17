@@ -83,7 +83,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** deck state in events, plus shuffle, draw, and reshuffle per the pack's `reshuffle_rule`.
 - **Acceptance:** draws replay exactly, and a demo pack uses one deck.
 
-### T0.9 Read views — `ready`
+### T0.9 Read views — `done`
 - **Plan:** P0.8 · §7.1
 - **Deliverables:** pure functions for `read_sheet` (own, full) and `read_party_sheets` (others, summary), in the pack's vocabulary.
 - **Acceptance:** the summary view never includes fields the full view marks private.

@@ -184,6 +184,8 @@ spatial:
 
 presentation:
   nameplate_resources: [grit]
+  sheet:
+    public: [harm]    # the table sees the harm you carry
   rule_cards:
     defy_danger: {title: Defy Danger, summary: "When you act despite a threat, roll +Tide.", category: action, icon_id: wave}
     face_down: {title: Face Down, summary: "When you stand against a foe, roll +Iron.", category: action, icon_id: shield}

@@ -71,7 +71,8 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
     tools: dict[str, dict] = {
         "post_to_table": {"text": NARRATIVE, "kind": _enum(["in_character", "rules_query", "banter", "react", "table_talk"])},
         "pass": {},
-        "read_sheet": {},
+        "read_sheet": {"entity_id": ID} if role == "gm" else {},  # own sheet; the GM names any (§7.1)
+        "read_party_sheets": {},  # summaries for players, full for the GM
         "query_canon": {"query": NARRATIVE},  # an id or a name; scoped by the dispatcher (§6.2)
     }
     commit: dict[str, Any] = {"action_id": _enum(action_ids), "target": ID}

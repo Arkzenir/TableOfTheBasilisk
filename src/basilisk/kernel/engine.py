@@ -25,6 +25,7 @@ from .fudging import FudgeCommands
 from .packlint import readiness
 from .packs import ResolvedPack
 from .resolution import ResolutionCommands
+from .sheets import SheetCommands
 from .rng import Randomizer
 from .spatial import SpatialCommands
 from .tactics import TacticalCommands
@@ -142,7 +143,7 @@ def fold(events: Iterable[dict], state: dict | None = None) -> dict:
 # ====================================================================== engine
 
 class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands, TacticalCommands,
-             TurnCommands, DeckCommands, FudgeCommands):
+             TurnCommands, DeckCommands, FudgeCommands, SheetCommands):
     def __init__(self, pack: ResolvedPack, seed: str, store: EventStore | None = None,
                  campaign_id: str = "campaign", clock: Callable[[], str | None] | None = None):
         if pack.data["meta"].get("abstract"):
