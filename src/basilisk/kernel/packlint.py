@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from . import dice, expr, spatial, tactics
+from . import dice, expr, spatial, tactics, turns
 from .determinism import CONTROLS, ROLES, STRICT, expand
 from .effects import PRIMITIVES, RESERVED, TARGET_SYMBOLS, references
 from .packs import ResolvedPack
@@ -314,6 +314,8 @@ def lint(pack: ResolvedPack) -> list[Finding]:
 
     for problem in tactics.lint_profile(pack):
         err("tactical-profile", problem)
+    for problem in turns.lint_turns(pack):
+        err("turn-structure", problem)
 
     # tool schemas generate under every preset ----------------------------
     for preset in ("strict", "standard"):

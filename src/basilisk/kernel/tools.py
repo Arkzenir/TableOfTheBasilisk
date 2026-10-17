@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import canon, spatial
+from . import canon, spatial, turns
 from .determinism import STANDARD, setting_for
 from .packs import ResolvedPack
 
@@ -83,6 +83,9 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
     if action_ids:
         tools["commit_action"] = commit
     tools["enumerate_actions"] = {}
+    order = turns.structure(pack).get("order")
+    if order != "spotlight":
+        tools["end_turn"] = {"next": ID} if order == "handoff" else {}  # handoff: who goes next
     backends = spatial.declared_backends(pack)
     zones, bands = "zone_graph" in backends, "range_bands" in backends
     if zones or bands:
@@ -124,6 +127,12 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
                 unmodelled["outcome"] = _enum(outcomes)
             tools["resolve_unmodelled"] = unmodelled
 
+        tools["start_encounter"] = {"participants": {"type": "array", "items": ID}}
+        if order == "handoff":
+            tools["start_encounter"]["first"] = ID
+        tools["end_encounter"] = {}
+        if order == "spotlight":
+            tools["next_round"] = {}
         tools["advance_clock"] = {"clock_id": ID, "amount": _enum([1, 2, 3])}
         tools["spawn_entity"] = {"entity_id": ID, "name": NARRATIVE}
         tools["set_scene"] = {"scene_id": ID}

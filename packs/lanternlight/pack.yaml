@@ -20,6 +20,8 @@ rules_text:
     Strikes are checked against the target's Guard (10 + Grace).
     Vigor is 8 + 2 x Might. At 0 Vigor you are Down until someone Rallies you.
     Fatigue has three boxes; filling it leaves you Exhausted until you Rest.
+    In a fight everyone rolls d20 + Grace once for turn order, highest first.
+    On your turn you have one action and one minor action (Recall is minor).
     Each character starts with 1 Luck (max 3); spend it to Inspire an ally.
 
 vocabulary:
@@ -88,6 +90,7 @@ actions:
       fail:
         - {primitive: mark_track, target: actor, track: fatigue, amount: 1}
   - id: recall
+    slot: minor
     trigger: declared
     stat: wits
     procedure: check
@@ -143,6 +146,16 @@ chargen:
         - {id: acolyte, label: Acolyte, stats: {heart: 2}}
         - {id: tinker, label: Tinker, stats: {wits: 1, grace: 1}}
     - {id: detail, kind: table, table: detail_table}
+
+# Encounter turns (§2.4): rolled initiative, typed slots per turn.
+turn_structure:
+  encounter:
+    order: initiative
+    initiative: {roll: "1d20 + {grace}"}
+    economy: slots
+    slots:
+      - {id: action, count: 1}
+      - {id: minor, count: 1}
 
 # Tactical profile (§1.4.2): weights for the kernel's generic features, plus this
 # game's own factors and annotation text. Order 1 categories reach mid mastery;

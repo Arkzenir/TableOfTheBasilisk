@@ -25,6 +25,11 @@ The code-level list of event types (`EVENT_TYPES` in `src/basilisk/kernel/engine
 | `canon_superseded` | folds | `supersede_canon` | `old, new` (sets `superseded_by` on `old`) |
 | `fact_revealed` | folds | `reveal` | `id, from` (sets `knowledge` to `revealed`) |
 | `visibility_set` | folds | `set_visibility` | `entity, visible_to` (sorted seat ids, or `null` to make the entity visible to every seat again); reset by the next `scene_set` |
+| `encounter_started` | folds | `start_encounter` | `order, economy, participants` (creates `state.encounter`) |
+| `round_started` | folds | `start_encounter`, `end_turn` at the end of a round, `next_round` | `round, sequence` (the round's order: initiative rolls or deck draws precede it as `roll_made`), `budgets` (spotlight: every participant's refreshed budget) |
+| `turn_started` | folds | `start_encounter`, `end_turn` | `round, index, actor` (entity id, or side `players` / `gm`), `budgets` (refreshed for whoever is in play) |
+| `economy_spent` | folds | `commit_action` during an encounter | `entity, key` (slot id or `points`), `amount, remaining` |
+| `encounter_ended` | folds | `end_encounter`; also `set_scene` and `end_session` while an encounter runs | `round` (removes `state.encounter`) |
 | `chargen_started` | passive | `create_character` | `agent, entity` |
 | `judgement_input` | passive | any model-chosen mechanical input | `seat, control, setting, choice, options` |
 | `procedure_resolved` | passive | resolution runner | `procedure, entity, scale, outcome, rank, ranks, total, difficulty, modifiers, roll_seq, direct` |

@@ -13,7 +13,7 @@ import copy
 from datetime import datetime, timezone
 from typing import Any, Callable, Iterable
 
-from . import KERNEL_VERSION, canon, dice, expr, spatial
+from . import KERNEL_VERSION, canon, dice, expr, spatial, turns
 from .canon import CanonCommands
 from .canonical import hash_obj
 from .command import EngineError, _suggest, atomic
@@ -26,6 +26,7 @@ from .resolution import ResolutionCommands
 from .rng import Randomizer
 from .spatial import SpatialCommands
 from .tactics import TacticalCommands
+from .turns import TurnCommands
 
 
 # ====================================================================== reducer
@@ -68,7 +69,7 @@ EVENT_TYPES = frozenset({
     "determinism_changed", "session_started", "session_ended", "scene_set", "roll_made",
     "effect_applied", "character_created", "entity_spawned", "clock_created",
     "action_committed", "gm_ruling_requested", "gm_ruling_filled",
-}) | canon.EVENT_TYPES | spatial.EVENT_TYPES | _PASSIVE
+}) | canon.EVENT_TYPES | spatial.EVENT_TYPES | turns.EVENT_TYPES | _PASSIVE
 
 
 def apply_event(state: dict, ev: dict) -> None:
@@ -116,6 +117,8 @@ def apply_event(state: dict, ev: dict) -> None:
         canon.apply_event(state, ev)
     elif t in spatial.EVENT_TYPES:
         spatial.apply_event(state, ev)
+    elif t in turns.EVENT_TYPES:
+        turns.apply_event(state, ev)
     elif t in _PASSIVE:
         pass
     else:
@@ -131,7 +134,8 @@ def fold(events: Iterable[dict], state: dict | None = None) -> dict:
 
 # ====================================================================== engine
 
-class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands, TacticalCommands):
+class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands, TacticalCommands,
+             TurnCommands):
     def __init__(self, pack: ResolvedPack, seed: str, store: EventStore | None = None,
                  campaign_id: str = "campaign", clock: Callable[[], str | None] | None = None):
         if pack.data["meta"].get("abstract"):
@@ -313,8 +317,13 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         self._boundary()
         return self._emit("session_started", {"number": self.state["session"] + 1}, actor=by or self.gm_seat)
 
+    def _close_encounter(self, by: str) -> None:
+        if self.state.get("encounter") is not None:  # an encounter never outlives its scene
+            self._emit("encounter_ended", {"round": self.state["encounter"]["round"]}, actor=by)
+
     @atomic
     def end_session(self, by: str | None = None) -> int:
+        self._close_encounter(by or self.gm_seat)
         self._expire({"scene", "session"})
         return self._emit("session_ended", {"number": self.state["session"]}, actor=by or self.gm_seat)
 
@@ -334,6 +343,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         spatial_scene = regions is not None or participants is not None
         layout = self._spatial_spec(regions, participants, ranges) if spatial_scene else None
         by = by or self.gm_seat
+        self._close_encounter(by)
         self._expire({"scene"})
         flags = {k: int(v) for k, v in (flags or {}).items()}
         index = self.state["scene"]["index"] + 1
@@ -510,6 +520,8 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
                 continue
             if a.get("trigger") == "fiction" and not self._eligible(a, ent, target):
                 continue
+            if self._turn_problem(entity_id, a) is not None:
+                continue
             out.append(a["id"])
         return out
 
@@ -543,6 +555,9 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
             raise EngineError(f"{action_id} takes no target")
         if not self._requires_ok(action, ent, target_ent):
             raise EngineError(f"{action_id}: requirements not met for {entity_id}")
+        problem = self._turn_problem(entity_id, action)
+        if problem:
+            raise EngineError(problem)
         options = self.available_actions(entity_id, target if target_kind == "entity" else None)
         eligible = self._eligible(action, ent, target_ent)
         trigger_mode = None
@@ -575,6 +590,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
             "trigger": action.get("trigger", "declared"), "eligible": eligible,
         }, actor=by)
         self._judge(by, "action_selection", trigger_mode, action_id, options, seq)
+        self._spend_turn_economy(entity_id, action, seq)
         if spend_mode:
             self._judge(by, "spend_amounts", spend_mode, amount, cost.get("amounts") or cost.get("range"), seq)
         if amount:

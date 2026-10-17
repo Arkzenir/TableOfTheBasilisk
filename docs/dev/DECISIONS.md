@@ -156,3 +156,25 @@ Template:
   - **Tool surface:** `place_entity` takes `position_id` (renamed from `region_id`; nothing dispatches tools yet). `set_scene` offers `regions` / `placements` and/or `participants` / `ranges` according to the pack's backends. Every other spatial tool is identical.
   - Zone scenes are unaffected: smoke and demo logs on the zone packs are byte-identical to the previous commit.
 - Consequences: P0.10 is complete. A pack that changes nothing but its backend list runs unchanged under either backend (tested with Lanternlight under RangeBands).
+
+## D-019 Turn controller: explicit encounters, budgets refresh on your own turn
+- Date: 2026-10-17 · Status: accepted (T0.6; §2.4, P0.4, §4.1). The docs list the orders and economies but not their mechanics.
+- Decision:
+  - **Encounters are explicit.** `start_encounter` (GM, in a scene set with `encounter=True`) begins one. `end_encounter`, `set_scene`, or `end_session` ends it, each emitting `encounter_ended`. `state["encounter"]` exists only while one runs, so older logs and scenes that never start one fold unchanged: no kernel bump. Free play is never gated.
+  - **Orders** (`turn_structure.encounter.order`):
+    - `initiative` rolls the pack's `initiative.roll` (dice with `{stat}` variables) once, or every round with `each_round`. Highest first; ties break by entity id.
+    - `sides` alternates `players` and `gm` (pack `first`), and any member of the side in play acts.
+    - `handoff` has the finisher name who goes next among those who have not gone; the last of a round names anyone but itself to open the next. The pick is a model choice, logged as `judgement_input` with control `turn_handoff`.
+    - `fixed` uses the GM's participant order every round.
+    - `deck` is a fresh seeded shuffle each round, drawn one card at a time as equal-weight `roll_made` draws. `tob verify --seed` re-derives these with no change. T0.8 decks can reuse the pattern.
+    - `spotlight` has no turns: `end_turn` is refused, and the GM's `next_round` refreshes budgets.
+  - **Economies:**
+    - `none`
+    - `slots: [{id, count}]`: an action uses its `slot`, or the first slot.
+    - `points: n`: an action costs its `points`, or 1. A cost of 0 is free.
+    - A budget refreshes when its owner's turn starts (for sides, every member's), so an off-turn `trigger: reaction` spends from what the owner's next turn restores. That is the common "one reaction per round" behaviour without a separate rule.
+  - **Enforcement in `commit_action`:** during an encounter, an entity must be a participant, and it must be its turn (or its side's) unless the action is a reaction. The budget must cover the cost. A refusal is atomic. `economy_spent` records the exact `remaining`, so replay never recomputes it. `available_actions`, and so the `judgement_input` options and the candidate generator, leave out what the turn or the budget forbids.
+  - **`current_turn()`** returns the order, the round, the actor (entity or side), the seats that may act (which the scheduler's Stage 1 needs for `own_turn_in_turn_order`), the budgets, and `up_next`. `up_next` wraps to the next round's opener unless the order reshuffles or rerolls.
+  - **Tools:** `end_turn` (with `next` under `handoff`) for every role unless the order is `spotlight`. For the GM: `start_encounter` (with `first` under `handoff`), `end_encounter`, and `next_round` under `spotlight`.
+  - NPC turns are taken by the GM seat, like any NPC action.
+- Consequences: Lanternlight now declares `initiative` (`1d20 + {grace}`) with `action` and `minor` slots (Recall is minor; its rules text says so). Tidewrack keeps `spotlight` / `none`. Smoke campaigns play encounter scenes turn by turn under each pack's structure. P0.4 is complete apart from the reserved `trigger_procedure` primitive.

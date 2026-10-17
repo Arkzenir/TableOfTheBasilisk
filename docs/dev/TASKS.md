@@ -61,7 +61,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Plan:** P0.10 · §1.4
 - **Acceptance:** same tool surface as ZoneGraph; the band set comes from the pack; `tidewrack` declares and uses it.
 
-### T0.6 Turn order and action economy — `ready`
+### T0.6 Turn order and action economy — `done`
 - **Plan:** P0.4 · §2.4
 - **Deliverables:** an encounter-mode turn controller with the strategies `spotlight`, `initiative`, `sides`, `handoff`, `fixed`, and `deck`, and the economies `none`, `slots`, and `points`, all selected by `turn_structure` in the pack. Expose `current_turn` for the scheduler's Stage 1 bid (§4.1).
 - **Acceptance:** each strategy cycles correctly through a scripted encounter, and the action economy is enforced atomically.

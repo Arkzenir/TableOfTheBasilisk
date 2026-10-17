@@ -164,6 +164,40 @@ def _play_turn(engine: Engine, actor: str, turn: int, report: RunReport, force: 
         engine.fill_ruling(slot, entries[turn % len(entries)])
 
 
+def _play_encounter(engine: Engine, players: list[str], turn: int, report: RunReport) -> int:
+    """One round of encounter mode under the pack's turn structure (§2.4):
+    whoever is in play acts until their budget or options run out, then the
+    turn passes. NPC turns pass without acting."""
+    info = engine.start_encounter()
+    participants = engine.state["encounter"]["participants"]
+    if info["order"] == "spotlight":
+        for p in players:
+            _play_turn(engine, p, turn, report)
+            turn += 1
+        engine.next_round()
+    else:
+        for _ in range(len(participants) if info["order"] != "sides" else 2):
+            current = engine.current_turn()
+            members = [current["actor"]] if current["kind"] == "entity" else \
+                [e for e in participants if engine.state["entities"][e]["controller"] in players]
+            for member in members:
+                if member in players:
+                    for _ in range(3):  # a few actions, bounded by the economy
+                        before = engine.store.head(engine.campaign_id)
+                        _play_turn(engine, member, turn, report)
+                        turn += 1
+                        if engine.store.head(engine.campaign_id) == before:
+                            break
+            nxt = None
+            if info["order"] == "handoff":
+                acted = engine.state["encounter"]["acted"]
+                waiting = [e for e in participants if e not in acted] or [e for e in participants if e != current["actor"]]
+                nxt = (waiting or [current["actor"]])[0]
+            engine.end_turn(next=nxt)
+    engine.end_encounter()
+    return turn
+
+
 def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
     smoke = script["smoke"]
     seats = script["config"]["seats"]
@@ -210,9 +244,12 @@ def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
                 engine.request_determinism_change(by="operator", role="gm", preset=flip)
                 report.settings_changes += 1
             open_scene(f"s{s + 1}_scene{sc + 1}", flags, encounter)
-            for p in players:
-                _play_turn(engine, p, turn, report)
-                turn += 1
+            if encounter:
+                turn = _play_encounter(engine, players, turn, report)
+            else:
+                for p in players:
+                    _play_turn(engine, p, turn, report)
+                    turn += 1
             engine.advance_clock("pressure", 1)
         engine.end_session()
 
@@ -256,6 +293,14 @@ def _run_steps(engine: Engine, steps: list[dict], report: RunReport) -> None:
                 engine.place_entity(step["entity"], step.get("position") or step["region"])
             elif do == "set_visibility":
                 engine.set_visibility(step["entity"], step.get("visible_to"))
+            elif do == "start_encounter":
+                engine.start_encounter(step.get("participants"), step.get("first"))
+            elif do == "end_turn":
+                engine.end_turn(step.get("by"), step.get("next"))
+            elif do == "next_round":
+                engine.next_round()
+            elif do == "end_encounter":
+                engine.end_encounter()
             elif do == "commit_action":
                 engine.commit_action(step["actor"], step["action"], target=step.get("target"),
                                      spend=step.get("spend"), gm=step.get("gm"))
