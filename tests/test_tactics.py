@@ -42,6 +42,19 @@ def diamond(pack, **placements):
     return eng
 
 
+def banded(pack, ranges=None):
+    """A range-band scene: everyone present; Ash close to Bram, near the foe."""
+    eng = table(pack)
+    pairs = ranges or [(("ash", "bram"), "close"), (("ash", "foe"), "near")]
+    eng.set_scene("x", encounter=True, participants=["ash", "bram", "foe", "imp"],
+                  ranges=[{"between": list(pair), "band": band} for pair, band in pairs])
+    return eng
+
+
+def scene_for(pack):
+    return diamond(pack) if "zone_graph" in spatial.declared_backends(pack) else banded(pack)
+
+
 def ids(cands):
     return [c["id"] for c in cands]
 
@@ -100,10 +113,11 @@ def test_pack_weights_rank_moves(lantern, tide):
     assert {"category": "footing", "text": "higher than where you stand"} in moves[1]["annotations"]
     acts = eng.enumerate_action_candidates("ash", 100)
     assert ids(acts)[:2] == ["strike@foe", "strike@imp"]  # factors: strike a threat first
-    tide_moves = {c["id"]: c for c in diamond(tide).enumerate_moves("ash", 100)}
-    # same kernel features, the pack's own words: Tidewrack talks about pressure, not footing
-    assert tide_moves["c"]["annotations"] == [{"category": "pressure", "text": "into the thick of it with foe"}]
-    assert tide_moves["b"]["annotations"] == []
+    tide_moves = {c["id"]: c for c in banded(tide).enumerate_moves("ash", 100)}
+    # same kernel features under another backend, in the pack's own words
+    assert ids(banded(tide).enumerate_moves("ash", 100))[0] == "close:foe"
+    assert tide_moves["close:foe"]["annotations"] == [{"category": "pressure", "text": "into the thick of it with foe"}]
+    assert "region_id" not in tide_moves["close:foe"] and tide_moves["close:foe"]["position_id"] == "close:foe"
 
 
 def test_zone_actions_describe_the_destination(lantern):
@@ -164,28 +178,39 @@ def _no_numbers(obj, path="$"):
 
 # ---------------------------------------------------------------- legality at volume
 
-def test_ten_thousand_enumerations_are_all_legal(lantern):
+def _zone_scene(eng, rng, n):
+    names = [f"z{i}" for i in range(rng.randint(2, 9))]
+    regions = [{"id": z, "adjacency": [o for o in names[i + 1:] if rng.random() < 0.35]} for i, z in enumerate(names)]
+    placements = {e: rng.choice(names) for e in ("ash", "bram", "foe", "imp")}
+    eng.set_scene(f"v{n}", encounter=bool(n % 2), regions=regions, placements=placements)
+
+
+def _band_scene(eng, rng, n):
+    bands = [b["id"] for b in eng.pack.get("spatial.bands")]
+    people = ["ash", "bram", "foe", "imp"]
+    ranges = [{"between": [a, b], "band": rng.choice(bands)} for i, a in enumerate(people) for b in people[i + 1:]]
+    eng.set_scene(f"v{n}", encounter=bool(n % 2), participants=people, ranges=ranges)
+
+
+@pytest.mark.parametrize("backend", ["zone_graph", "range_bands"])
+def test_ten_thousand_enumerations_are_all_legal(lantern, tide, backend):
     """Gate P0: zero illegal candidates across 10,000 enumerations, per backend."""
-    backends = spatial.BACKENDS
-    assert set(backends) == {"zone_graph"}  # extend this test as backends land (T0.5)
+    assert set(spatial.BACKENDS) == {"zone_graph", "range_bands"}  # add a case here as backends land
+    pack, build = (lantern, _zone_scene) if backend == "zone_graph" else (tide, _band_scene)
     rng = random.Random(7)
-    enumerations = 0
-    scene = 0
-    eng = table(lantern, "volume")
+    enumerations = scene = 0
+    eng = table(pack, "volume")
+    impl = spatial.BACKENDS[backend]
     while enumerations < 10_000:
         scene += 1
-        n = rng.randint(2, 9)
-        names = [f"z{i}" for i in range(n)]
-        regions = [{"id": z, "adjacency": [o for o in names[i + 1:] if rng.random() < 0.35]} for i, z in enumerate(names)]
-        placements = {e: rng.choice(names) for e in ("ash", "bram", "foe", "imp")}
-        eng.set_scene(f"v{scene}", encounter=bool(scene % 2), regions=regions, placements=placements)
+        build(eng, rng, scene)
         for e in ("foe", "imp"):
             if rng.random() < 0.3:
                 eng.set_visibility(e, [rng.choice(["ash", "bram"])])
         sp = eng.state["scene"]["spatial"]
         for actor in ("ash", "bram", "foe", "imp"):
-            here = eng.state["entities"][actor]["zone"]
             seer = eng.state["entities"][actor]["controller"]
+            among = {e for e in eng.state["entities"] if eng.visible(seer, e)}
             for m in (0, 20, 40, 60, 80, 100):
                 moves = eng.enumerate_moves(actor, m)
                 acts = eng.enumerate_action_candidates(actor, m)
@@ -194,12 +219,14 @@ def test_ten_thousand_enumerations_are_all_legal(lantern):
                 _no_numbers(acts)
                 assert len(moves) <= tactics.CANDIDATE_CAP and len(acts) <= tactics.CANDIDATE_CAP
                 for c in moves:
-                    spatial.BACKENDS["zone_graph"].check_move(sp, here, c["region_id"])  # raises if illegal
+                    impl.check_move(sp, eng.state["entities"], actor, c["position_id"], among)  # raises if illegal
+                    if ":" in c["position_id"]:  # never measured from someone the seat cannot see
+                        assert c["position_id"].split(":", 1)[1] in among
                 available = eng.available_actions(actor)
                 for c in acts:
                     assert c["action_id"] in available
                     if c["target"] is not None:
-                        kind = lantern.by_id("actions")[c["action_id"]]["target"]
+                        kind = pack.by_id("actions")[c["action_id"]]["target"]
                         if kind == "entity":
                             assert eng.visible(seer, c["target"]) and eng._in_scene(c["target"])
                         else:
@@ -210,9 +237,9 @@ def test_ten_thousand_enumerations_are_all_legal(lantern):
 def test_enumerated_actions_are_accepted_by_the_engine(lantern, tide):
     """Commit a sample of candidates for real: the engine must accept every one."""
     for pack in (lantern, tide):
-        count = len(diamond(pack).enumerate_action_candidates("ash", 100))
+        count = len(scene_for(pack).enumerate_action_candidates("ash", 100))
         for i in range(count):
-            eng = diamond(pack)  # a fresh table per candidate: each one is legal on this state
+            eng = scene_for(pack)  # a fresh table per candidate: each one is legal on this state
             cand = eng.enumerate_action_candidates("ash", 100)[i]
             action = pack.by_id("actions")[cand["action_id"]]
             gm = {"difficulty": "easy"} if "ladder" in (action.get("difficulty") or {}) else {}

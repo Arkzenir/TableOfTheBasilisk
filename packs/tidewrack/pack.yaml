@@ -148,9 +148,14 @@ chargen:
         - {id: lamplighter, label: Lamplighter, stats: {iron: 0, tide: -1, salt: 2, ember: 1}}
     - {id: detail, kind: table, table: detail_table}
 
-# Tactical profile (§1.4.2). Tidewrack talks about pressure and the odds, not
-# geometry; its range bands arrive with RangeBands (T0.5).
+# Tidewrack has no maps: distance is a band between two people, closest first
+# (RangeBands, §1.4). The tactical profile talks about pressure and the odds.
 spatial:
+  backends: [range_bands]
+  bands:
+    - {id: close, label: Close}
+    - {id: near, label: Near}
+    - {id: far, label: Far}
   tactical_profile:
     categories:
       - {id: pressure, order: 1}

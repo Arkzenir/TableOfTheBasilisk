@@ -133,45 +133,48 @@ class TacticalCommands:
         return [e for e in sorted(self.state["entities"])
                 if e != actor_id and self.visible(observer, e) and (spatial is None or self._in_scene(e))]
 
-    def _region_view(self, region_id: str | None) -> dict:
+    def _region_view(self, actor_id: str, at: str | None) -> dict:
+        """The region an entity stands in (or would stand in at `at`), for
+        expressions: elevation, terrain, cover. Neutral where a backend has no regions."""
         spatial = self._spatial()
-        region = next((r for r in (spatial or {}).get("regions", []) if r["id"] == region_id), None)
+        region = self._backend(spatial).region(spatial, self.state["entities"], actor_id, at) if spatial else None
         if region is None:
-            return expr.Lenient()
+            return expr.Lenient({"elevation": 0, "terrain": expr.Lenient(), "cover": expr.Lenient()})
         return expr.Lenient({"elevation": region["elevation"],
                              "terrain": expr.Lenient({region["terrain"]: 1} if region["terrain"] else {}),
                              "cover": expr.Lenient({region["cover"]: 1} if region["cover"] else {})})
 
     def _features(self, actor_id: str, origin: str | None, focus: str | None,
                   target_id: str | None = None) -> tuple[dict, dict]:
-        """Kernel features for the actor at `focus` (the region a move or action
-        leads to), measured from `origin` (where it stands), plus the ids behind
-        the counts for template text. Only entities the seat can see count."""
+        """Kernel features for the actor at position `focus` (where a move or
+        action leads), measured against position `origin` (where it stands);
+        None means its current position. Also returns the ids behind the counts,
+        for template text. Only entities the seat can see count."""
         ent = self.state["entities"][actor_id]
         observer, side = self._observer(actor_id), self._side(ent)
-        others = [self.state["entities"][e] for e in self._seen(observer, actor_id)]
-        threats = [o for o in others if self._side(o) != side]
-        allies = [o for o in others if self._side(o) == side]
-        near = set(self.reachable_from(focus)) if focus else set()
+        seen = self._seen(observer, actor_id)
+        threats = [e for e in seen if self._side(self.state["entities"][e]) != side]
+        allies = [e for e in seen if self._side(self.state["entities"][e]) == side]
+        s_from, s_to = self.steps_from(actor_id, origin), self.steps_from(actor_id, focus)
 
-        def at(group, places):
-            return [o["id"] for o in group if o.get("zone") in places]
+        def within(group, steps, n):
+            return [e for e in group if steps.get(e) == n]
 
-        def nearest(frm):
-            steps = [self.distance(frm, t["zone"]) for t in threats if frm and t.get("zone")]
-            steps = [s for s in steps if s is not None]
-            return min(steps) if steps else None
+        def nearest(steps):
+            found = [steps[t] for t in threats if t in steps]
+            return min(found) if found else None
 
-        names = {"threats_here": at(threats, {focus}), "allies_here": at(allies, {focus})}
-        d_from, d_to = nearest(origin), nearest(focus)
+        names = {"threats_here": within(threats, s_to, 0), "allies_here": within(allies, s_to, 0)}
+        d_from, d_to = nearest(s_from), nearest(s_to)
         target = self.state["entities"].get(target_id) if target_id else None
         feats = {
             "threats_here": len(names["threats_here"]),
-            "threats_adjacent": len(at(threats, near)),
+            "threats_adjacent": len(within(threats, s_to, 1)),
             "allies_here": len(names["allies_here"]),
-            "allies_adjacent": len(at(allies, near)),
+            "allies_adjacent": len(within(allies, s_to, 1)),
             "closer": (d_from - d_to) if d_from is not None and d_to is not None else 0,
-            "elevation_change": self._region_view(focus)["elevation"] - self._region_view(origin)["elevation"],
+            "elevation_change": self._region_view(actor_id, focus)["elevation"]
+                                - self._region_view(actor_id, origin)["elevation"],
             "target_threat": int(target is not None and self._side(target) != side),
             "target_ally": int(target is not None and self._side(target) == side),
         }
@@ -182,8 +185,8 @@ class TacticalCommands:
         feats, names = self._features(actor_id, origin, focus, target_id)
         ent = self.state["entities"][actor_id]
         target = self.state["entities"].get(target_id) if target_id else None
-        ctx = self._ctx(ent, target, {**feats, "region": self._region_view(focus),
-                                      "here": self._region_view(origin)})
+        ctx = self._ctx(ent, target, {**feats, "region": self._region_view(actor_id, focus),
+                                      "here": self._region_view(actor_id, origin)})
         if target is None:  # templates may read target.conditions.* or target.tags.*: no target reads as 0
             ctx["target"] = expr.Lenient({"conditions": expr.Lenient(), "tags": expr.Lenient()})
         return ctx, feats, names
@@ -226,49 +229,52 @@ class TacticalCommands:
 
     # ------------------------------------------------------------ queries
 
-    def reachable_from(self, region_id: str | None) -> list[str]:
+    def _label(self, position: str) -> str:
         spatial = self._spatial()
-        if spatial is None or region_id is None:
-            return []
-        return self._backend(spatial).neighbours(spatial, region_id)
+        return self._backend(spatial).label(spatial, self.state["entities"], position) if spatial else position
 
     def enumerate_moves(self, entity_id: str, mastery: int) -> list[dict]:
         """Ranked, tiered move candidates for an entity (§1.4.2). Empty outside a
-        spatial scene or when the entity is not placed in it."""
+        spatial scene or when the entity is not placed in it. The same shape
+        under every backend; zone scenes also name the region."""
         self._entity(entity_id)
         tier, count = tier_of(mastery)
         if not self._in_scene(entity_id):
             return []
-        regions = {r["id"]: r for r in self._spatial()["regions"]}
-        here = self.state["entities"][entity_id]["zone"]
+        zone = self._spatial()["mode"] == "zone"
         ranked = []
-        for rid in self.reachable(entity_id):
-            ctx, feats, names = self._ctx_for(entity_id, here, rid, None)
-            fill = self._fill(names, rid, regions[rid]["label"])
-            ranked.append((-self._score("move", ctx, feats), rid, ctx, fill))
+        for pos in self.reachable(entity_id):
+            ctx, feats, names = self._ctx_for(entity_id, None, pos, None)
+            fill = self._fill(names, pos, self._label(pos))
+            ranked.append((-self._score("move", ctx, feats), pos, ctx, fill))
         ranked.sort(key=lambda r: (r[0], r[1]))
-        return [{"id": rid, "region_id": rid, "label": regions[rid]["label"],
-                 "annotations": self._annotations("move", ctx, fill, tier)}
-                for _, rid, ctx, fill in ranked[:count]]
+        out = []
+        for _, pos, ctx, fill in ranked[:count]:
+            cand = {"id": pos, "position_id": pos, "label": fill["label"],
+                    "annotations": self._annotations("move", ctx, fill, tier)}
+            if zone:
+                cand["region_id"] = pos
+            out.append(cand)
+        return out
 
     def _action_targets(self, entity_id: str, action: dict, position: str | None) -> list[str | None]:
         kind = action.get("target", "none")
         if kind == "entity":
             return self._seen(self._observer(entity_id), entity_id)
         if kind == "zone":
-            return self.reachable_from(position) if self._spatial() is not None else []
+            return self.reachable(entity_id, at=position) if self._spatial() is not None else []
         return [None]
 
     def enumerate_action_candidates(self, entity_id: str, mastery: int, position_id: str | None = None) -> list[dict]:
         """Ranked, tiered action candidates (§7.1 `enumerate_actions`), each an
         (action, target) pair the engine would accept. `position_id` asks what
-        would be available from a reachable region instead of the current one."""
+        would be available from a position one move away instead."""
         ent = self._entity(entity_id)
         tier, count = tier_of(mastery)
-        here = ent.get("zone") if self._in_scene(entity_id) else None
-        position = here
-        if position_id is not None:
-            if position_id != here and position_id not in self.reachable(entity_id):
+        here = self.position_of(entity_id)
+        position = None
+        if position_id is not None and position_id != here:
+            if position_id not in self.reachable(entity_id):
                 raise EngineError(_suggest("position", position_id, ([here] if here else []) + self.reachable(entity_id)))
             position = position_id
         order = {a["id"]: i for i, a in enumerate(self.pack.catalogue("actions"))}
@@ -284,7 +290,7 @@ class TacticalCommands:
                     continue
                 focus = tid if action.get("target") == "zone" else position
                 ctx, feats, names = self._ctx_for(entity_id, position, focus, tid if target_ent else None)
-                fill = self._fill(names, focus, action=aid, target=tid)
+                fill = self._fill(names, focus or here, action=aid, target=tid)
                 ranked.append((-self._score("action", ctx, feats, aid), order[aid], tid or "", aid, tid, ctx, fill))
         ranked.sort(key=lambda r: r[:3])
         out = []
@@ -304,8 +310,7 @@ class TacticalCommands:
             raise EngineError(_suggest("action", action_id, actions))
         action = actions[action_id]
         tier, _ = tier_of(mastery)
-        position = ent.get("zone") if self._in_scene(entity_id) else None
-        targets = self._action_targets(entity_id, action, position)
+        targets = self._action_targets(entity_id, action, None)
         if target is not None and target not in targets:
             raise EngineError(_suggest("target", target, [t for t in targets if t]))
         spec = action.get("difficulty")
@@ -317,9 +322,9 @@ class TacticalCommands:
         else:
             difficulty = None
         target_ent = self.state["entities"].get(target) if action.get("target") == "entity" and target else None
-        focus = target if action.get("target") == "zone" and target else position
-        ctx, _, names = self._ctx_for(entity_id, position, focus, target if target_ent else None)
-        fill = self._fill(names, focus, action=action_id, target=target)
+        focus = target if action.get("target") == "zone" and target else None
+        ctx, _, names = self._ctx_for(entity_id, None, focus, target if target_ent else None)
+        fill = self._fill(names, focus or self.position_of(entity_id), action=action_id, target=target)
         return {
             "action_id": action_id,
             "available": action_id in self.available_actions(entity_id),

@@ -83,8 +83,9 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
     if action_ids:
         tools["commit_action"] = commit
     tools["enumerate_actions"] = {}
-    zones = "zone_graph" in spatial.declared_backends(pack)
-    if zones:
+    backends = spatial.declared_backends(pack)
+    zones, bands = "zone_graph" in backends, "range_bands" in backends
+    if zones or bands:
         tools["look"] = {}  # the caller's own view of the scene: regions and visible tokens (§7.1, §8.2)
         # Tactical tools (§1.4.2, §7.1). Results are tiered by the seat's rules_mastery,
         # which the dispatcher supplies from campaign traits; it is never a model argument.
@@ -129,7 +130,14 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
         if zones:
             tools["set_scene"]["regions"] = _region_schema(pack)
             tools["set_scene"]["placements"] = {"type": "array", "items": {"entity_id": ID, "region_id": ID}}
-            tools["place_entity"] = {"entity_id": ID, "region_id": ID}
+        if bands:
+            band_ids = [b["id"] for b in spatial.values(pack, "bands")]
+            tools["set_scene"]["participants"] = {"type": "array", "items": ID, "maxItems": spatial.MAX_PARTICIPANTS}
+            tools["set_scene"]["ranges"] = {"type": "array", "items": {
+                "between": {"type": "array", "items": ID, "maxItems": 2}, "band": _enum(band_ids)}}
+        if zones or bands:
+            # a position is a region id, or band:entity in a band scene (§1.4)
+            tools["place_entity"] = {"entity_id": ID, "position_id": ID}
             tools["set_visibility"] = {"entity_id": ID, "visible_to": {"type": "array", "items": ID}}
         ids = {"type": "array", "items": ID}
         tools["write_canon"] = {

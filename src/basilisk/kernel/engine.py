@@ -320,14 +320,19 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
 
     @atomic
     def set_scene(self, scene_id: str, flags: dict | None = None, encounter: bool = False, by: str | None = None,
-                  regions: list[dict] | None = None, placements: dict[str, str] | None = None) -> int:
-        """Open a scene (§8.2). With `regions` the scene is spatial (§1.4) and
-        `placements` puts entities in its regions."""
+                  regions: list[dict] | None = None, placements: dict[str, str] | None = None,
+                  participants: list[str] | None = None, ranges: list[dict] | None = None) -> int:
+        """Open a scene (§8.2). With `regions` it is a zone scene and `placements`
+        puts entities in its regions; with `participants` it is a range-band scene
+        and `ranges` sets bands between pairs (§1.4)."""
         if not self.state["session"]:
             raise EngineError("start a session before setting a scene")
         if placements and regions is None:
             raise EngineError("placements need regions: a scene without regions has no positions")
-        layout = self._spatial_spec(regions) if regions is not None else None
+        if ranges and participants is None:
+            raise EngineError("ranges need participants: a band scene measures between its participants")
+        spatial_scene = regions is not None or participants is not None
+        layout = self._spatial_spec(regions, participants, ranges) if spatial_scene else None
         by = by or self.gm_seat
         self._expire({"scene"})
         flags = {k: int(v) for k, v in (flags or {}).items()}
@@ -446,10 +451,13 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         if entity_id in self.state["entities"]:
             raise EngineError(f"entity {entity_id!r} already exists")
         if zone is not None:
-            self._check_region(zone)
+            self._check_position(zone)
+        relative = zone is not None and (self._spatial() or {}).get("mode") == "bands"
         ent = self._new_entity(entity_id, name, "npc", "gm", stats or {})
-        ent["zone"] = zone
+        ent["zone"] = None if relative else zone
         self._emit("entity_spawned", {"entity": ent}, actor=by)
+        if relative:  # a band position is relative to others: join the scene there
+            self._place(entity_id, zone, by)
         return entity_id
 
     @atomic
@@ -530,7 +538,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         elif target_kind == "zone":
             if not target:
                 raise EngineError(f"{action_id} needs a target zone")
-            self._check_region(target)
+            self._check_position(target, observer=by)
         elif target:
             raise EngineError(f"{action_id} takes no target")
         if not self._requires_ok(action, ent, target_ent):

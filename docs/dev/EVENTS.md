@@ -12,9 +12,9 @@ The code-level list of event types (`EVENT_TYPES` in `src/basilisk/kernel/engine
 | `determinism_changed` | folds | scene or session boundary | `from, to, request_seq, scene_index` |
 | `session_started` | folds | `start_session` | `number` |
 | `session_ended` | folds | `end_session` | `number` |
-| `scene_set` | folds | `set_scene` | `scene_id, index, flags, encounter`, plus `spatial{mode, regions[{id, label, adjacency, terrain, elevation, cover}]}` only for a spatial scene (adjacency normalised: undirected, sorted) |
+| `scene_set` | folds | `set_scene` | `scene_id, index, flags, encounter`, plus `spatial` only for a spatial scene: `{mode: zone, regions[{id, label, adjacency, terrain, elevation, cover}]}` (adjacency normalised: undirected, sorted) or `{mode: bands, bands, participants, ranges{"a\|b": band}}` (every pair present; unset pairs start at the furthest band) |
 | `roll_made` | folds | any roll or weighted draw | `counter, purpose, expression, total, groups, variables` (+ `weights` for draws) |
-| `effect_applied` | folds | every effect primitive; also condition expiry (`params.reason: duration`) and GM placement (`move`, `params.reason: placement`) | `primitive, target, params, changes[{path, value \| delete}]` |
+| `effect_applied` | folds | every effect primitive; also condition expiry (`params.reason: duration`) and GM placement (`move`, `params.reason: placement`). A `move` in a band scene changes `scene.spatial.ranges` (and, for a newcomer, `participants`) instead of the entity's `zone` | `primitive, target, params, changes[{path, value \| delete}]` |
 | `character_created` | folds | `create_character` | `entity, unique_choices, choices` |
 | `entity_spawned` | folds | `spawn_entity` | `entity` |
 | `clock_created` | folds | `create_clock` | `clock_id, label, total, visible` |

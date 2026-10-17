@@ -57,7 +57,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
   - The candidate cap of 12 holds.
   - No coordinates appear in any output.
 
-### T0.5 Spatial: RangeBands — `ready`
+### T0.5 Spatial: RangeBands — `done`
 - **Plan:** P0.10 · §1.4
 - **Acceptance:** same tool surface as ZoneGraph; the band set comes from the pack; `tidewrack` declares and uses it.
 

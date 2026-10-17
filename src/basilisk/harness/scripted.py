@@ -180,14 +180,20 @@ def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
         engine.spawn_entity(npc_id, name)
     engine.create_clock("pressure", "Something is coming", 6, visible=False)
 
-    zones = "zone_graph" in declared_backends(engine.pack)
+    backends = declared_backends(engine.pack)
     placements = {**{p: "zone_1" for p in players}, "npc_warden": "zone_0", "npc_shade": "zone_2"}
 
     def open_scene(scene_id: str, flags: dict, encounter: bool) -> None:
-        if not zones:
+        if "zone_graph" in backends:
+            engine.set_scene(scene_id, flags=flags, encounter=encounter, regions=SMOKE_REGIONS, placements=placements)
+        elif "range_bands" in backends:
+            bands = [b["id"] for b in engine.pack.get("spatial.bands")]
+            everyone = sorted(engine.state["entities"])
+            ranges = [{"between": [p, "npc_warden"], "band": bands[0]} for p in players[:1]]
+            engine.set_scene(scene_id, flags=flags, encounter=encounter, participants=everyone, ranges=ranges)
+        else:
             engine.set_scene(scene_id, flags=flags, encounter=encounter)
             return
-        engine.set_scene(scene_id, flags=flags, encounter=encounter, regions=SMOKE_REGIONS, placements=placements)
         if encounter and players:
             # one seat loses sight of the shade: per-observer visibility (§8.2)
             engine.set_visibility("npc_shade", [p for p in players if p != players[0]])
@@ -244,9 +250,10 @@ def _run_steps(engine: Engine, steps: list[dict], report: RunReport) -> None:
                 engine.end_session()
             elif do == "set_scene":
                 engine.set_scene(step["scene"], step.get("flags"), step.get("encounter", False),
-                                 regions=step.get("regions"), placements=step.get("placements"))
+                                 regions=step.get("regions"), placements=step.get("placements"),
+                                 participants=step.get("participants"), ranges=step.get("ranges"))
             elif do == "place_entity":
-                engine.place_entity(step["entity"], step["region"])
+                engine.place_entity(step["entity"], step.get("position") or step["region"])
             elif do == "set_visibility":
                 engine.set_visibility(step["entity"], step.get("visible_to"))
             elif do == "commit_action":

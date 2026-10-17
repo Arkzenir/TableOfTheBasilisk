@@ -149,7 +149,7 @@ class EffectCommands:
                 raise EngineError("move: no destination")
             self._check_move(target_id, to)
             params["to"] = to
-            changes.append({"path": ["entities", target_id, "zone"], "value": to})
+            changes += self._move_changes(target_id, to)
         elif prim in ("create_item", "destroy_item"):
             target_id = resolve_target()
             inv = list(self.state["entities"][target_id]["inventory"])

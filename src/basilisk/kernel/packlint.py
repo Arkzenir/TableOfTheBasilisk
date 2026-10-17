@@ -298,9 +298,15 @@ def lint(pack: ResolvedPack) -> list[Finding]:
         err("spatial", "spatial must be a mapping with backends, or none")
     for backend in spatial.declared_backends(pack):
         if backend not in spatial.BACKENDS:
-            planned = " (planned, not built yet)" if backend in ("range_bands", "square_grid") else ""
+            planned = " (planned for v2, §11.4)" if backend == "square_grid" else ""
             err("spatial", f"unknown backend {backend!r}{planned}; available: {', '.join(spatial.BACKENDS)}")
-    for key in ("terrain", "cover"):
+    bands = spatial.values(pack, "bands")
+    if "range_bands" in spatial.declared_backends(pack) and len(bands) < 2:
+        err("spatial", "range_bands needs spatial.bands: at least two bands, closest first")
+    for b in bands:
+        if not isinstance(b, dict) or not spatial.ID_RE.match(str(b.get("id", ""))) or not b.get("label"):
+            err("spatial", f"band {b!r}: needs a lowercase id and a label")
+    for key in ("terrain", "cover", "bands"):
         ids = [v.get("id") for v in spatial.values(pack, key)]
         dupes = {i for i in ids if ids.count(i) > 1}
         if dupes:
