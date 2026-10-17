@@ -248,6 +248,8 @@ def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
                 engine.request_determinism_change(by="operator", role="gm", preset=flip)
                 report.settings_changes += 1
             open_scene(f"s{s + 1}_scene{sc + 1}", flags, encounter)
+            action_ids = sorted(engine.pack.by_id("actions"))  # a player looks a rule up (§2.11)
+            engine.query_rules(players[sc % len(players)], action_ids[(s + sc) % len(action_ids)])
             if encounter:
                 turn = _play_encounter(engine, players, turn, report)
             else:
@@ -310,6 +312,8 @@ def _run_steps(engine: Engine, steps: list[dict], report: RunReport) -> None:
                 engine.next_round()
             elif do == "end_encounter":
                 engine.end_encounter()
+            elif do == "query_rules":
+                engine.query_rules(step.get("seat", "gm"), step["query"])
             elif do == "peek_roll":
                 engine.peek_roll(step["decision"])
             elif do == "draw_card":

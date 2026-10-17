@@ -132,7 +132,7 @@ tob sim --smoke my_game --cards
 Merge rules: maps deep-merge; catalogues (lists of entries with `id`) merge by
 id; nothing is removed unless listed under `remove:`. Every action, procedure,
 condition, currency, and situational tag needs a rule card in
-`presentation.rule_cards`. See `packs/lanternlight_house` for a data-only
+`presentation.rule_cards`. See `packs/lanternlight_sectioned` for sectioned rules text, and `packs/lanternlight_house` for a data-only
 derived pack and `packs/tidewrack` for fiction-triggered moves with
 consequence tables.
 

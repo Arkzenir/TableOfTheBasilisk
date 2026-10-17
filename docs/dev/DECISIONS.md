@@ -243,3 +243,11 @@ Template:
   - **Context:** `rules_layer()` returns layer 2 (§6.1): the inline text, or the digest. The context assembler (P1.3) uses it.
   - Tool `query_rules {query}` (narrative text) for every role.
 - Consequences: T0.15 (a shipped, data-only sectioned variant pack) is unblocked. The tests build a sectioned Lanternlight on the fly; T0.15 turns that into a pack under `packs/` that runs in every gate.
+
+## D-025 The sectioned fixture pack, and what "the same event stream" means
+- Date: 2026-10-18 · Status: accepted (T0.15; P0.6, P0.13, §2.8, §2.11).
+- Decision:
+  - `packs/lanternlight_sectioned` extends `lanternlight` and sets only `rules_text`: `mode: sectioned`, an empty `full_text`, a digest, `max_section_tokens: 200`, and 12 sections. They are Lanternlight's text, split, with `actions` as a parent for the six action sections. Its refs cover every action, procedure, and condition, plus stats, resources, the ladder, and tags. No kernel change was needed.
+  - **Stream parity:** its smoke campaign matches Lanternlight's event for event (seq, type, actor, cause, session, scene, payload), except for (a) pack identity in `campaign_started` (`campaign_id`, `pack_id`, `pack_hash`) and (b) the answer half of `rules_queried` (`via`, `sections`, `suggestions`). The lookup itself (`seat`, `query`) matches. A lookup is passive and never changes state, which is why the streams can match.
+  - Smoke campaigns now make one deterministic `query_rules` per scene (a player asks about an action id), so every gate exercises rule lookups. On inline packs these return the "already in context" note, and on the sectioned pack they resolve by ref. Scenario step `query_rules` was added.
+- Consequences: P0.13 is complete. The gate runs four playable packs (two families, two data-only derivatives).

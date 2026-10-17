@@ -1,0 +1,117 @@
+# Lanternlight with sectioned rules text, built as data only (BUILD_PLAN P0.6,
+# P0.13). It changes nothing but rules_text: the same game, but agents carry a
+# digest and look the rest up with query_rules (ARCHITECTURE §2.11). Its
+# campaigns must match Lanternlight's event for event, apart from rules lookups.
+meta:
+  id: lanternlight_sectioned
+  version: 0.1.0
+  extends: lanternlight@0.1.0
+  name: Lanternlight, sectioned (demo)
+  license: CC0-1.0
+  attribution_text: "Sectioned rules text for Lanternlight (CC0)."
+  kernel_compat: ">=0.1,<0.2"
+
+rules_text:
+  mode: sectioned
+  full_text: ""
+  max_section_tokens: 200
+  digest: |
+    LANTERNLIGHT (demo), digest. Four stats, -1 to +3: Might, Grace, Wits, Heart.
+    Most things are a Check: d20 + stat + modifiers against a difficulty.
+    Vigor, Fatigue, Luck, and turn order each have a section; ask query_rules
+    with an action, condition, or topic for the full rule.
+  sections:
+    - id: basics
+      title: Characters and stats
+      aliases: [stats, the four stats]
+      body: |
+        Characters have four stats from -1 to +3: Might, Grace, Wits, Heart.
+      refs: [might, grace, wits, heart]
+
+    - id: checks
+      title: Checks
+      aliases: [rolling dice, difficulty]
+      body: |
+        To act under pressure, roll a Check: d20 + stat + modifiers, meeting or
+        beating the difficulty the GM sets (Easy 8, Moderate 12, Hard 15, Extreme 18).
+        Some actions succeed automatically and need no roll.
+      refs: [check, automatic, ladder, aided, rushed, dim_light]
+
+    - id: harm
+      title: Vigor and Fatigue
+      aliases: [harm, damage taken, getting hurt]
+      body: |
+        Vigor is 8 + 2 x Might. Fatigue has three boxes.
+      refs: [vigor, fatigue]
+
+    - id: conditions
+      title: Conditions
+      aliases: [status effects]
+      body: |
+        At 0 Vigor you are Down until someone Rallies you. Filling Fatigue
+        leaves you Exhausted until you Rest. A failed Strike leaves you Shaken
+        until the scene ends.
+      refs: [down, exhausted, shaken]
+
+    - id: actions
+      title: Actions
+      aliases: [what you can do]
+      body: |
+        Each action below names its stat and what happens on a pass or a fail.
+
+    - id: action_strike
+      parent: actions
+      title: Strike
+      aliases: [attacking, attack a foe]
+      body: |
+        Strikes are checked with Might against the target's Guard (10 + Grace).
+        On a hit the target loses 1d6 Vigor; on a miss you are Shaken.
+      refs: [strike, guard]
+
+    - id: action_climb
+      parent: actions
+      title: Climb
+      aliases: [climbing, moving]
+      body: |
+        Climb with Grace to reach another place. On a fail, mark Fatigue.
+      refs: [climb]
+
+    - id: action_recall
+      parent: actions
+      title: Recall
+      aliases: [remembering]
+      body: |
+        Recall with Wits. On a pass, gain 1 Luck. In a fight it is a minor action.
+      refs: [recall]
+
+    - id: action_rally
+      parent: actions
+      title: Rally
+      aliases: [helping a friend up]
+      body: |
+        Rally an ally with Heart: they are no longer Down and regain 1d4 + 1 Vigor.
+        On a fail, mark Fatigue.
+      refs: [rally]
+
+    - id: action_rest
+      parent: actions
+      title: Rest
+      aliases: [resting, recovering]
+      body: |
+        Out of a fight, Rest to clear Fatigue and stop being Exhausted.
+      refs: [rest]
+
+    - id: action_inspire
+      parent: actions
+      title: Inspire
+      aliases: [spending luck on an ally]
+      body: |
+        Spend 1 or 2 Luck to give an ally twice that much Vigor.
+      refs: [inspire, luck]
+
+    - id: fights
+      title: Fights
+      aliases: [turn order, initiative, combat]
+      body: |
+        In a fight everyone rolls d20 + Grace once for turn order, highest first.
+        On your turn you have one action and one minor action (Recall is minor).

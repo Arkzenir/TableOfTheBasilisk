@@ -115,7 +115,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Rules:** no section taxonomy in the kernel and no system-specific names; sections are opaque text. Keep the noun lint clean.
 - **Acceptance:** BUILD_PLAN P0.13's test, plus one defect of each new lint class caught with a message naming the valid options.
 
-### T0.15 Sectioned fixture variant — `ready`
+### T0.15 Sectioned fixture variant — `done`
 - **Plan:** P0.6 · §2.8, §2.11
 - **Deliverables:** a data-only derived pack (e.g. `lanternlight.sectioned`) that extends `lanternlight`, switches `rules_text` to sectioned with a digest, and changes nothing else.
 - **Acceptance:** it passes conformance with zero kernel changes. Its scripted campaign matches its parent's event stream apart from rules-lookup events. `query_rules` reaches every section by ID and alias.
