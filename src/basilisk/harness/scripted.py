@@ -212,7 +212,11 @@ def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
         engine.create_character(p, NAMES.get(p, p), choices)
     for npc_id, name in NPCS:
         engine.spawn_entity(npc_id, name)
-    engine.create_clock("pressure", "Something is coming", 6, visible=False)
+    engine.create_clock("pressure", "Something is coming", 6, visible=False, schedule={"every": 1, "amount": 1},
+                        stages=[{"at": 3, "record": {"type": "event", "name": "The lights go out on the quay",
+                                                     "body": "Something has reached the harbour.", "knowledge": "revealed"}},
+                                {"at": 6, "record": {"type": "event", "name": "The thing arrives",
+                                                     "body": "What was coming is here.", "knowledge": "revealed"}}])
 
     backends = declared_backends(engine.pack)
     placements = {**{p: "zone_1" for p in players}, "npc_warden": "zone_0", "npc_shade": "zone_2"}
@@ -280,7 +284,10 @@ def _run_steps(engine: Engine, steps: list[dict], report: RunReport) -> None:
             elif do == "spawn_entity":
                 engine.spawn_entity(step["entity"], step.get("name", step["entity"]), step.get("stats"), step.get("zone"))
             elif do == "create_clock":
-                engine.create_clock(step["clock"], step.get("label", step["clock"]), step["total"], step.get("visible", True))
+                engine.create_clock(step["clock"], step.get("label", step["clock"]), step["total"], step.get("visible", True),
+                                    schedule=step.get("schedule"), stages=step.get("stages"))
+            elif do == "pause_clock":
+                engine.pause_clock(step["clock"], step.get("paused", True))
             elif do == "advance_clock":
                 engine.advance_clock(step["clock"], step.get("amount", 1))
             elif do == "start_session":

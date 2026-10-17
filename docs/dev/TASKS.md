@@ -96,7 +96,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
   - `TOB_UPDATE_GOLDEN=1` regenerates fixtures deliberately.
 - **Acceptance:** the tests run within `tob check`'s time budget (`docs/dev/TESTING.md`).
 
-### T0.11 Off-air clock advancement — `ready`
+### T0.11 Off-air clock advancement — `done`
 - **Plan:** P0.11 · §7.6.2 axiom 15
 - **Acceptance:** clocks advance on schedule between sessions and emit canon (needs T0.2) for each world change.
 

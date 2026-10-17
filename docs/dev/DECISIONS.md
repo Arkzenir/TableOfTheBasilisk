@@ -213,3 +213,13 @@ Template:
   - **Who sees what:** `read_sheet(seat)` returns the seat's own entity (it must name one if it controls several). Another entity's full sheet "does not exist" for a player, and the error points to `read_party_sheets`. The GM reads any sheet in full. `read_party_sheets(seat)` returns other PCs in summary for a player, and every PC in full for the GM.
   - Pure reads; no events.
 - Consequences: Lanternlight shows Vigor (nameplate) and Guard publicly; Tidewrack shows Grit and Harm. Tools: `read_sheet` (GM: `entity_id`) and `read_party_sheets` for every role. P0.8 is complete.
+
+## D-023 Off-air clocks: per-clock schedules at session start; stages are prepped canon
+- Date: 2026-10-18 · Status: accepted (T0.11; §7.6.1, §7.6.2 axiom 15, P0.11). The docs say clocks advance off-air "per its own schedule" and that resulting world changes are written as canon before play resumes.
+- Decision:
+  - **Schedule:** `create_clock(..., schedule={every, amount})` advances `amount` (1 to 3) segments once every `every` (1 to 12) gaps between sessions. A gap is passed at `start_session`, before `session_started`, so the canon exists before play resumes. A clock made during session *n* first advances at the start of *n + 1*. Prep, before session 1, has no gap, so the first advance is at the start of session 2. Each advance is a normal `advance_clock` effect with `reason: off_air`. A full or paused clock is skipped.
+  - **Stages:** `stages=[{at, record}]` are the world changes the GM prepped for "if the party never interferes" (§7.6.1). Records are written with `origin: prepped`, are validated by `_canon_record` at creation (missing fields, bad enums, secrets without discovery paths), and are validated again when written. A stage fires when the fill crosses its mark from below, however the clock moved: off-air, `advance_clock` in play, or a pack effect. It fires once only (`fired` list), even if the clock is pushed back and refills. Each firing is `canon_written` followed by `clock_stage_reached`, both by the engine and caused by the advance.
+  - **Interference:** `pause_clock(clock, paused)` (GM) holds a scheduled clock; pack effects can lower a clock. Pausing an unscheduled clock is refused.
+  - Clocks without a schedule or stages keep their old folded shape, and older logs fold unchanged.
+  - Calendar and watch tracking (§2.4 "Clocks and time") is not part of this task and stays a roadmap todo.
+- Consequences: smoke campaigns use a scheduled `pressure` clock with two stages, so every campaign run exercises off-air advancement and canon from clocks. Tools: the GM gets `pause_clock`. Creating scheduled clocks belongs to the P3 prep tools.

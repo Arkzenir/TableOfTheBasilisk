@@ -197,6 +197,8 @@ class EffectCommands:
             params["target"] = target_id
         seq = self._emit("effect_applied", {"primitive": prim, "target": target_id, "params": params,
                                             "changes": changes}, caused_by=cause)
+        if prim == "advance_clock":
+            self._clock_moved(effect["clock"], params["old"], params["new"], seq)
         for effects, owner in triggers:
             self._depth += 1
             try:

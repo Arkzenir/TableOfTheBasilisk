@@ -147,6 +147,7 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
         if order == "spotlight":
             tools["next_round"] = {}
         tools["advance_clock"] = {"clock_id": ID, "amount": _enum([1, 2, 3])}
+        tools["pause_clock"] = {"clock_id": ID, "paused": {"type": "boolean"}}  # the party has interfered
         tools["spawn_entity"] = {"entity_id": ID, "name": NARRATIVE}
         tools["set_scene"] = {"scene_id": ID}
         if zones:

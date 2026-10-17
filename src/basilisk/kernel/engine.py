@@ -13,9 +13,10 @@ import copy
 from datetime import datetime, timezone
 from typing import Any, Callable, Iterable
 
-from . import KERNEL_VERSION, canon, decks, dice, expr, fudging, spatial, turns
+from . import KERNEL_VERSION, canon, clocks, decks, dice, expr, fudging, spatial, turns
 from .canon import CanonCommands
 from .canonical import hash_obj
+from .clocks import ClockCommands
 from .decks import DeckCommands
 from .command import EngineError, _suggest, atomic
 from .determinism import STANDARD, STRICT, apply_change, expand, setting_for, unsupported_strict
@@ -73,7 +74,7 @@ EVENT_TYPES = frozenset({
     "effect_applied", "character_created", "entity_spawned", "clock_created",
     "action_committed", "gm_ruling_requested", "gm_ruling_filled",
 }) | canon.EVENT_TYPES | spatial.EVENT_TYPES | turns.EVENT_TYPES | decks.EVENT_TYPES | fudging.EVENT_TYPES \
-    | _PASSIVE
+    | clocks.EVENT_TYPES | _PASSIVE
 
 
 def apply_event(state: dict, ev: dict) -> None:
@@ -109,7 +110,7 @@ def apply_event(state: dict, ev: dict) -> None:
         for step, option in (p.get("unique_choices") or {}).items():
             state["chargen_taken"].setdefault(step, []).append(option)
     elif t == "clock_created":
-        state["clocks"][p["clock_id"]] = {"label": p["label"], "filled": 0, "total": p["total"], "visible": p["visible"]}
+        state["clocks"][p["clock_id"]] = clocks.created_clock(p)
     elif t == "action_committed":
         state["actions_taken"] += 1
     elif t == "gm_ruling_requested":
@@ -127,6 +128,8 @@ def apply_event(state: dict, ev: dict) -> None:
         decks.apply_event(state, ev)
     elif t in fudging.EVENT_TYPES:
         fudging.apply_event(state, ev)
+    elif t in clocks.EVENT_TYPES:
+        clocks.apply_event(state, ev)
     elif t in _PASSIVE:
         pass
     else:
@@ -143,7 +146,7 @@ def fold(events: Iterable[dict], state: dict | None = None) -> dict:
 # ====================================================================== engine
 
 class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands, TacticalCommands,
-             TurnCommands, DeckCommands, FudgeCommands, SheetCommands):
+             TurnCommands, DeckCommands, FudgeCommands, SheetCommands, ClockCommands):
     def __init__(self, pack: ResolvedPack, seed: str, store: EventStore | None = None,
                  campaign_id: str = "campaign", clock: Callable[[], str | None] | None = None):
         if pack.data["meta"].get("abstract"):
@@ -323,6 +326,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
 
     @atomic
     def start_session(self, by: str | None = None) -> int:
+        self._advance_off_air()  # axiom 15: world changes are canon before play resumes
         self._boundary()
         seq = self._emit("session_started", {"number": self.state["session"] + 1}, actor=by or self.gm_seat)
         self._reshuffle_at("session")
@@ -483,20 +487,6 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         if relative:  # a band position is relative to others: join the scene there
             self._place(entity_id, zone, by)
         return entity_id
-
-    @atomic
-    def create_clock(self, clock_id: str, label: str, total: int, visible: bool = True, by: str | None = None) -> None:
-        if clock_id in self.state["clocks"]:
-            raise EngineError(f"clock {clock_id!r} exists")
-        self._emit("clock_created", {"clock_id": clock_id, "label": label, "total": int(total), "visible": bool(visible)},
-                   actor=by or self.gm_seat)
-
-    @atomic
-    def advance_clock(self, clock_id: str, amount: int, by: str | None = None) -> None:
-        if amount not in (1, 2, 3):
-            raise EngineError("clock advances are 1, 2 or 3")
-        self._apply_effect({"primitive": "advance_clock", "clock": clock_id, "amount": amount},
-                           {"actor": None, "target": None, "self": None}, None, {})
 
     # ------------------------------------------------------------ actions
 
