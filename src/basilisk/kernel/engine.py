@@ -13,7 +13,7 @@ import copy
 from datetime import datetime, timezone
 from typing import Any, Callable, Iterable
 
-from . import KERNEL_VERSION, canon, decks, dice, expr, spatial, turns
+from . import KERNEL_VERSION, canon, decks, dice, expr, fudging, spatial, turns
 from .canon import CanonCommands
 from .canonical import hash_obj
 from .decks import DeckCommands
@@ -21,6 +21,7 @@ from .command import EngineError, _suggest, atomic
 from .determinism import STANDARD, STRICT, apply_change, expand, setting_for, unsupported_strict
 from .effects import EffectCommands
 from .events import EventStore
+from .fudging import FudgeCommands
 from .packlint import readiness
 from .packs import ResolvedPack
 from .resolution import ResolutionCommands
@@ -70,7 +71,8 @@ EVENT_TYPES = frozenset({
     "determinism_changed", "session_started", "session_ended", "scene_set", "roll_made",
     "effect_applied", "character_created", "entity_spawned", "clock_created",
     "action_committed", "gm_ruling_requested", "gm_ruling_filled",
-}) | canon.EVENT_TYPES | spatial.EVENT_TYPES | turns.EVENT_TYPES | decks.EVENT_TYPES | _PASSIVE
+}) | canon.EVENT_TYPES | spatial.EVENT_TYPES | turns.EVENT_TYPES | decks.EVENT_TYPES | fudging.EVENT_TYPES \
+    | _PASSIVE
 
 
 def apply_event(state: dict, ev: dict) -> None:
@@ -122,6 +124,8 @@ def apply_event(state: dict, ev: dict) -> None:
         turns.apply_event(state, ev)
     elif t in decks.EVENT_TYPES:
         decks.apply_event(state, ev)
+    elif t in fudging.EVENT_TYPES:
+        fudging.apply_event(state, ev)
     elif t in _PASSIVE:
         pass
     else:
@@ -138,7 +142,7 @@ def fold(events: Iterable[dict], state: dict | None = None) -> dict:
 # ====================================================================== engine
 
 class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands, TacticalCommands,
-             TurnCommands, DeckCommands):
+             TurnCommands, DeckCommands, FudgeCommands):
     def __init__(self, pack: ResolvedPack, seed: str, store: EventStore | None = None,
                  campaign_id: str = "campaign", clock: Callable[[], str | None] | None = None):
         if pack.data["meta"].get("abstract"):
@@ -180,6 +184,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
             "seed_commitment": eng.rng.commitment(),
             "seats": seats,
             "gm_lethality": int((config.get("gm_traits") or {}).get("lethality", 50)),
+            "gm_fudging": int((config.get("gm_traits") or {}).get("fudging", 50)),
         }, actor="engine")
         eng._emit("determinism_settings_recorded", {"settings": effective}, actor="engine")
         return eng
@@ -328,6 +333,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
 
     @atomic
     def end_session(self, by: str | None = None) -> int:
+        self._require_settled()
         self._close_encounter(by or self.gm_seat)
         self._expire({"scene", "session"})
         return self._emit("session_ended", {"number": self.state["session"]}, actor=by or self.gm_seat)
@@ -341,6 +347,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         and `ranges` sets bands between pairs (§1.4)."""
         if not self.state["session"]:
             raise EngineError("start a session before setting a scene")
+        self._require_settled()
         if placements and regions is None:
             raise EngineError("placements need regions: a scene without regions has no positions")
         if ranges and participants is None:
@@ -534,6 +541,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
     @atomic
     def commit_action(self, entity_id: str, action_id: str, *, by: str | None = None, target: str | None = None,
                       spend: int | None = None, gm: dict | None = None) -> dict:
+        self._require_settled()
         ent = self._entity(entity_id)
         by = by or ent["controller"]
         if by != ent["controller"] and self._role(by) != "gm":
@@ -604,9 +612,17 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
                                 "amount": amount}, {"actor": entity_id, "target": target, "self": entity_id}, seq, {})
 
         proc = self.pack.by_id("resolution.procedures")[action["procedure"]]
-        outcome, rank, proc_seq = self._run_procedure(
-            proc, ent, target_ent, action.get("stat"), action.get("difficulty"), gm or {}, seq)
+        ids = {"actor": entity_id, "target": target, "self": entity_id}
         variables = {"spent": amount or 0}
-        for e in (action.get("outcome_effects") or {}).get(outcome, []):
-            self._apply_effect(e, {"actor": entity_id, "target": target, "self": entity_id}, proc_seq, variables)
+        outcome, rank, proc_seq = self._run_procedure(
+            proc, ent, target_ent, action.get("stat"), action.get("difficulty"), gm or {}, seq,
+            continuation={"kind": "action", "action": action_id, "ids": ids, "variables": variables})
+        if outcome is None:  # the GM peeked (§5.5): resolution waits for peek_roll
+            return {"seq": seq, "pending": self.pending_peek()}
+        self._apply_outcome(action_id, outcome, ids, variables, proc_seq)
         return {"seq": seq, "outcome": outcome, "rank": rank}
+
+    def _apply_outcome(self, action_id: str, outcome: str, ids: dict, variables: dict, cause: int) -> None:
+        action = self.pack.by_id("actions")[action_id]
+        for e in (action.get("outcome_effects") or {}).get(outcome, []):
+            self._apply_effect(e, ids, cause, variables)

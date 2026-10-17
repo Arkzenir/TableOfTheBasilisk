@@ -33,6 +33,9 @@ The code-level list of event types (`EVENT_TYPES` in `src/basilisk/kernel/engine
 | `deck_shuffled` | folds | first draw from a deck, `reshuffle_deck`, reshuffle rules (`every_draw`, `when_empty`, `scene`, `session`) | `deck, counter, cards` (shuffled, in pack order, hands excluded), `order` (the new pile, top first), `reason`; sets `roll_counter` to `counter + 1` (creates `state.decks` on first use) |
 | `card_drawn` | folds | `draw_card` | `deck, card, by, to` (a holder's hand, or `null` for face up onto the discards) |
 | `card_discarded` | folds | `discard_card` | `deck, card, holder` |
+| `roll_peeked` | folds | `commit_action` / `resolve_unmodelled` with the GM's `peek` | `slot, procedure, entity, roll_seq, expression, variables, total, outcome, rank, ranks, party_rank, modifiers, difficulty, cause, continuation` (pauses the action: creates `state.fudging.pending`, counts toward the session cap) |
+| `roll_fudged` | folds | `peek_roll reroll` | `slot, from_roll_seq, to_roll_seq, from_total, to_total, from_rank, to_rank` (the reroll itself is the `roll_made` at `to_roll_seq`) |
+| `peek_settled` | folds | `peek_roll` | `slot, decision` (`keep` / `reroll`), `roll_seq, total` (the final roll); clears the pending peek, then `procedure_resolved` and the action's effects follow |
 | `chargen_started` | passive | `create_character` | `agent, entity` |
 | `judgement_input` | passive | any model-chosen mechanical input | `seat, control, setting, choice, options` |
 | `procedure_resolved` | passive | resolution runner | `procedure, entity, scale, outcome, rank, ranks, total, difficulty, modifiers, roll_seq, direct` |

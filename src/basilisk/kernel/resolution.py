@@ -22,7 +22,8 @@ class ResolutionCommands:
     @atomic
     def resolve_unmodelled(self, entity_id: str, procedure_id: str, *, stat: str | None = None,
                            difficulty: Any = None, tags: list[str] | None = None, outcome: str | None = None,
-                           by: str | None = None) -> dict:
+                           by: str | None = None, peek: bool = False) -> dict:
+        self._require_settled()
         by = by or self.gm_seat
         if self._role(by) != "gm":
             raise EngineError("only the GM resolves unmodelled actions")
@@ -40,23 +41,63 @@ class ResolutionCommands:
         ladder = (self.pack.catalogue("resolution.difficulty_ladders") or [{}])[0].get("id")
         out, rank, _ = self._run_procedure(procs[procedure_id], ent, None, stat,
                                            {"ladder": ladder} if ladder else None,
-                                           {"difficulty": difficulty, "tags": tags or []}, seq, direct_outcome=outcome)
+                                           {"difficulty": difficulty, "tags": tags or [], "peek": peek}, seq,
+                                           direct_outcome=outcome, continuation={"kind": "unmodelled"})
+        if out is None:
+            return {"seq": seq, "pending": self.pending_peek()}
         return {"seq": seq, "outcome": out, "rank": rank}
 
     # ------------------------------------------------------------ resolution (§2.5)
 
+    def _scale(self, proc_id: str) -> list[str]:
+        proc = self.pack.by_id("resolution.procedures")[proc_id]
+        steps = {k: v for step in proc.get("steps") or [] for k, v in step.items()}
+        return self.pack.by_id("resolution.outcome_scales")[steps["interpret"]["scale"]]["ordered"]
+
+    def _interpret(self, proc_id: str, total: int, difficulty: dict | None) -> str:
+        """Map a roll total onto the procedure's outcome scale (§2.5)."""
+        proc = self.pack.by_id("resolution.procedures")[proc_id]
+        interp = {k: v for step in proc.get("steps") or [] for k, v in step.items()}["interpret"]
+        scale = self._scale(proc_id)
+        if "bands" in interp:
+            idx = len(interp["bands"]) - 1
+            for i, (lo, hi) in enumerate(interp["bands"]):
+                if total <= hi:
+                    idx = i
+                    break
+            return scale[max(0, idx)]
+        against = difficulty["value"] if difficulty else 0
+        ok = total >= against if interp["compare"] == ">=" else total <= against
+        return scale[1] if ok else scale[0]
+
+    def _resolved(self, proc_id: str, entity_id: str, outcome: str, total: int | None, difficulty: dict | None,
+                  modifiers: list[dict], roll_seq: int | None, direct: bool, cause: int) -> int:
+        scale = self._scale(proc_id)
+        proc = self.pack.by_id("resolution.procedures")[proc_id]
+        interp = {k: v for step in proc.get("steps") or [] for k, v in step.items()}["interpret"]
+        return self._emit("procedure_resolved", {
+            "procedure": proc_id, "entity": entity_id, "scale": interp["scale"], "outcome": outcome,
+            "rank": scale.index(outcome), "ranks": len(scale), "total": total, "difficulty": difficulty,
+            "modifiers": modifiers, "roll_seq": roll_seq, "direct": direct,
+        }, caused_by=cause)
+
     def _run_procedure(self, proc: dict, ent: dict, target: dict | None, stat: str | None,
                        difficulty_spec: dict | None, gm_inputs: dict, cause: int,
-                       direct_outcome: str | None = None) -> tuple[str, int, int]:
+                       direct_outcome: str | None = None,
+                       continuation: dict | None = None) -> tuple[str | None, int | None, int | None]:
+        """Run a procedure to an outcome. With `gm_inputs["peek"]` on a fudgeable
+        procedure, stop after the roll and return (None, None, None): the GM
+        settles it with `peek_roll` (§5.5)."""
         steps = {k: v for step in proc.get("steps") or [] for k, v in step.items()}
         interp = steps["interpret"]
-        scale = self.pack.by_id("resolution.outcome_scales")[interp["scale"]]["ordered"]
-        gm_seat = self.gm_seat
+        scale = self._scale(proc["id"])
         modifiers: list[dict] = []
         difficulty: dict | None = None
         total = None
         roll_seq = None
 
+        if gm_inputs.get("peek") and (interp.get("automatic") or direct_outcome is not None):
+            raise EngineError(f"peek refused: {proc['id']} has no roll to peek at")
         if interp.get("automatic"):
             outcome = scale[-1]
         elif direct_outcome is not None:
@@ -81,27 +122,24 @@ class ResolutionCommands:
                 difficulty = self._difficulty(difficulty_spec, ent, target, gm_inputs.get("difficulty"), cause)
 
             mod = sum(m["value"] for m in modifiers)
+            if gm_inputs.get("peek"):
+                refusal = self._peek_refusal(proc["id"])
+                if refusal:
+                    raise EngineError(f"peek refused: {refusal}")
             result, roll_seq = self._roll(steps["roll"], {"mod": mod}, cause, f"procedure:{proc['id']}")
             total = result.total
-            if "bands" in interp:
-                idx = len(interp["bands"]) - 1
-                for i, (lo, hi) in enumerate(interp["bands"]):
-                    if total <= hi:
-                        idx = i
-                        break
-                outcome = scale[max(0, idx)]
-            else:
-                against = difficulty["value"] if difficulty else 0
-                ok = total >= against if interp["compare"] == ">=" else total <= against
-                outcome = scale[1] if ok else scale[0]
+            outcome = self._interpret(proc["id"], total, difficulty)
+            if gm_inputs.get("peek"):
+                self._open_peek({"procedure": proc["id"], "entity": ent["id"], "roll_seq": roll_seq,
+                                 "expression": steps["roll"], "variables": {"mod": mod}, "total": total,
+                                 "outcome": outcome, "rank": scale.index(outcome), "ranks": len(scale),
+                                 "modifiers": modifiers, "difficulty": difficulty, "cause": cause,
+                                 "continuation": continuation or {"kind": "none"}}, cause)
+                return None, None, None
 
-        rank = scale.index(outcome)
-        seq = self._emit("procedure_resolved", {
-            "procedure": proc["id"], "entity": ent["id"], "scale": interp["scale"], "outcome": outcome,
-            "rank": rank, "ranks": len(scale), "total": total, "difficulty": difficulty,
-            "modifiers": modifiers, "roll_seq": roll_seq, "direct": direct_outcome is not None,
-        }, caused_by=cause)
-        return outcome, rank, seq
+        seq = self._resolved(proc["id"], ent["id"], outcome, total, difficulty, modifiers, roll_seq,
+                             direct_outcome is not None, cause)
+        return outcome, scale.index(outcome), seq
 
     def _situational(self, ent: dict, target: dict | None, gm_inputs: dict, cause: int) -> list[dict]:
         tags = self.pack.by_id("resolution.situational_tags")

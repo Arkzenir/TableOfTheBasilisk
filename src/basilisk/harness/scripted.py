@@ -303,6 +303,8 @@ def _run_steps(engine: Engine, steps: list[dict], report: RunReport) -> None:
                 engine.next_round()
             elif do == "end_encounter":
                 engine.end_encounter()
+            elif do == "peek_roll":
+                engine.peek_roll(step["decision"])
             elif do == "draw_card":
                 engine.draw_card(step["deck"], step.get("by"), step.get("to"))
             elif do == "reshuffle_deck":
@@ -312,6 +314,8 @@ def _run_steps(engine: Engine, steps: list[dict], report: RunReport) -> None:
             elif do == "commit_action":
                 engine.commit_action(step["actor"], step["action"], target=step.get("target"),
                                      spend=step.get("spend"), gm=step.get("gm"))
+                if engine.pending_peek() and step.get("then"):  # a scripted GM settles its own peek
+                    engine.peek_roll(step["then"])
                 report.actions_taken[step["action"]] = report.actions_taken.get(step["action"], 0) + 1
             elif do == "fill_ruling":
                 for slot, info in sorted(engine.open_rulings().items()):

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import canon, decks, spatial, turns
+from . import canon, decks, fudging, spatial, turns
 from .determinism import STANDARD, setting_for
 from .packs import ResolvedPack
 
@@ -114,6 +114,9 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
         if mode("situational_modifiers") == STANDARD:
             bound = int(pack.get("resolution.free_modifier_max", 2))
             rule["free_modifier"] = {"type": "integer", "minimum": -bound, "maximum": bound}
+        fudge = fudging.fudging_available(pack, mode("fudging"))
+        if fudge:
+            rule["peek"] = {"type": "boolean"}  # see the roll before it goes public (§5.5)
         tools["rule_on_action"] = rule
 
         entries = [e["id"] for t in pack.catalogue("gm.consequence_tables") for e in t.get("entries", [])]
@@ -129,6 +132,8 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
             if diff:
                 unmodelled["difficulty"] = diff
             unmodelled["tags"] = rule["tags"]
+            if fudge:
+                unmodelled["peek"] = {"type": "boolean"}
             if mode("unmodelled_actions") == STANDARD:
                 outcomes = [o for s in pack.catalogue("resolution.outcome_scales") for o in s["ordered"]]
                 unmodelled["outcome"] = _enum(outcomes)
@@ -163,8 +168,8 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
             "depends_on": ids, "discovery_paths": ids,
         }
         tools["reveal"] = {"fact_id": ID}
-        if pack.get("gm.gm_rolls", True) and pack.get("gm.fudgeable_procedures") and mode("fudging") == STANDARD:
-            tools["peek_roll"] = {}
+        if fudge:
+            tools["peek_roll"] = {"decision": _enum(list(fudging.DECISIONS))}
     return tools
 
 
