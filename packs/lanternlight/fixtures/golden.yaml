@@ -1,0 +1,16 @@
+# Golden fixtures (ARCHITECTURE §2.10): (seed, script) -> expected log head.
+# Regenerate only deliberately: TOB_UPDATE_GOLDEN=1 python -m pytest tests/test_golden.py
+fixtures:
+- name: smoke
+  script:
+    smoke:
+      seed: golden-seed
+      sessions: 3
+      scenes_per_session: 2
+  head: 9dd727fd00e31652d9260f68f782d6eef50a314f1d05e2da0e01c690753233ec
+  events: 433
+- name: lanternlight_demo
+  script:
+    scenario: scenarios/lanternlight_demo.yaml
+  head: 276744bed4f1fe5e922f650769d984a6de8225ba0a2a23585d84a3a26c900332
+  events: 92

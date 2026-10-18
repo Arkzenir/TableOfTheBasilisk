@@ -97,6 +97,44 @@ class SheetCommands:
         return {"entity": entity_id, "name": ent["name"], "kind": ent["kind"], "controller": ent["controller"],
                 "fields": fields}
 
+    def sheet_problems(self, entity_id: str) -> list[str]:
+        """Ways an entity's sheet breaks the pack's entity model (§2.10: "no effect
+        sequence yields an invalid sheet"). Empty for a valid sheet."""
+        ent = self._entity(entity_id)
+        out = []
+        for s in self.pack.catalogue("entity_model.stats"):
+            lo, hi = s.get("range", [ent["stats"].get(s["id"], 0)] * 2)
+            if not lo <= ent["stats"].get(s["id"], lo) <= hi:
+                out.append(f"stat {s['id']} = {ent['stats'][s['id']]} outside {lo}..{hi}")
+        if set(ent["stats"]) != {s["id"] for s in self.pack.catalogue("entity_model.stats")}:
+            out.append("stats do not match the entity model")
+        for r in self.pack.catalogue("entity_model.resources"):
+            lo, hi, v = int(r.get("min", 0)), self._max(ent, r), ent["resources"].get(r["id"])
+            if not isinstance(v, int) or not lo <= v <= hi:
+                out.append(f"resource {r['id']} = {v} outside {lo}..{hi}")
+        for t in self.pack.catalogue("entity_model.tracks"):
+            v = ent["tracks"].get(t["id"])
+            if not isinstance(v, int) or not 0 <= v <= int(t["boxes"]):
+                out.append(f"track {t['id']} = {v} outside 0..{t['boxes']}")
+        for c in self.pack.catalogue("gm.meta_currencies"):
+            if c["id"] in ent.get("currencies", {}):
+                v = ent["currencies"][c["id"]]
+                if not isinstance(v, int) or v < 0 or ("max" in c and v > int(c["max"])):
+                    out.append(f"currency {c['id']} = {v} outside 0..{c.get('max', 'unbounded')}")
+        known = set(self.pack.by_id("entity_model.conditions"))
+        for cid in ent["conditions"]:
+            if cid not in known:
+                out.append(f"unknown condition {cid}")
+        if ent["tags"] != sorted(set(ent["tags"])):
+            out.append("tags are not a sorted set")
+        if not isinstance(ent["inventory"], list) or not all(isinstance(i, str) for i in ent["inventory"]):
+            out.append("inventory is not a list of item ids")
+        try:
+            self._derived(ent)
+        except Exception as e:  # noqa: BLE001 - any failure is a problem to report
+            out.append(f"derived values do not evaluate: {e}")
+        return out
+
     def read_sheet(self, seat: str, entity_id: str | None = None) -> dict:
         """A seat's own sheet in full (§7.1). The GM may read any sheet."""
         if seat not in self.seats and seat != "gm":

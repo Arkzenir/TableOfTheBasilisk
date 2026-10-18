@@ -88,7 +88,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** pure functions for `read_sheet` (own, full) and `read_party_sheets` (others, summary), in the pack's vocabulary.
 - **Acceptance:** the summary view never includes fields the full view marks private.
 
-### T0.10 Property tests and golden fixtures — `ready`
+### T0.10 Property tests and golden fixtures — `done`
 - **Plan:** P0.7 · §2.10
 - **Deliverables:**
   - Generated tests per pack: every action resolvable from sampled states; every outcome band reachable, using exact dice distributions where possible; no effect sequence yields an invalid sheet.

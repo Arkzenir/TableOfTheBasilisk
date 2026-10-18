@@ -25,7 +25,8 @@ The git hooks run `tob check --quick` on commit and the full `tob check` on push
 | Engine | `tests/test_engine.py` | atomicity, settings changes, rulings, pinning |
 | Pack conformance | `tests/test_packs.py`, `tob pack lint` | one test per lint defect class |
 | Campaign | `tests/test_harness.py`, `tob check` | smoke campaigns, scenario files, replay, seed verification |
-| Golden (T0.10) | `packs/<id>/fixtures/` | `(seed, script) → expected log head hash` |
+| Properties (T0.10) | `tests/test_properties.py` | generated per playable pack: outcome bands reachable (exact distributions), every action resolvable, sheets stay valid |
+| Golden (T0.10) | `packs/<id>/fixtures/golden.yaml`, `tests/test_golden.py` | `(seed, script) → expected log head hash, event count` |
 | Adapter (P1) | `tests/test_adapters_*.py` | mock transport, cassettes |
 | Live (P1+) | marked `@pytest.mark.live` | real provider calls; opt-in only |
 | Docs consistency | `tests/test_docs.py` | event registry vs `docs/dev/EVENTS.md` |
@@ -44,7 +45,9 @@ Skipped unless `TOB_LIVE=1` is set. They cost money: ask the owner before runnin
 
 ## Golden fixtures
 
-When an intentional change alters event logs (a new event, a payload change), the golden hashes change. Regenerate them deliberately with `TOB_UPDATE_GOLDEN=1 python -m pytest tests/test_golden.py`, and explain in the commit why logs changed. If existing campaigns would fold differently, bump `KERNEL_VERSION` (§2.9).
+Every playable pack must ship `packs/<id>/fixtures/golden.yaml`, a list of scripted runs (a smoke campaign with a fixed seed, plus any hand-written scenario that pins the pack) with the expected log head hash and event count. A new pack fails `tests/test_golden.py` until its fixtures exist.
+
+When an intentional change alters event logs (a new event, a payload change, a pack edit), the golden hashes change. Regenerate them deliberately with `TOB_UPDATE_GOLDEN=1 python -m pytest tests/test_golden.py`, review the diff, and explain in the commit why logs changed. If existing campaigns would fold differently, bump `KERNEL_VERSION` (§2.9).
 
 ## Time budget
 

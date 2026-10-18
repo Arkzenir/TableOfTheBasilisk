@@ -18,7 +18,9 @@ Arithmetic (+, -, *, constants, variables) is always available.
 
 from __future__ import annotations
 
+import itertools
 from dataclasses import dataclass, field
+from fractions import Fraction
 from typing import Any, Callable
 
 OPERATORS = {"sum", "keep", "explode", "count", "fate"}
@@ -257,6 +259,87 @@ def check_expression(src: str, enabled: set[str], max_dice: int, max_sides: int)
             if isinstance(node.count, Num) and node.count.value > max_dice:
                 problems.append(f"{src!r}: {node.count.value} dice exceeds max_dice {max_dice}")
     return problems
+
+
+ENUMERATION_LIMIT = 200_000  # outcomes enumerated for keep-highest/lowest before giving up
+
+
+def distribution(src: str, variables: dict[str, int] | None = None) -> dict[int, Fraction] | None:
+    """Exact probability of every total, as fractions summing to 1 (§2.10 property
+    tests). None when no finite exact answer exists: exploding dice, or a keep
+    over more combinations than `ENUMERATION_LIMIT`."""
+    variables = dict(variables or {})
+
+    def combine(a, b, fn):
+        out: dict[int, Fraction] = {}
+        for x, px in a.items():
+            for y, py in b.items():
+                v = fn(x, y)
+                out[v] = out.get(v, Fraction(0)) + px * py
+        return out
+
+    def faces(node) -> list[int]:
+        return [-1, 0, 1] if node.sides == "F" else list(range(1, node.sides + 1))
+
+    def group(node, n: int):
+        fs = faces(node)
+        if node.keep is None:
+            per = {}
+            for f in fs:
+                v = 1 if node.count_mode and (f >= node.count_mode[1] if node.count_mode[0] == ">=" else f <= node.count_mode[1])                     else (0 if node.count_mode else f)
+                per[v] = per.get(v, Fraction(0)) + Fraction(1, len(fs))
+            out = {0: Fraction(1)}
+            for _ in range(n):
+                out = combine(out, per, lambda x, y: x + y)
+            return out
+        if len(fs) ** n > ENUMERATION_LIMIT:
+            return None
+        which, k = node.keep
+        out: dict[int, Fraction] = {}
+        weight = Fraction(1, len(fs) ** n)
+        for rolls in itertools.product(fs, repeat=n):
+            kept = sorted(rolls, reverse=(which == "h"))[:k]
+            if node.count_mode:
+                cmp, target = node.count_mode
+                v = sum(1 for r in kept if (r >= target if cmp == ">=" else r <= target))
+            else:
+                v = sum(kept)
+            out[v] = out.get(v, Fraction(0)) + weight
+        return out
+
+    def dist(node):
+        if isinstance(node, Num):
+            return {node.value: Fraction(1)}
+        if isinstance(node, Var):
+            if node.name not in variables:
+                raise DiceError(f"unbound variable {{{node.name}}} in {src!r}")
+            return {int(variables[node.name]): Fraction(1)}
+        if isinstance(node, Neg):
+            inner = dist(node.operand)
+            return None if inner is None else {-v: p for v, p in inner.items()}
+        if isinstance(node, Bin):
+            a, b = dist(node.left), dist(node.right)
+            if a is None or b is None:
+                return None
+            fn = (lambda x, y: x + y) if node.op == "+" else (lambda x, y: x - y) if node.op == "-" else (lambda x, y: x * y)
+            return combine(a, b, fn)
+        if isinstance(node, Dice):
+            if node.explode:
+                return None
+            counts = dist(node.count)
+            if counts is None:
+                return None
+            out: dict[int, Fraction] = {}
+            for n, pn in counts.items():
+                g = group(node, max(n, 0))
+                if g is None:
+                    return None
+                for v, pv in g.items():
+                    out[v] = out.get(v, Fraction(0)) + pn * pv
+            return out
+        raise DiceError(f"unknown node {node!r}")
+
+    return dist(parse(src))
 
 
 def value_range(src: str, variables: dict[str, tuple[int, int]] | None = None) -> tuple[int, int] | None:
