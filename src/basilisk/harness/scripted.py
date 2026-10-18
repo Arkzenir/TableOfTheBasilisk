@@ -312,6 +312,8 @@ def _run_steps(engine: Engine, steps: list[dict], report: RunReport) -> None:
                 engine.next_round()
             elif do == "end_encounter":
                 engine.end_encounter()
+            elif do == "write_canon":
+                engine.write_canon(step["record"])
             elif do == "query_rules":
                 engine.query_rules(step.get("seat", "gm"), step["query"])
             elif do == "peek_roll":
