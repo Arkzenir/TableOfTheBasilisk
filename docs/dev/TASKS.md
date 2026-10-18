@@ -120,7 +120,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** a data-only derived pack (e.g. `lanternlight.sectioned`) that extends `lanternlight`, switches `rules_text` to sectioned with a digest, and changes nothing else.
 - **Acceptance:** it passes conformance with zero kernel changes. Its scripted campaign matches its parent's event stream apart from rules-lookup events. `query_rules` reaches every section by ID and alias.
 
-### T0.16 Excluded terms — `ready`
+### T0.16 Excluded terms — `done`
 - **Plan:** P0.14 · §1.2, §1.3.3, §2.3, §2.10
 - **Deliverables:**
   - `meta.excluded_terms: [{ term, aliases }]` in the pack loader, inherited and merged like other catalogues.

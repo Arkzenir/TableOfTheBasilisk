@@ -30,6 +30,7 @@ from .sheets import SheetCommands
 from .rng import Randomizer
 from .rules import RulesCommands
 from .spatial import SpatialCommands
+from .terms import TermCommands
 from .tactics import TacticalCommands
 from .turns import TurnCommands
 
@@ -147,7 +148,8 @@ def fold(events: Iterable[dict], state: dict | None = None) -> dict:
 # ====================================================================== engine
 
 class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands, TacticalCommands,
-             TurnCommands, DeckCommands, FudgeCommands, SheetCommands, ClockCommands, RulesCommands):
+             TurnCommands, DeckCommands, FudgeCommands, SheetCommands, ClockCommands, RulesCommands,
+             TermCommands):
     def __init__(self, pack: ResolvedPack, seed: str, store: EventStore | None = None,
                  campaign_id: str = "campaign", clock: Callable[[], str | None] | None = None):
         if pack.data["meta"].get("abstract"):

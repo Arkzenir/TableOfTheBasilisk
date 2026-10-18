@@ -283,6 +283,7 @@ class CanonCommands:
         if not isinstance(aliases, list) or not all(isinstance(a, str) and tokens(a) for a in aliases):
             raise EngineError("canon aliases must be a list of names")
         aliases = list(dict.fromkeys(a.strip() for a in aliases if a.strip() != name.strip()))
+        self._refuse_excluded({"name": name, "aliases": aliases, "body": record["body"]})
 
         gm = self._canon_index("gm")
         stored = self.state.get("canon") or {}

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from . import decks, dice, expr, rules, sheets, spatial, tactics, turns
+from . import decks, dice, expr, rules, sheets, spatial, tactics, terms, turns
 from .determinism import CONTROLS, ROLES, STRICT, expand
 from .effects import PRIMITIVES, RESERVED, TARGET_SYMBOLS, references
 from .packs import ResolvedPack
@@ -320,6 +320,8 @@ def lint(pack: ResolvedPack) -> list[Finding]:
         err("deck", problem)
     for problem in sheets.lint_sheet(pack):
         err("sheet", problem)
+    for problem in terms.lint_terms(pack):
+        err("excluded-term", problem)
 
     # tool schemas generate under every preset ----------------------------
     for preset in ("strict", "standard"):

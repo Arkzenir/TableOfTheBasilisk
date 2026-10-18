@@ -1,0 +1,16 @@
+# Tidewrack with excluded terms, built as data only (BUILD_PLAN P0.14).
+# The names below are invented for testing and belong to no real work. They
+# stand in for the names a pack's licence does not cover (ARCHITECTURE §1.2):
+# canon refuses them, and the validation pass will check every spoken line.
+meta:
+  id: tidewrack_excluded
+  version: 0.1.0
+  extends: tidewrack@0.1.0
+  name: Tidewrack with excluded terms (demo)
+  license: CC0-1.0
+  attribution_text: "Excluded-term fixture for Tidewrack (CC0)."
+  kernel_compat: ">=0.1,<0.2"
+  excluded_terms:
+    - {term: Morrowgaunt, aliases: [the Gaunt, Morrow Gaunt]}
+    - {term: Saltmother Ysolde, aliases: [Ysolde]}
+    - {term: Brinehold Compact, aliases: [the Compact]}

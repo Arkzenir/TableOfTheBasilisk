@@ -28,7 +28,7 @@ def test_house_rules_merge(packs_dir):
 
 def test_all_shipped_packs_lint_clean(packs_dir):
     for pid in ("core", "core.roll_over", "core.banded", "lanternlight", "tidewrack", "lanternlight_house",
-                "lanternlight_sectioned"):
+                "lanternlight_sectioned", "tidewrack_excluded"):
         assert errors(lint(resolve(pid, packs_dir))) == [], pid
 
 

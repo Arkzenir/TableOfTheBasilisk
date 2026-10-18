@@ -193,6 +193,7 @@ def resolve(pack_ref: str, packs_dir: str | Path, *, allow_abstract: bool = True
     chain.reverse()  # root first
     merged: dict = {}
     attributions: list[str] = []
+    excluded: list[list[dict]] = []
     for key, raw in chain:
         raw = copy.deepcopy(raw)
         removals = raw.pop("remove", None)
@@ -204,6 +205,8 @@ def resolve(pack_ref: str, packs_dir: str | Path, *, allow_abstract: bool = True
         text = meta.get("attribution_text")
         if text and text not in attributions:
             attributions.append(text)
+        if meta.get("excluded_terms"):
+            excluded.append(meta["excluded_terms"])
 
     leaf_key, leaf_raw = chain[-1]
     leaf_meta = dict(leaf_raw.get("meta") or {})
@@ -219,6 +222,9 @@ def resolve(pack_ref: str, packs_dir: str | Path, *, allow_abstract: bool = True
         "attributions": attributions,
         "kernel_version": KERNEL_VERSION,
     }
+    if excluded:  # names the licence does not cover, inherited and merged by term (§1.2)
+        from .terms import merge
+        merged["meta"]["excluded_terms"] = merge(excluded)
 
     for hook in merged.get("hooks") or []:
         name = hook.get("name") if isinstance(hook, dict) else hook

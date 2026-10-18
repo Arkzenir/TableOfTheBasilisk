@@ -251,3 +251,13 @@ Template:
   - **Stream parity:** its smoke campaign matches Lanternlight's event for event (seq, type, actor, cause, session, scene, payload), except for (a) pack identity in `campaign_started` (`campaign_id`, `pack_id`, `pack_hash`) and (b) the answer half of `rules_queried` (`via`, `sections`, `suggestions`). The lookup itself (`seat`, `query`) matches. A lookup is passive and never changes state, which is why the streams can match.
   - Smoke campaigns now make one deterministic `query_rules` per scene (a player asks about an action id), so every gate exercises rule lookups. On inline packs these return the "already in context" note, and on the sectioned pack they resolve by ref. Scenario step `query_rules` was added.
 - Consequences: P0.13 is complete. The gate runs four playable packs (two families, two data-only derivatives).
+
+## D-026 Excluded terms: merged up the chain by term; consecutive-word matching
+- Date: 2026-10-18 · Status: accepted (T0.16; §1.2, §1.3.3, §2.10, P0.14).
+- Decision:
+  - **Loader:** resolved `meta` is not deep-merged (only selected fields survive), so the loader gathers `meta.excluded_terms` from every pack in the extends chain and merges them by `term`, root first. A child's entry for the same term replaces its aliases. The key appears in the resolved pack only when some pack declares terms, so every existing pack's hash is unchanged. Removing an inherited term is not supported. A child that needs a name back must not extend that parent; this can be added if a real pack needs it.
+  - **Matcher (`terms.find`):** canon's `tokens` (lowercase, punctuation and possessives dropped). A term or alias matches when its words appear **consecutively** in the text. So "Morrow Gaunt", "MORROWGAUNT." and "Morrowgaunt's" match, while "gauntlet" and half of a two-word term do not. Results come back as declared terms, in pack order. The engine exposes it as `excluded_in(text)` for the validation pass and the TTS gate (P3.3).
+  - **Canon:** `_canon_record` checks name, aliases, and body, so `write_canon`, `supersede_canon`, and clock stages (at creation and at firing) all refuse. The error names the term and points to `meta.excluded_terms`.
+  - **Lint (`excluded-term`):** each entry needs a term with a word, and its aliases must be names. No term may occur in the pack's own catalogue ids (underscores read as spaces), vocabulary labels, rule-card titles, or section titles. If one did, the pack's own text would trip its own check.
+  - **Fixture:** `tidewrack_excluded` is a data-only derivative with three invented names (Morrowgaunt, Saltmother Ysolde, Brinehold Compact). The kernel and the tests name no real-world IP.
+- Consequences: P0.14 is complete. The SRD pack (P4.0) supplies its real list then.
