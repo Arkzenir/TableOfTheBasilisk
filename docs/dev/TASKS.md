@@ -157,7 +157,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** pack-declared time units (for example watches within days), `advance_time`, the current date in state, and clocks that can be scheduled on in-world time as well as on sessions.
 - **Acceptance:** time advances and rolls over units correctly, is logged, replays, and drives a time-scheduled clock.
 
-### T0.22 Remaining Phase 0 test gaps — `ready`
+### T0.22 Remaining Phase 0 test gaps — `done`
 - **Plan:** P0.3, P0.5, P0.6, P0.12
 - **Deliverables:** a default tactical profile in `core`; a test that flipping one control changes only the affected role's schema; harness runs of a 3-session campaign under all-strict, all-standard, and default settings, each with a mid-campaign change; evaluator property tests (termination, determinism, rounding per pack).
 - **Acceptance:** each BUILD_PLAN test line named above has a test.

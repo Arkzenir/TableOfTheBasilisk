@@ -82,6 +82,13 @@ chargen:
 
 spatial:
   backends: [zone_graph]
+  # The default tactical profile (§1.4.2): with no authoring, candidates prefer
+  # moving towards a fight and towards friends. Games override any of it.
+  tactical_profile:
+    categories: []
+    weights: {threats_here: 1, allies_here: 1, closer: 1}
+    factors: []
+    annotation_templates: []
 
 presentation:
   nameplate_resources: []

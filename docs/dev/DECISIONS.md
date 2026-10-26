@@ -331,3 +331,11 @@ Template:
   - **Deviation to flag:** §2.7 gives the hook shape as `(state_view, params, rng) → [events]`. Here a hook returns a small, point-specific result (`{total}`/`{outcome}`, or a list of problems), which the kernel validates and turns into events. That keeps "never mutates state directly" and "returns data, not side effects", but a hook cannot emit arbitrary events. The owner should confirm this reading, or ask for an ARCHITECTURE note.
 - Consequences: Gate P0 item 10 is now tested for real (`test_gate_p0.py::test_every_shipped_hook_passes_the_contract`). The new fixture `lanternlight_hooked` has a natural 20 that always passes and a natural 1 that always fails (resolution.step), plus a minimum-standing check (sheet.validate). It runs in every gate and has its own golden fixture.
 
+## D-034 The last Phase 0 test lines
+- Date: 2026-10-26 · Status: accepted (T0.22; P0.3, P0.5, P0.6, P0.12).
+- Decision:
+  - **`core`'s default tactical profile** is weights only (`threats_here`, `allies_here`, `closer`, each 1), with no categories or templates. A game that authors no profile still gets sensibly ranked candidates, and the shipped games override every default, so their rankings are unchanged. All pack hashes changed, and the golden fixtures were regenerated deliberately.
+  - **One control, one role:** a test flips GM difficulty, GM situational modifiers, and player spend amounts in turn. It asserts that the other role's schema is identical and that the flipped role's schema changes exactly when the pack has something for that control.
+  - **Every preset:** a 3-session smoke campaign on every playable pack under all-strict, all-standard, and default settings. Each makes mid-campaign changes applied at scene boundaries, covers every action, verifies with the seed, and is byte-identical on a second run (18 runs, about 7 s).
+  - **Evaluator properties:** 2,000 random well-formed expressions over the whole grammar always evaluate to an integer, and identically twice. `div` matches exact floor, ceil, and half-up on 2,000 random pairs per rounding mode. Every pack's derived values evaluate under its declared rounding.
+
