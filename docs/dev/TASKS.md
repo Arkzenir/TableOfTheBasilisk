@@ -100,7 +100,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Plan:** P0.11 · §7.6.2 axiom 15
 - **Acceptance:** clocks advance on schedule between sessions and emit canon (needs T0.2) for each world change.
 
-### T0.12 Hook sandbox — `ready` (un-deferred 2026-10-26 by owner direction: finish all of Phase 0)
+### T0.12 Hook sandbox — `done` (un-deferred 2026-10-26 by owner direction: finish all of Phase 0)
 - **Plan:** P0.5 · §2.7, Appendix C `hook_runtime_limits`
 - **Deliverables:** pack-supplied hook source in a restricted language: a static check at load (no imports, no I/O, no attribute escapes, no unbounded loops), a runtime with no builtins beyond a whitelist, a step limit, a read-only state view, and randomness only through the kernel `rng` handle (logged); the registry is populated from validated pack hooks; at least the `resolution.step` and `sheet.validate` points wired; a fixture pack that uses hooks.
 - **Acceptance:** BUILD_PLAN P0.5's hook test (an unregistered hook is refused; a hook that reads the clock, performs I/O, or draws its own randomness fails the contract and the pack does not load); every hook runs twice on fixtures with identical events.

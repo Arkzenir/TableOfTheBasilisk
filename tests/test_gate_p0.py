@@ -147,3 +147,20 @@ def test_replay_against_another_kernel_version_is_refused(lantern, monkeypatch):
     with pytest.raises(EngineError, match="kernel mismatch"):
         Engine.load(lantern, "pin-seed", eng.store, eng.campaign_id)
 
+
+# ---------------------------------------------------------------- "every hook in every shipped pack passes the determinism contract"
+
+@pytest.mark.parametrize("pack_id", PLAYABLE)
+def test_every_shipped_hook_passes_the_contract(pack_id, packs_dir):
+    from basilisk.kernel import hooks
+    pack = resolve(pack_id, packs_dir)  # load-time static check: a failing hook stops the pack loading
+    declared = pack.get("hooks") or []
+    for hook in declared:
+        assert hooks.check_source(hook["name"], hook["source"]) == []
+    if not declared:
+        return
+    engine, report = run_script(smoke_script(pack, sessions=3), packs_dir)  # every call runs twice and must agree
+    ran = {e["payload"]["hook"] for e in engine.store.read(engine.campaign_id) if e["type"] == "hook_ran"}
+    assert ran == {h["name"] for h in declared}, "every shipped hook ran in the campaign"
+    assert verify(engine.store, report.campaign_id, pack, smoke_script(pack)["seed"], report.state_hash) == []
+

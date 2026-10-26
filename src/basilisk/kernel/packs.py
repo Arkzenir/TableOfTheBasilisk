@@ -28,9 +28,9 @@ from .canonical import hash_obj
 
 PACK_FILE = "pack.yaml"
 
-# Hooks (§2.7) are registered here by name. v0 ships none, so a pack that
-# references any hook is refused at load, as the architecture requires.
-HOOK_REGISTRY: dict[str, Any] = {}
+# Hooks (§2.7) register by shipping their source beside the declaring pack
+# (`hooks/<name>.py`); `kernel/hooks.py` checks and runs them. A hook declared
+# without its source is unregistered and the pack is refused.
 
 
 class PackError(ValueError):
@@ -187,6 +187,7 @@ def resolve(pack_ref: str, packs_dir: str | Path, *, allow_abstract: bool = True
             raise PackError(f"inheritance cycle at {key}")
         seen.add(key)
         raw = load_raw(versions[ver])
+        raw["__dir__"] = Path(versions[ver]).parent
         chain.append((key, raw))
         ref = (raw.get("meta") or {}).get("extends")
 
@@ -194,7 +195,14 @@ def resolve(pack_ref: str, packs_dir: str | Path, *, allow_abstract: bool = True
     merged: dict = {}
     attributions: list[str] = []
     excluded: list[list[dict]] = []
+    hook_decls: dict[str, dict] = {}
+    hook_dirs: dict[str, Path] = {}
     for key, raw in chain:
+        pack_dir = raw.pop("__dir__")
+        for hook in raw.get("hooks") or []:  # hooks accumulate along the chain, by name
+            name = hook.get("name") if isinstance(hook, dict) else hook
+            hook_decls[name] = hook if isinstance(hook, dict) else {"name": name}
+            hook_dirs[name] = pack_dir
         raw = copy.deepcopy(raw)
         removals = raw.pop("remove", None)
         meta = raw.pop("meta", {}) or {}
@@ -226,10 +234,12 @@ def resolve(pack_ref: str, packs_dir: str | Path, *, allow_abstract: bool = True
         from .terms import merge
         merged["meta"]["excluded_terms"] = merge(excluded)
 
-    for hook in merged.get("hooks") or []:
-        name = hook.get("name") if isinstance(hook, dict) else hook
-        if name not in HOOK_REGISTRY:
-            raise PackError(f"{leaf_key} references unregistered hook {name!r}")
+    if hook_decls:  # checked against the determinism contract now; the source is hashed with the pack
+        from .hooks import load as load_hooks
+        try:
+            merged["hooks"] = load_hooks([hook_decls[n] for n in sorted(hook_decls)], hook_dirs)
+        except PackError as e:
+            raise PackError(f"{leaf_key} {e}") from None
 
     return ResolvedPack(data=merged, hash=hash_obj(merged), lineage=[k for k, _ in chain])
 

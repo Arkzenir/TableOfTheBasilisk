@@ -1,0 +1,44 @@
+# Lanternlight with two hooks (ARCHITECTURE §2.7, BUILD_PLAN P0.5): the
+# fixture that proves the hook sandbox. Built as data plus two small, pure,
+# sandboxed hooks; no kernel change.
+#   natural  (resolution.step): a natural 20 on a Check always passes, a natural 1 always fails
+#   standing (sheet.validate):  a new character needs at least one stat of 1 or more
+meta:
+  id: lanternlight_hooked
+  version: 0.1.0
+  extends: lanternlight@0.1.0
+  name: Lanternlight with hooks (demo)
+  license: CC0-1.0
+  attribution_text: "Hook fixture for Lanternlight (CC0)."
+  kernel_compat: ">=0.1,<0.2"
+
+rules_text:
+  full_text: |
+    LANTERNLIGHT (demo), with two house rules written as hooks.
+    Characters have four stats from -1 to +3: Might, Grace, Wits, Heart.
+    To act under pressure, roll a Check: d20 + stat + modifiers, meeting or
+    beating the difficulty the GM sets (Easy 8, Moderate 12, Hard 15, Extreme 18).
+    A natural 20 always passes and a natural 1 always fails.
+    Strikes are checked against the target's Guard (10 + Grace).
+    Vigor is 8 + 2 x Might. At 0 Vigor you are Down until someone Rallies you.
+    Fatigue has three boxes; filling it leaves you Exhausted until you Rest.
+    In a fight everyone rolls d20 + Grace once for turn order, highest first.
+    On your turn you have one action and one minor action (Recall is minor).
+    Each character starts with 1 Luck (max 3); spend it to Inspire an ally.
+    Every character has at least one stat of 1 or more.
+
+resolution:
+  procedures:
+    - id: check
+      steps:
+        - modifiers: {from: [stat, conditions, tags]}
+        - roll: "1d20 + {mod}"
+        - hook: natural
+        - interpret: {scale: pass_fail, compare: ">=", against: difficulty}
+
+gm:
+  fudgeable_procedures: []   # a hooked procedure cannot be peeked
+
+hooks:
+  - {point: resolution.step, name: natural, version: "1"}
+  - {point: sheet.validate, name: standing, version: "1"}

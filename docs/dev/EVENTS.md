@@ -13,7 +13,7 @@ The code-level list of event types (`EVENT_TYPES` in `src/basilisk/kernel/engine
 | `session_started` | folds | `start_session` | `number` |
 | `session_ended` | folds | `end_session` | `number` |
 | `scene_set` | folds | `set_scene` | `scene_id, index, flags, encounter`, plus `spatial` only for a spatial scene: `{mode: zone, regions[{id, label, adjacency, terrain, elevation, cover}]}` (adjacency normalised: undirected, sorted) or `{mode: bands, bands, participants, ranges{"a\|b": band}}` (every pair present; unset pairs start at the furthest band) |
-| `roll_made` | folds | any roll or weighted draw | `counter, purpose, expression, total, groups, variables` (+ `weights` for draws) |
+| `roll_made` | folds | any roll, weighted draw, or hook draw | `counter, purpose, expression, total, groups, variables` (+ `weights` for weighted draws; `expression: hook` with `draws[[lo, hi, value]]` for a hook's draws, one sub-index each) |
 | `effect_applied` | folds | every effect primitive; also condition expiry (`params.reason: duration`), off-air clock advancement (`advance_clock`, `params.reason: off_air`, at `start_session`), and GM placement (`move`, `params.reason: placement`). A `move` in a band scene changes `scene.spatial.ranges` (and, for a newcomer, `participants`) instead of the entity's `zone` | `primitive, target, params, changes[{path, value \| delete}]` |
 | `character_created` | folds | `create_character` | `entity, unique_choices, choices` |
 | `entity_spawned` | folds | `spawn_entity` | `entity` |
@@ -46,6 +46,7 @@ The code-level list of event types (`EVENT_TYPES` in `src/basilisk/kernel/engine
 | `gm_resolution` | passive | `resolve_unmodelled` | `entity, procedure, stat, direct_outcome` |
 | `rules_queried` | passive | `query_rules` | `seat, query, via` (`id`, `ref`, `alias`, `partial`, or `null` for a miss), `sections` (ids returned, never their text), `suggestions` (titles, on a miss) |
 | `move_provoked` | passive | a `move` effect that leaves a threat's reach, when the pack declares `spatial.provokes` | `mover, by` (the provoking entities), `to`; a reaction may answer it (§2.4) |
+| `hook_ran` | passive | every pack hook invocation (`resolution.step`, `sheet.validate` at chargen) | `hook, point, result` (what the hook returned, after its double run agreed), `roll_seq` (its draws, if any) |
 | `campaign_forked` | passive | `EventStore.fork` | `source_campaign, source_seq, source_hash` |
 
 ## Adding an event type

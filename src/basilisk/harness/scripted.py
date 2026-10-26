@@ -420,6 +420,10 @@ def verify(store: EventStore, campaign_id: str, pack: ResolvedPack | None = None
                     continue
                 p = ev["payload"]
                 counter = p["counter"]
+                if p.get("expression") == "hook":  # a hook's draws share one counter, one sub-index each
+                    if any(rng.integer(counter, i, lo, hi) != v for i, (lo, hi, v) in enumerate(p["draws"])):
+                        problems.append(f"seq {ev['seq']}: hook draws do not re-derive from the seed")
+                    continue
                 if p.get("expression") == "weighted":
                     if rng.integer(counter, 0, 1, sum(p["weights"])) != p["total"]:
                         problems.append(f"seq {ev['seq']}: weighted draw does not re-derive")

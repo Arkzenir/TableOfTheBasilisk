@@ -13,7 +13,7 @@ import copy
 from datetime import datetime, timezone
 from typing import Any, Callable, Iterable
 
-from . import KERNEL_VERSION, canon, clocks, decks, dice, expr, fudging, rules, spatial, timekeeping, turns
+from . import KERNEL_VERSION, canon, clocks, decks, dice, expr, fudging, hooks, rules, spatial, timekeeping, turns
 from .canon import CanonCommands
 from .canonical import hash_obj
 from .clocks import ClockCommands
@@ -63,7 +63,7 @@ def _set_path(state: dict, path: list, value: Any, delete: bool = False) -> None
         node[path[-1]] = copy.deepcopy(value)
 
 
-_PASSIVE = rules.EVENT_TYPES | spatial.PASSIVE_EVENTS | {
+_PASSIVE = rules.EVENT_TYPES | spatial.PASSIVE_EVENTS | {"hook_ran"} | {
     "chargen_started", "judgement_input", "procedure_resolved", "table_rolled",
     "gm_resolution", "campaign_forked",
 }
@@ -292,6 +292,38 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         own = self._derived(ent)
         return expr.evaluate(resource["max"], {**own, "actor": own}, self.rounding)
 
+    @staticmethod
+    def _plain(value):
+        """A plain copy for pack code: dicts, lists, and scalars only."""
+        if isinstance(value, dict):
+            return {str(k): Engine._plain(v) for k, v in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [Engine._plain(v) for v in value]
+        return value
+
+    def _hooks_at(self, point: str) -> list[dict]:
+        return [h for h in self.pack.get("hooks") or [] if isinstance(h, dict) and h.get("point") == point]
+
+    def _call_hook(self, name: str, point: str, view: dict, params: dict, cause: int | None, rolls: bool = True):
+        """Run one pack hook under the §2.7 contract and log it. Draws use one
+        roll counter and are logged as a `roll_made` (expression `hook`)."""
+        hook = next((h for h in self.pack.get("hooks") or [] if h.get("name") == name), None)
+        if hook is None or hook["point"] != point:
+            raise EngineError(f"no {point} hook named {name!r} in pack {self.pack.id}")
+        counter, draw = self._draw()
+        try:
+            result, draws = hooks.run(hook, view, params, draw if rolls else None)
+        except hooks.HookError as e:
+            raise EngineError(str(e)) from None
+        roll_seq = None
+        if draws:
+            roll_seq = self._emit("roll_made", {"counter": counter, "purpose": f"hook:{name}", "expression": "hook",
+                                                "draws": draws, "total": sum(d[2] for d in draws), "groups": [],
+                                                "variables": {}}, caused_by=cause)
+        self._emit("hook_ran", {"hook": name, "point": point, "result": self._plain(result), "roll_seq": roll_seq},
+                   caused_by=cause)
+        return result
+
     def view(self, ent: dict | None) -> dict:
         if ent is None:  # no entity: every field reads 0, nested ones too (target.region.cover.x)
             return expr.Lenient({"conditions": expr.Lenient(), "tags": expr.Lenient(),
@@ -488,6 +520,10 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         ent = self._new_entity(entity_id, name, "pc", agent_id, stats)
         ent["tags"] = sorted(set(tags))
         ent["details"] = details
+        for hook in self._hooks_at("sheet.validate"):  # cross-field constraints (§2.7)
+            problems = self._call_hook(hook["name"], "sheet.validate", self._sheet_view(ent), {}, start, rolls=False)
+            if problems:
+                raise EngineError(f"{entity_id}'s sheet breaks {hook['name']}: {'; '.join(map(str, problems))}")
         self._emit("character_created", {"entity": ent, "unique_choices": unique, "choices": choices},
                    actor=agent_id, caused_by=start)
         return entity_id

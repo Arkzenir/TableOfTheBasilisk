@@ -142,7 +142,9 @@ class ResolutionCommands:
             mod = sum(m["value"] for m in modifiers)
             if gm_inputs.get("peek"):
                 refusal = ("an opposed check has two rolls; it cannot be peeked"
-                           if interp.get("against") == "opposed" else self._peek_refusal(proc["id"]))
+                           if interp.get("against") == "opposed" else
+                           "a procedure with a hook step cannot be peeked" if steps.get("hook") else
+                           self._peek_refusal(proc["id"]))
                 if refusal:
                     raise EngineError(f"peek refused: {refusal}")
             if interp.get("against") == "opposed":
@@ -151,6 +153,9 @@ class ResolutionCommands:
             result, roll_seq = self._roll(steps["roll"], variables, cause, f"procedure:{proc['id']}")
             total = result.total
             outcome = self._interpret(proc["id"], total, difficulty)
+            if steps.get("hook"):  # resolution.step (§2.7): the pack's code may adjust the result
+                total, outcome = self._resolution_hook(steps["hook"], proc, ent, target, result, total, outcome,
+                                                       modifiers, difficulty, roll_seq)
             if gm_inputs.get("peek"):
                 self._open_peek({"procedure": proc["id"], "entity": ent["id"], "roll_seq": roll_seq,
                                  "expression": steps["roll"], "variables": variables, "total": total,
@@ -162,6 +167,28 @@ class ResolutionCommands:
         seq = self._resolved(proc["id"], ent["id"], outcome, total, difficulty, modifiers, roll_seq,
                              direct_outcome is not None, cause)
         return outcome, scale.index(outcome), seq
+
+    def _resolution_hook(self, name: str, proc: dict, ent: dict, target: dict | None, result, total: int,
+                         outcome: str, modifiers: list, difficulty: dict | None, roll_seq: int) -> tuple[int, str]:
+        scale = self._scale(proc["id"])
+        view = {"procedure": proc["id"], "total": total, "outcome": outcome, "scale": list(scale),
+                "dice": result.groups, "modifiers": modifiers, "difficulty": difficulty,
+                "actor": self._plain(self.view(ent)), "target": self._plain(self.view(target)) if target else None}
+        out = self._call_hook(name, "resolution.step", view, {}, roll_seq)
+        if out is None:
+            return total, outcome
+        if not isinstance(out, dict) or set(out) - {"total", "outcome"}:
+            raise EngineError(f"hook {name}: a resolution step returns None, {{total}}, or {{outcome}}")
+        if "total" in out:
+            if isinstance(out["total"], bool) or not isinstance(out["total"], int):
+                raise EngineError(f"hook {name}: total must be an integer")
+            total = out["total"]
+            outcome = self._interpret(proc["id"], total, difficulty)
+        if "outcome" in out:
+            if out["outcome"] not in scale:
+                raise EngineError(f"hook {name}: " + _suggest("outcome", out["outcome"], scale))
+            outcome = out["outcome"]
+        return total, outcome
 
     def _opposed(self, proc: dict, interp: dict, target: dict | None, stat: str | None, cause: int) -> dict:
         """The other side's roll for an opposed check: it becomes the difficulty."""

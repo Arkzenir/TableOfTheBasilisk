@@ -21,6 +21,7 @@ Pure reads: nothing here emits events or changes state.
 
 from __future__ import annotations
 
+from . import hooks as hook_runtime
 from .command import EngineError, _suggest
 
 SECTIONS = (
@@ -133,7 +134,21 @@ class SheetCommands:
             self._derived(ent)
         except Exception as e:  # noqa: BLE001 - any failure is a problem to report
             out.append(f"derived values do not evaluate: {e}")
+        for hook in self._hooks_at("sheet.validate"):  # pack constraints, checked without logging (a read)
+            try:
+                result, _ = hook_runtime.run(hook, self._sheet_view(ent), {}, None)
+            except hook_runtime.HookError as e:
+                out.append(str(e))
+                continue
+            out += [f"{hook['name']}: {p}" for p in result or []]
         return out
+
+    def _sheet_view(self, ent: dict) -> dict:
+        """The sheet a `sheet.validate` hook sees: plain values only."""
+        return {"stats": dict(ent["stats"]), "derived": dict(self._derived(ent)), "resources": dict(ent["resources"]),
+                "tracks": dict(ent["tracks"]), "currencies": dict(ent.get("currencies", {})),
+                "conditions": sorted(ent["conditions"]), "tags": list(ent["tags"]),
+                "inventory": list(ent["inventory"]), "kind": ent["kind"]}
 
     def read_sheet(self, seat: str, entity_id: str | None = None) -> dict:
         """A seat's own sheet in full (§7.1). The GM may read any sheet."""

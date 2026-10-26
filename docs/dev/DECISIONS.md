@@ -315,3 +315,19 @@ Template:
   - Tool `advance_time {unit: enum, amount: enum 1..12}` for the GM when the pack keeps a calendar; strict schemas stay free of open numbers.
 - Consequences: Lanternlight keeps watches (4 per day), days (28 per moon), and moons, and a day passes between sessions. Smoke campaigns pass a watch per scene. The Lanternlight-family golden fixtures were regenerated deliberately.
 
+## D-033 The hook sandbox: a checked subset of Python, run twice
+- Date: 2026-10-26 · Status: accepted (T0.12; §2.7, P0.5, Appendix C `hook_runtime_limits`). Un-deferred by the owner's direction to finish all of Phase 0 before sign-off.
+- Decision:
+  - **Registration:** a pack declares `hooks: [{point, name, version}]` and ships `hooks/<name>.py` beside its `pack.yaml`. Declarations accumulate along the extends chain by name, each read from the declaring pack's folder. The source text goes into the resolved pack, so it is hashed and pinned (§2.9). A declaration without a source file is an unregistered hook, and the pack is refused (the existing test still holds).
+  - **Static check at load (`hooks.check_source`):** exactly one `def hook(view, params, rng)` plus constants. An AST whitelist forbids imports, `while`, lambdas, classes, `try`/`with`/`global`, nested functions, floats, `/`, `**`, and bit operators. Names and attributes may not start with `_`. Calls are allowed only to whitelisted pure builtins, a few container methods, and `rng`. Clock reads, I/O, network, and private randomness cannot be expressed, so a pack that tries does not load. That is the P0.5 test.
+  - **Runtime (`hooks.run`):**
+    - Builtins are the whitelist only.
+    - The view and params are deep copies of plain data, so a hook cannot reach engine state (tested).
+    - A step limit of `MAX_STEPS` (10,000 traced lines) applies.
+    - `rng(lo, hi)` draws from the engine randomizer on one roll counter, one sub-index per draw. The draws are logged as a `roll_made` with `expression: hook` and `draws`, and `verify --seed` re-derives them.
+    - **Every invocation runs twice** on fresh copies with the same draws, and results must agree. Disagreement refuses the command (§2.7's "executed twice … bytes compared").
+  - **Wired points:** `resolution.step`, a `hook:` step inside a procedure that sees the total, dice, modifiers, difficulty, actor, and target, and may return `{total}` or `{outcome}`; and `sheet.validate`, which returns a list of problems, is enforced at chargen (atomic refusal), and is included in `sheet_problems`. The other five §2.7 points are listed but refused at load as "reserved in this kernel build" until a pack needs them. A procedure with a hook step cannot be peeked.
+  - **Logging:** every invocation emits the passive `hook_ran {hook, point, result, roll_seq}`. `tob pack lint` prints each pack's hook count (P0.6).
+  - **Deviation to flag:** §2.7 gives the hook shape as `(state_view, params, rng) → [events]`. Here a hook returns a small, point-specific result (`{total}`/`{outcome}`, or a list of problems), which the kernel validates and turns into events. That keeps "never mutates state directly" and "returns data, not side effects", but a hook cannot emit arbitrary events. The owner should confirm this reading, or ask for an ARCHITECTURE note.
+- Consequences: Gate P0 item 10 is now tested for real (`test_gate_p0.py::test_every_shipped_hook_passes_the_contract`). The new fixture `lanternlight_hooked` has a natural 20 that always passes and a natural 1 that always fails (resolution.step), plus a minimum-standing check (sheet.validate). It runs in every gate and has its own golden fixture.
+
