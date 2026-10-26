@@ -355,3 +355,9 @@ Template:
   - **C2 inventory:** add the `weight` model, but no `slots` model for now (T0.26).
   - **C3 `harm`:** the owner asked what it does. The answer and the proposal are in HANDOFF; this is pending.
   - **C4 `progression`:** scheduled as a kernel mechanism in Phase 0, BUILD_PLAN P0.15 with its own Gate P0 line (BUILD_PLAN revision 1.5). Arc-boundary milestones are a line in P3.6 (T0.27). Reasoning: §2.4 lists progression as a kernel variation point, and Phase 0 covers all of §2. When milestones arrive belongs to the campaign layer, so the arc-boundary trigger waits for P3.
+
+## D-037 Harm is a declaration of targets only
+- Date: 2026-10-26 · Status: accepted (owner, answering C3 of the 1.6 draft; T0.28).
+- Decision: `entity_model.harm: { targets: [resource or track ids] }` names what counts as harm. The mechanics (minimums, maxima, `on_zero`, `on_fill`) stay on each resource and track, and the harm section may not carry triggers (lint class `harm`). `harm_state(entity)` gives later systems (lethality, metrics, the overlay, fudging's "unearned death") each target's value, bounds, and whether lower or higher is worse, without knowing the game.
+- Consequence: the word `harm` must be free for kernel source, which the noun lint checks against every pack's catalogue ids. Tidewrack's track was therefore renamed from `harm` to `strain`. Its display label is still "Harm", so play and cards read the same. Lanternlight declares `[vigor, fatigue]` and Tidewrack `[grit, strain]`. Golden fixtures were regenerated deliberately.
+

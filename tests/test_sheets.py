@@ -113,3 +113,36 @@ def test_sheet_tools(lantern, tide):
         gm, players = generate(pack, eff, "gm"), generate(pack, eff, "players")
         assert players["read_sheet"] == {} and "read_party_sheets" in players
         assert gm["read_sheet"] == {"entity_id": {"type": "string", "format": "id"}}
+
+
+# ---------------------------------------------------------------- harm declaration (§2.3, T0.28)
+
+def test_harm_state_reports_each_declared_target(lantern, tide):
+    eng = table(lantern)
+    eng._apply_effect({"primitive": "modify_resource", "target": "actor", "resource": "vigor", "amount": -5},
+                      {"actor": "ash", "target": None, "self": "ash"}, None, {})
+    state = {h["id"]: h for h in eng.harm_state("ash")}
+    assert set(state) == {"vigor", "fatigue"}
+    assert state["vigor"]["kind"] == "resource" and state["vigor"]["worse"] == "lower"
+    assert state["vigor"]["value"] == state["vigor"]["max"] - 5
+    assert state["fatigue"] == {"id": "fatigue", "label": "Fatigue", "kind": "track", "value": 0, "min": 0, "max": 3,
+                                "worse": "higher"}
+    t = Engine.start_campaign(tide, "h", {"seats": {"gm": "gm", "ash": "player"}}, clock=lambda: None)
+    t.create_character("ash", "Ash", {"playbook": "warden"})
+    assert [h["label"] for h in t.harm_state("ash")] == ["Grit", "Harm"]  # the game's own words
+
+
+@pytest.mark.parametrize("harm, fragment", [
+    ({"targets": ["luck"]}, "harm target 'luck' is not a resource or track"),
+    ({"targets": ["vigor"], "on_zero": []}, "declares targets only"),
+    ({"targets": []}, "needs at least one target"),
+])
+def test_bad_harm_declarations_fail_lint(packs_dir, tmp_path, harm, fragment):
+    dst = tmp_path / "packs"
+    shutil.copytree(packs_dir, dst)
+    path = dst / "lanternlight" / "pack.yaml"
+    data = yaml.safe_load(path.read_text())
+    data["entity_model"]["harm"] = harm
+    path.write_text(yaml.safe_dump(data, sort_keys=False))
+    found = [f.message for f in errors(lint(resolve("lanternlight", dst))) if f.code == "harm"]
+    assert any(fragment in m for m in found), found

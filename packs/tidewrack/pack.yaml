@@ -27,7 +27,7 @@ vocabulary:
   salt: {label: Salt}
   ember: {label: Ember}
   grit: {label: Grit}
-  harm: {label: Harm}
+  strain: {label: Harm}
 
 randomizers:
   dice_grammar:
@@ -57,10 +57,13 @@ entity_model:
       on_zero:
         - {primitive: add_condition, target: self, condition: battered}
   tracks:
-    - id: harm
+    - id: strain
       boxes: 4
       on_fill:
         - {primitive: add_condition, target: self, condition: battered}
+  # What counts as harm, for systems that need to know (lethality, metrics, the
+  # overlay, fudging's "unearned death"). The mechanics stay on each target.
+  harm: {targets: [grit, strain]}
   conditions:
     - {id: rattled, modifier: -1, duration: scene}
     - {id: battered, modifier: -2, duration: until_removed}
@@ -111,10 +114,10 @@ actions:
     requires: "scene.encounter == 0"
     outcome_effects:
       full:
-        - {primitive: clear_track, target: actor, track: harm}
+        - {primitive: clear_track, target: actor, track: strain}
         - {primitive: remove_condition, target: actor, condition: battered}
       partial:
-        - {primitive: mark_track, target: actor, track: harm, amount: -1}
+        - {primitive: mark_track, target: actor, track: strain, amount: -1}
         - {primitive: remove_condition, target: actor, condition: battered}
       miss: [{primitive: request_gm_ruling, table: hard_moves}]
   - id: steady
@@ -123,7 +126,7 @@ actions:
     cost: {currency: hope, amounts: [1, 2, 3], range: [1, 3]}
     outcome_effects:
       pass:
-        - {primitive: mark_track, target: actor, track: harm, amount: "-{spent}"}
+        - {primitive: mark_track, target: actor, track: strain, amount: "-{spent}"}
 
 gm:
   meta_currencies:
@@ -132,7 +135,7 @@ gm:
     - id: costs
       entries:
         - {id: take_a_knock, label: "It costs you blood", weight: 2, severity: 2,
-           effects: [{primitive: mark_track, target: actor, track: harm, amount: 1}]}
+           effects: [{primitive: mark_track, target: actor, track: strain, amount: 1}]}
         - {id: lose_footing, label: "You are shaken", weight: 2, severity: 1,
            effects: [{primitive: add_condition, target: actor, condition: rattled}]}
         - {id: worn_down, label: "It wears you down", weight: 1, severity: 2,
@@ -140,10 +143,10 @@ gm:
     - id: hard_moves
       entries:
         - {id: deal_harm, label: "The sea hits hard", weight: 2, severity: 3,
-           effects: [{primitive: mark_track, target: actor, track: harm, amount: 2}]}
+           effects: [{primitive: mark_track, target: actor, track: strain, amount: 2}]}
         - {id: separate, label: "You are thrown and shaken", weight: 2, severity: 2,
            effects: [{primitive: add_condition, target: actor, condition: rattled},
-                     {primitive: mark_track, target: actor, track: harm, amount: 1}]}
+                     {primitive: mark_track, target: actor, track: strain, amount: 1}]}
         - {id: grind, label: "It grinds you down", weight: 1, severity: 2,
            effects: [{primitive: modify_resource, target: actor, resource: grit, amount: -2}]}
 
@@ -185,7 +188,7 @@ spatial:
 presentation:
   nameplate_resources: [grit]
   sheet:
-    public: [harm]    # the table sees the harm you carry
+    public: [strain]  # the table sees the harm you carry
   rule_cards:
     defy_danger: {title: Defy Danger, summary: "When you act despite a threat, roll +Tide.", category: action, icon_id: wave}
     face_down: {title: Face Down, summary: "When you stand against a foe, roll +Iron.", category: action, icon_id: shield}

@@ -187,6 +187,11 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** BUILD_PLAN P0.15.
 - **Acceptance:** BUILD_PLAN P0.15's test and its Gate P0 line.
 
+### T0.28 Harm declaration — `done`
+- **Plan:** P0.3 · §2.3 (`harm`), D-036
+- **Deliverables:** `entity_model.harm: { targets: [resource or track ids] }`, targets only; a `harm_state(entity)` read for later systems; lint (targets exist, no trigger keys).
+- **Acceptance:** both demo packs declare harm and lint clean; `harm_state` reports each target's value, bounds, and which way is worse.
+
 ### T0.13 Gate P0 sign-off — `human`
 - **Agent prepares:** evidence for every Gate P0 item in `HANDOFF.md`, as the commands run and their results.
 - **Owner signs off.**

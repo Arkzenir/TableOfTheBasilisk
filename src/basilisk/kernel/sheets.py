@@ -47,6 +47,26 @@ def lint_sheet(pack) -> list[str]:
     return out
 
 
+def harm_targets(pack) -> list[str]:
+    """The resources and tracks a pack declares as harm (§2.3 `entity_model.harm`)."""
+    return list((pack.get("entity_model.harm") or {}).get("targets") or [])
+
+
+def lint_harm(pack) -> list[str]:
+    spec = pack.get("entity_model.harm")
+    if spec is None:
+        return []
+    if not isinstance(spec, dict) or set(spec) - {"targets"}:
+        return ["entity_model.harm declares targets only; on_zero and on_fill live on each resource or track"]
+    known = {r["id"] for r in pack.catalogue("entity_model.resources")} | \
+            {t["id"] for t in pack.catalogue("entity_model.tracks")}
+    out = [f"harm target {t!r} is not a resource or track; known: {', '.join(sorted(known)) or 'none'}"
+           for t in spec.get("targets") or [] if t not in known]
+    if not spec.get("targets"):
+        out.append("entity_model.harm needs at least one target")
+    return out
+
+
 def summarise(full: dict) -> dict:
     """The summary view: the full view minus every private field."""
     return {**{k: v for k, v in full.items() if k != "fields"},
@@ -149,6 +169,26 @@ class SheetCommands:
                 "tracks": dict(ent["tracks"]), "currencies": dict(ent.get("currencies", {})),
                 "conditions": sorted(ent["conditions"]), "tags": list(ent["tags"]),
                 "inventory": list(ent["inventory"]), "kind": ent["kind"]}
+
+    def harm_state(self, entity_id: str) -> list[dict]:
+        """Where an entity stands on each declared harm target (§2.3): value,
+        bounds, and which way is worse. Resources run out towards their minimum;
+        tracks fill towards their boxes. For later readers: lethality, metrics,
+        the overlay. A pure read."""
+        ent = self._entity(entity_id)
+        resources = self.pack.by_id("entity_model.resources")
+        tracks = self.pack.by_id("entity_model.tracks")
+        out = []
+        for tid in harm_targets(self.pack):
+            label = self._sheet_label(tid)[0]
+            if tid in resources:
+                r = resources[tid]
+                out.append({"id": tid, "label": label, "kind": "resource", "value": ent["resources"][tid],
+                            "min": int(r.get("min", 0)), "max": self._max(ent, r), "worse": "lower"})
+            else:
+                out.append({"id": tid, "label": label, "kind": "track", "value": ent["tracks"][tid],
+                            "min": 0, "max": int(tracks[tid]["boxes"]), "worse": "higher"})
+        return out
 
     def read_sheet(self, seat: str, entity_id: str | None = None) -> dict:
         """A seat's own sheet in full (§7.1). The GM may read any sheet."""

@@ -410,6 +410,8 @@ def lint(pack: ResolvedPack) -> list[Finding]:
         err("deck", problem)
     for problem in sheets.lint_sheet(pack):
         err("sheet", problem)
+    for problem in sheets.lint_harm(pack):
+        err("harm", problem)
     for problem in terms.lint_terms(pack):
         err("excluded-term", problem)
     for problem in timekeeping.lint_time(pack):

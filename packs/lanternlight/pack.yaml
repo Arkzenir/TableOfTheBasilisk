@@ -51,6 +51,9 @@ entity_model:
       boxes: 3
       on_fill:
         - {primitive: add_condition, target: self, condition: exhausted}
+  # What counts as harm (ARCHITECTURE §2.3): later systems read it; the rules
+  # stay on Vigor and Fatigue themselves.
+  harm: {targets: [vigor, fatigue]}
   conditions:
     - {id: shaken, modifier: -1, duration: scene}
     - {id: exhausted, modifier: -2, duration: until_removed}
