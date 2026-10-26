@@ -167,9 +167,9 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** the `trigger_procedure` primitive (a pack effect that runs a procedure and applies its outcome's effects); a test that every primitive emits events and replays exactly; the toggle test's mid-encounter case; seat-override schema regeneration tested; the hook runtime's memory limit (`max_memory`).
 - **Acceptance:** BUILD_PLAN P0.4's primitive and toggle tests and P0.5's "only affected seats' schemas change" have tests; no primitive is reserved; a hook cannot exhaust memory.
 
-### T0.24 `scene_closed` marker — `ready`
+### T0.24 `scene_closed` marker — `done`
 - **Plan:** P0.1, P0.4 · §5.7
-- **Deliverables:** a `scene_closed` event emitted when a scene ends (at the next `set_scene` or at `end_session`), before the events that close it: condition expiry, `encounter_ended`, and scene reshuffles. It is a marker in the log, and is passive or folds to a closed flag, decided with the reducer's no-bump rule in mind.
+- **Deliverables:** a `scene_closed` event emitted when a scene ends (at the next `set_scene` or at `end_session`), after the events that close it (`encounter_ended`, condition expiry) and before the next `scene_set` or `session_ended`. It folds to a `closed` flag, so no scene closes twice; older logs fold unchanged.
 - **Acceptance:** every scene in a campaign is closed exactly once, in order; older logs fold unchanged; replay stays byte-identical.
 
 ### T0.25 Condition stacking — `ready`

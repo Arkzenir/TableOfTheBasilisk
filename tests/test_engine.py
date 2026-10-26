@@ -168,3 +168,30 @@ def test_unsupported_strict_refused(packs_dir, tmp_path):
     with pytest.raises(EngineError, match="cannot support strict"):
         new_campaign(pack, {"players": {"preset": "strict"}})
     new_campaign(pack, {"players": {"preset": "standard"}})
+
+
+def test_every_scene_is_closed_once_and_in_order(lantern):
+    """T0.24: the scene_closed marker (§5.7)."""
+    eng = new_campaign(lantern)
+    eng.create_character("ash", "Ash", {"background": "soldier"})
+    eng.start_session()
+    eng.set_scene("one")
+    eng._apply_effect({"primitive": "add_condition", "target": "ash", "condition": "shaken"},
+                      {"actor": None, "target": None, "self": None}, None, {})
+    eng.set_scene("two", encounter=True)
+    eng.start_encounter()
+    eng.end_session()
+    eng.start_session()
+    eng.set_scene("three")
+    log = list(eng.store.read(eng.campaign_id))
+    closed = [e["payload"] for e in log if e["type"] == "scene_closed"]
+    assert [(c["scene_id"], c["reason"]) for c in closed] == [("one", "next_scene"), ("two", "session_ended")]
+    types = [e["type"] for e in log]
+    one_closed = types.index("scene_closed")
+    assert types[one_closed - 1] == "effect_applied"  # the scene-length condition expired first
+    assert types[one_closed + 1] == "scene_set"
+    two_closed = types.index("scene_closed", one_closed + 1)
+    assert "encounter_ended" in types[one_closed:two_closed]  # the encounter ended before its scene closed
+    assert types[two_closed + 1] == "session_ended"
+    assert eng.state["scene"].get("closed") is None  # "three" is open
+    assert hash_obj(fold(eng.store.read(eng.campaign_id))) == eng.state_hash()

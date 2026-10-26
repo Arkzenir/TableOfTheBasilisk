@@ -7,5 +7,5 @@ fixtures:
       seed: golden-seed
       sessions: 3
       scenes_per_session: 2
-  head: 1a696d1b3f94edf9865a1908ca36696ffc162681a82a8adacc08a04774bb4766
-  events: 295
+  head: aaf9f6d822e2d13c365efbf729023842a1ee1596e85244faa1c0e2fda36c5341
+  events: 303

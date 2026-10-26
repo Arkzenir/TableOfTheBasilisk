@@ -73,7 +73,7 @@ _PASSIVE = rules.EVENT_TYPES | spatial.PASSIVE_EVENTS | {"hook_ran"} | {
 # bump KERNEL_VERSION if existing logs would fold differently.
 EVENT_TYPES = frozenset({
     "campaign_started", "determinism_settings_recorded", "determinism_change_requested",
-    "determinism_changed", "session_started", "session_ended", "scene_set", "roll_made",
+    "determinism_changed", "session_started", "session_ended", "scene_set", "scene_closed", "roll_made",
     "effect_applied", "character_created", "entity_spawned", "clock_created",
     "action_committed", "gm_ruling_requested", "gm_ruling_filled",
 }) | canon.EVENT_TYPES | spatial.EVENT_TYPES | turns.EVENT_TYPES | decks.EVENT_TYPES | fudging.EVENT_TYPES \
@@ -102,6 +102,8 @@ def apply_event(state: dict, ev: dict) -> None:
         layout = spatial.scene_spatial(p)
         if layout is not None:  # absent for non-spatial scenes, so older logs fold unchanged
             state["scene"]["spatial"] = layout
+    elif t == "scene_closed":
+        state["scene"]["closed"] = True  # only logs with the marker carry the flag
     elif t == "roll_made":
         state["roll_counter"] = p["counter"] + 1
     elif t == "effect_applied":
@@ -375,6 +377,12 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         self._reshuffle_at("session")
         return seq
 
+    def _close_scene(self, by: str, reason: str) -> None:
+        """Mark the end of the open scene (§5.7), after the events that close it."""
+        scene = self.state["scene"]
+        if scene["id"] is not None and not scene.get("closed"):
+            self._emit("scene_closed", {"scene_id": scene["id"], "index": scene["index"], "reason": reason}, actor=by)
+
     def _close_encounter(self, by: str) -> None:
         if self.state.get("encounter") is not None:  # an encounter never outlives its scene
             self._emit("encounter_ended", {"round": self.state["encounter"]["round"]}, actor=by)
@@ -384,6 +392,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         self._require_settled()
         self._close_encounter(by or self.gm_seat)
         self._expire({"scene", "session"})
+        self._close_scene(by or self.gm_seat, "session_ended")
         return self._emit("session_ended", {"number": self.state["session"]}, actor=by or self.gm_seat)
 
     @atomic
@@ -405,6 +414,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         by = by or self.gm_seat
         self._close_encounter(by)
         self._expire({"scene"})
+        self._close_scene(by, "next_scene")
         flags = {k: int(v) for k, v in (flags or {}).items()}
         index = self.state["scene"]["index"] + 1
         payload = {"scene_id": scene_id, "index": index, "flags": flags, "encounter": bool(encounter)}
