@@ -1,6 +1,6 @@
 # Draft revision: ARCHITECTURE 1.6 (§2.3 pack schema, §5.7 event schema)
 
-**Status:** draft for owner review. Nothing below has been applied to `docs/ARCHITECTURE.md`.
+**Status:** approved by the owner and applied to `docs/ARCHITECTURE.md` on 2026-10-26 (D-042). Kept as the record of the review.
 **Owner answers (2026-10-26, D-036, D-037):** B1 keep `scene_closed` (built, T0.24); C1 keep `stacking` (built as intensity levels, T0.25); C2 add the `weight` inventory model, no `slots` (built, T0.26); C3 harm is a declaration of targets only (built, T0.28); C4 progression is BUILD_PLAN P0.15 (built, T0.27). Sections B and C below now match the build. What is left is the owner's review of the text itself.
 **Why:** Phase 0 is built (T0.2 to T0.28). Two design sections describe it as it was planned, not as it is: the abbreviated pack schema (§2.3) and the abbreviated event list (§5.7). D-009 deferred §5.7 to "the next design revision"; this is that revision. `docs/dev/EVENTS.md` stays the exact registry (a test enforces it). These sections stay summaries, but true ones.
 **Owner direction:** the flagged Gate P0 item 8 and the hook return shape (D-033) are accepted for now and will be re-audited when the P0 architecture is finalised. Point C3 below records the hook shape so the re-audit has it in writing.

@@ -4,21 +4,23 @@ Rewritten at the end of every work session, so the next session — any agent or
 
 ## Current state (2026-10-26)
 
-- **Phase 0 is complete again.** Every build step P0.1 to P0.15 is done, and every BUILD_PLAN test line has a test. The owner's decisions on the 1.6 draft (D-036) reopened Phase 0 for T0.24 to T0.28; all five are done. Only **T0.13, the Gate P0 sign-off, remains, and it needs the owner.** See `ROADMAP.md`.
-- **Design:** ARCHITECTURE 1.5 and BUILD_PLAN 1.5 (P0.15 Progression). The broadcast pack is the SRD 5.1 under CC-BY 4.0, written last (P4.0). Track 0 is finished before Track 1. Anthropic is the first provider. See D-012 to D-015.
+- **Phase 0 is closed. Gate P0 was signed off by the owner on 2026-10-26** (T0.13, D-042). Every build step P0.1 to P0.15 is done, and every gate item is ticked here and in BUILD_PLAN. **Track 1 is next.** See `ROADMAP.md`.
+- **Design:** ARCHITECTURE 1.6 (§2.3 and §5.7 as built) and BUILD_PLAN 1.6 (Gate P0 signed off). The broadcast pack is the SRD 5.1 under CC-BY 4.0, written last (P4.0). Track 0 is finished before Track 1. Anthropic is the first provider. See D-012 to D-015.
 - **Git:** `main` tracks `origin/main` (github.com/Arkzenir/TableOfTheBasilisk). Hooks are installed: pre-commit runs `tob check --quick`, pre-push runs the full gate.
 
-## What changed this session (owner decisions on the 1.6 draft, D-036)
+## What changed this session (owner decisions on the 1.6 draft, then sign-off)
+
+- **Sign-off** (D-042): the owner ticked every Gate P0 item and approved the 1.6 draft. Gate P0 is ticked in BUILD_PLAN, ARCHITECTURE 1.6 is applied, and T0.13 is done.
 
 - **T0.28** (D-037): harm is a declaration of targets only (`entity_model.harm.targets`), read through `harm_state(entity)`. Tidewrack's track was renamed `strain` (label still "Harm").
 - **T0.24** (D-038): the `scene_closed` marker, after the events that close a scene.
 - **T0.25** (D-039): condition stacking by intensity (`stacking: intensity`, `max_level`); modifiers scale with the level.
 - **T0.26** (D-040): weight inventory (`inventory: {model: weight, limit_expr}`, `entity_model.items`); no slots.
 - **T0.27** (D-041): progression (`kernel/progression.py`): `xp`, `marks`, `milestone`, and `use`; new events `progress_awarded` and `advance_taken`; `advance_options`, `take_advance` (a logged `judgement_input`), `award_milestone`; tools `take_advance` and `award_milestone`. Lanternlight uses XP and Tidewrack marks, and the smoke harness takes every advance due, so every gated campaign progresses.
-- **The 1.6 draft** (`docs/dev/proposals/REV-ARCH-1.6.md`) now matches the build: each former ⚑ point is a ✔ Decided note.
+- **The 1.6 draft** (`docs/dev/proposals/REV-ARCH-1.6.md`) was revised to match the build, then applied.
 - Golden fixtures were regenerated deliberately for T0.24, T0.26, T0.27, and T0.28.
 
-## Gate P0 evidence (T0.13, for the owner's sign-off)
+## Gate P0 evidence (T0.13, signed off 2026-10-26)
 
 Refreshed 2026-10-26 after T0.24 to T0.28. Every item below was run on the development desktop:
 
@@ -36,7 +38,7 @@ Refreshed 2026-10-26 after T0.24 to T0.28. Every item below was run on the devel
 | 5 | Zero illegal moves across 10,000 enumerated candidates, per backend | ✅ | `tests/test_tactics.py::test_ten_thousand_enumerations_are_all_legal[zone_graph]` and `[range_bands]`; `test_enumerated_actions_are_accepted_by_the_engine` |
 | 6 | Mastery tiers produce measurably different option sets on identical tactical states | ✅ | `tests/test_tactics.py::test_lower_tiers_are_strict_information_subsets`, `test_candidate_cap_holds` |
 | 7 | Scripted 3-session campaign completes on each pack with no LLM involvement | ✅ | `tob check`; `tests/test_phase0_gaps.py` (every pack, every preset) |
-| 8 | **The second pack runs with zero kernel code changes made for it** | ⚠️ owner's call | **Structural evidence only.** `tidewrack` was written alongside the kernel before the repository had history. What can be shown: no pack's ids are in the kernel (noun lint over every pack); both families run on one kernel build; `tidewrack` switched backends as pack data (T0.5); and the data-only derivative `lanternlight_sectioned` landed in `5b0400a` with zero `src/basilisk/kernel` changes (`git show --stat 5b0400a`) |
+| 8 | **The second pack runs with zero kernel code changes made for it** | ✅ | **Structural evidence only.** `tidewrack` was written alongside the kernel before the repository had history. What can be shown: no pack's ids are in the kernel (noun lint over every pack); both families run on one kernel build; `tidewrack` switched backends as pack data (T0.5); and the data-only derivative `lanternlight_sectioned` landed in `5b0400a` with zero `src/basilisk/kernel` changes (`git show --stat 5b0400a`) |
 | 9 | Kernel noun lint is clean | ✅ | `tob check`; `tests/test_harness.py::test_kernel_noun_lint_clean` and the pollution test |
 | 10 | Every hook in every shipped pack passes the determinism contract | ✅ | **Now a real test:** `tests/test_gate_p0.py::test_every_shipped_hook_passes_the_contract` (static check at load, every call run twice and agreeing, seed re-derivation of hook draws); `tests/test_hooks.py` (22 tests, including a clock read, I/O, private randomness, and runaway loops all refused) |
 | 11 | Replay against a mismatched pack hash or kernel version is refused | ✅ | `tests/test_engine.py::test_pinning_refuses_mismatch`; `tests/test_gate_p0.py::test_replay_against_another_kernel_version_is_refused` |
@@ -51,15 +53,13 @@ Refreshed 2026-10-26 after T0.24 to T0.28. Every item below was run on the devel
 
 ## Next step
 
-- **Owner:** review the evidence above (now 19 items) and the revised 1.6 draft, then sign off Gate P0 (tick it in BUILD_PLAN.md, an approved design-doc edit, and set T0.13 to `done`). On approval, apply the 1.6 draft to ARCHITECTURE.md.
-- **Then Track 1** (D-014): T1.1 (schema validator), T1.3 (mock adapter) and T1.4 (recording transport), then T1.5 (the Anthropic adapter, D-013).
+- **Track 1** (D-014): T1.1 (schema validator), T1.3 (mock adapter) and T1.4 (recording transport), then T1.5, the Anthropic adapter (D-013). T1.5's live tests need the owner's API key and approval before any paid call.
 
 ## Open questions for the owner
 
-1. **Gate P0 item 8** rests on structural evidence (see the table). The owner has accepted it for now, to be re-audited when the P0 architecture is finalised.
-2. **Hook return shape (D-033):** accepted for now by the owner, to be re-audited with the P0 architecture. §2.7 gives a hook's shape as `(state_view, params, rng) → [events]`; the sandbox has hooks return a small, point-specific result that the kernel validates and turns into events.
-3. **The 1.6 draft** (`docs/dev/proposals/REV-ARCH-1.6.md`): ready for review of the text. Nothing is applied to ARCHITECTURE.md yet.
-4. Before P4.0, the SRD source document. Before launch, the legal review in ARCHITECTURE §11.3.
+1. **Re-audit when the P0 architecture is finalised:** Gate item 8 (structural evidence only) and the hook return shape (D-033: point-specific results rather than `[events]`).
+2. Before T1.5's live tests, the Anthropic API key, set as an environment variable.
+3. Before P4.0, the SRD source document. Before launch, the legal review in ARCHITECTURE §11.3.
 
 ## Notes for the next session
 

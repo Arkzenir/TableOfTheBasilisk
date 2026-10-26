@@ -60,7 +60,7 @@ Template:
 ## D-009 `docs/dev/EVENTS.md` is the exact event registry
 - Date: 2026-10-15 · Status: accepted
 - Context: ARCHITECTURE §5.7 is an abbreviated design list; the code has more types (e.g. `chargen_started`, `gm_resolution`).
-- Decision: EVENTS.md mirrors `EVENT_TYPES` exactly, with a test enforcing it. ARCHITECTURE §5.7 stays a summary and is updated at the next design revision.
+- Decision: EVENTS.md mirrors `EVENT_TYPES` exactly, with a test enforcing it. ARCHITECTURE §5.7 stays a summary and is updated at the next design revision. Updated in revision 1.6 (2026-10-26, D-042).
 
 ## D-010 Canon store: records in state, indexes derived per scope
 - Date: 2026-10-16 · Status: accepted
@@ -385,3 +385,8 @@ Template:
 - The award key is `when`, not `on`: YAML 1.1 reads a bare `on` as the boolean true.
 - Packs: Lanternlight uses `xp` (2 per session end, 1 per failed roll; thresholds 4, 9, 15, 22, 30; four +1 stat advances and a once-only Lamplighter needing Wits 1). Tidewrack uses `marks` (1 per miss or failed roll; thresholds 3, 6, 10, 15). The smoke harness takes every due advance after each session, choosing from the engine's list, so every gated campaign exercises progression; golden fixtures were regenerated deliberately.
 - Not built: rule cards for advances (the card lint does not cover them; they are choices, not rules at the table), and advances that grant actions.
+
+## D-042 Gate P0 signed off; ARCHITECTURE 1.6 applied
+- Date: 2026-10-26 · Status: accepted (owner; T0.13).
+- Decision: the owner ticked all 19 Gate P0 items in HANDOFF and approved the 1.6 draft. Gate P0 is ticked in BUILD_PLAN (revision 1.6), and ARCHITECTURE 1.6 is applied: §2.3's schema and §5.7's event list now describe the build, `scene_closed` and the progression events included, and slot-based inventory is listed in §11.4. In the applied schema the draft's `# was:` and `# new` markers were dropped; the revision note records the change. `docs/dev/proposals/REV-ARCH-1.6.md` stays as the record of the review.
+- Carried forward: Gate item 8 (structural evidence) and the hook return shape (D-033) are accepted for now and re-audited when the P0 architecture is finalised.

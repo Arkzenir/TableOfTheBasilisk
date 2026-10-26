@@ -1,6 +1,6 @@
 # Table of The Basilisk — Architecture Specification
 
-**Version:** 1.5 (revised design freeze for v1)
+**Version:** 1.6 (revised design freeze for v1)
 **Status:** Design complete. Open items listed in §11.
 **Companion document:** `BUILD_PLAN.md` — phased implementation, gates, and tests.
 
@@ -27,6 +27,11 @@
 - **Excluded terms** (§1.2, §1.3.3, §2.3). A pack lists the names its licence does not cover. They are refused in canon, and checked in every line before TTS and the overlay.
 - **Sectioned rules text** (§2.11) moves from v2 into v1. A pack chooses inline or sectioned text as data. A sectioned pack inlines a compact digest and serves the full text through `query_rules`, which resolves by key first. Vector search over rules stays in v2.
 - Rules handling stays system-agnostic. The kernel imposes no section taxonomy, and every rules feature is proven on the kernel test packs before any broadcast pack uses it. The broadcast pack is written as late as possible (BUILD_PLAN 1.4, P4.0).
+
+
+**Revision notes (1.6):**
+- §2.3 (pack schema) and §5.7 (event schema) now describe what Phase 0 built (T0.2 to T0.28), including the owner's decisions of 2026-10-26: the `scene_closed` marker, condition stacking by intensity, weight inventory, harm as a declaration of targets, and progression (BUILD_PLAN P0.15). `docs/dev/EVENTS.md` remains the exact event registry.
+- Mechanical state changes are logged as one `effect_applied` event that names its primitive (D-003), not as one event type per primitive.
 
 ---
 
@@ -327,68 +332,92 @@ system_pack:
     mode: inline | sectioned        # §2.11
     full_text                       # inline: the whole text, layer 2 of every context
     digest                          # sectioned: always-loaded summary, layer 2
-    sections: [{ id, title, aliases, body, refs, parent }]   # required when sectioned, optional when inline
-    max_section_tokens              # sectioned: cap on any one section's body
+    sections: [{ id, title, aliases, body, refs, parent }]
+    max_section_tokens
 
   vocabulary:                       # display terms; kernel IDs never change
     { <id>: { label, short, plural } }
 
   randomizers:
-    dice_grammar: { operators: [...], max_dice, max_sides }
-    decks:   [{ id, cards, reshuffle_rule }]
-    tables:  [{ id, roll, entries }]
+    dice_grammar: { operators: [sum, keep, explode, count, fate, step], max_dice, max_sides,
+                    step_sizes }                         # legal step-die sizes
+    decks:   [{ id, cards: [{ id, label } | id], reshuffle_rule, players_draw }]
+    tables:  [{ id, roll, entries: [{ range, text }] }]
 
   entity_model:
-    stats:      [{ id, range, default }]
-    derived:    [{ id, expr }]                       # kernel expression language
-    resources:  [{ id, min, max_expr, regain, spend }]
-    tracks:     [{ id, boxes, on_fill }]             # stress, harm, wounds, clocks-on-sheet
-    conditions: [{ id, modifiers, duration, stacking, exit }]
+    stats:      [{ id, range, default, private }]     # private (sheet views, §7.1)
+    derived:    [{ id, expr }]
+    resources:  [{ id, min, max, on_zero }]
+    tracks:     [{ id, boxes, on_fill }]
+    conditions: [{ id, modifier, duration: scene | session | until_removed,
+                   stacking: none | intensity, max_level }]
     tags:       [id]
-    inventory:  { model: slots | weight | abstract, limit_expr }
-    harm:       { targets: [resource|track id], on_zero, on_fill }
+    inventory:  { model: abstract | weight, limit_expr }
+    items:      [{ id, label, weight }]               # the weight model's catalogue
+    harm:       { targets: [resource or track id] }
 
   resolution:
     outcome_scales:     [{ id, ordered: [worst … best] }]
-    procedures:         [{ id, inputs, steps }]      # §2.5
-    difficulty_ladders: [{ id, rungs: [{ id, label, value }] }]
-    situational_tags:   [{ id, value, derive?: expr }]   # derivable tags applied by the engine
+    procedures:         [{ id, kind, inputs, steps }]     # §2.5
+      # steps: modifiers {from}; roll; hook (resolution.step, §2.7); interpret, one of:
+      #   bands | margins (degrees of success) + compare >= | <= | successes | compare >= | <=
+      #   against: opposed + ties: actor | target | automatic
+    difficulty_ladders: [{ id, rungs: [{ id, label, value }], range }]
+    situational_tags:   [{ id, value, derive?: expr }]
+    tags_cap_per_roll, free_modifier_max                    # strict/standard bounds (§2.13)
 
   actions:
-    [{ id, trigger: declared | fiction | reaction,
-       modes: [free, encounter], requires, eligibility, cost,
-       procedure, difficulty: ladder_id | derived_expr,
+    [{ id, trigger: declared | fiction | reaction, target: none | entity | zone,
+       modes: [free, encounter], requires, eligibility, stat, cost: { currency, amount | amounts, range },
+       procedure, difficulty: { ladder } | { derived },
+       slot, points,                                         # action economy (§2.4)
        outcome_effects, annotation_categories }]
 
   turn_structure:
     encounter: { order: initiative | sides | handoff | fixed | deck | spotlight,
-                 economy: none | slots | points, slots?: [...], points?: n }
+                 initiative?: { roll, each_round }, first?: players | gm,
+                 economy: none | slots | points, slots?: [{ id, count }], points?: n }
+
+  time:                                                      # new (§2.2 Clocks and time)
+    units: [{ id, label, per }]                              # smallest first
+    between_sessions: { unit, amount }
 
   gm:
     gm_rolls: bool
     fudgeable_procedures: [procedure_id]
     lethality_levers: [{ id, effect }]
-    meta_currencies: [{ id, holder: gm | party | each_player, earn, spend }]
-    consequence_tables: [{ id, entries: [{ id, label, effects, weight }] }]   # ruling slots (§2.6)
+    meta_currencies: [{ id, holder: gm | party | each_player, start, max }]
+    consequence_tables: [{ id, entries: [{ id, label, effects, weight, severity }] }]
 
-  progression:  { model: xp | milestone | marks | use, ... }
-  chargen:      { steps: [{ id, kind: roll | assign | choice, source, unique_per_table }] }
+  progression:                                               # §2.4, BUILD_PLAN P0.15
+    model: xp | marks | milestone | use
+    awards:     [{ when: session_end | outcome, amount, outcomes, procedures }]   # xp, marks
+    thresholds: [points]                                     # xp, marks: one advance per threshold
+    use:        { threshold }                                # use: uses of a stat before it rises
+    advances:   [{ id, label, stats: { stat: delta }, tags, requires, once }]
+  chargen:      { steps: [{ id, kind: roll | choice | assign | table,
+                            targets, roll, options, values, table, unique_per_table }] }
 
   spatial:
     backends: [zone_graph | range_bands | square_grid] | none
-    movement, bands, cover, provokes
-    tactical_profile: { weights, factors, annotation_templates }
+    bands: [{ id, label }]                     # closest first (range_bands)
+    terrain: [{ id }], cover: [{ id }]         # region values (zone_graph)
+    movement: { steps_per_move }
+    provokes: { when }
+    tactical_profile: { categories: [{ id, order: 1 | 2 }], weights, factors, annotation_templates }
 
   presentation:
-    nameplate_resources: [id]        # what the overlay shows (§8.4)
-    assertion_terms: { phrase → resource|track id }   # for §1.3.3 item 3
+    nameplate_resources: [id]
+    sheet: { public: [id] }                    # what party summaries show (§7.1)
+    assertion_terms: { phrase → resource|track id }
     rounding: floor | ceil | half_up
-    rule_cards: { <action|procedure|condition|currency|tag id>:
-                  { title, summary, category, icon_id } }   # §8.6
+    rule_cards: { <action|procedure|condition|currency|tag id>: { title, summary, category, icon_id } }
 
-  hooks:    [{ point, name, version }]                # §2.7
-  fixtures: [path]                                    # §2.10
+  hooks:    [{ point, name, version }]         # source in hooks/<name>.py beside the pack (§2.7)
+  # golden fixtures live in fixtures/golden.yaml by convention (§2.10)
 ```
+
+Harm names its targets; the mechanics stay on each resource and track (their `min`, `max`, `on_zero`, and `on_fill`), and later systems read the declaration.
 
 Every catalogue entry — stat, resource, condition, procedure, action, deck — has an `id`. IDs are what inheritance targets (§2.8), what tools return, and what the event log records.
 
@@ -1069,23 +1098,36 @@ event:
 
 types:
   # system
-  pack_pinned, kernel_pinned, axis_dormant
+  campaign_started            # pins pack_hash, kernel_version, seed commitment (§2.9)
+  campaign_forked
+  axis_dormant                # P2.5 (traits)
   determinism_settings_recorded, determinism_change_requested, determinism_changed
+  session_started, session_ended
   # table
   floor_awarded, floor_yielded, floor_interrupted, silence_beat
   bid_submitted, bid_timeout
   message_posted, dm_sent
   # mechanics
-  roll_made, roll_peeked, roll_fudged
-  deck_shuffled, card_drawn, table_rolled
-  procedure_resolved, gm_ruling_requested, gm_ruling_filled
-  effect_applied, condition_added, condition_removed, track_marked
-  currency_earned, currency_spent
-  token_moved, action_committed
-  clock_advanced
+  roll_made                   # dice, weighted draws, and hook draws; every one on the roll counter
+  roll_peeked, roll_fudged, peek_settled
+  deck_shuffled, card_drawn, card_discarded, table_rolled
+  procedure_resolved, gm_resolution, gm_ruling_requested, gm_ruling_filled
+  effect_applied              # every primitive (§2.6), naming it and carrying the exact changes
+  action_committed
+  judgement_input             # seat, control, active setting, choice, list or bounds (§2.13)
+  hook_ran                    # §2.7
+  encounter_started, round_started, turn_started, economy_spent, encounter_ended
+  clock_created, clock_stage_reached, clock_paused
+  time_advanced
+  chargen_started, character_created
+  progress_awarded, advance_taken   # §2.4 progression (BUILD_PLAN P0.15)
   # world
-  canon_written, canon_superseded, fact_revealed, entity_spawned
-  scene_set, scene_closed
+  canon_written, canon_superseded, fact_revealed
+  entity_spawned
+  scene_set                   # carries the spatial layout when the scene has one
+  scene_closed                # after the events that close the scene, before the next scene_set or session_ended
+  visibility_set, move_provoked
+  rules_queried
   # audience (payloads carry donation IDs, never content)
   donation_received, donation_accepted, donation_withheld, donation_redacted
   donation_reversed, board_item_removed, board_item_expired
@@ -1093,7 +1135,6 @@ types:
   # meta
   validation_flagged, validation_passed, regeneration_triggered
   echo_check_failed
-  judgement_input           # seat, control, active setting, choice, list or bounds (§2.13)
   tool_call, tool_error, refusal_detected
   watchdog_fired, leak_injected
   # production
@@ -2012,6 +2053,7 @@ Numbers nobody can reason their way to. Each must be set empirically (see `BUILD
 
 - Mid-session prep revision (amend, not just create)
 - `SquareGrid` backend
+- Slot-based inventory (v1 has abstract and weight models, §2.3)
 - Vector search over rules text (§2.11); key-first sectioned lookup is in v1
 - Mid-campaign pack migration with explicit migration events (§2.9)
 - Cross-campaign GM rotation mid-campaign

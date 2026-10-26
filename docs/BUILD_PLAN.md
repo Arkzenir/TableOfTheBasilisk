@@ -13,6 +13,8 @@
 
 **Revision notes (1.5):** P0.15 adds progression (XP thresholds, milestones, mark-on-failure, use-based) as a kernel mechanism with pack-declared rules; P3.6 awards milestones at arc boundaries. Owner decision, 2026-10-26.
 
+**Revision notes (1.6):** Gate P0 is signed off (2026-10-26, owner). Phase 0 is closed; Track 1 begins.
+
 ---
 
 ## 0. How to use this document
@@ -214,26 +216,28 @@ Pack-agnostic: scripts drive the generated tool surface, and a generic smoke scr
 
 ### ✅ Gate P0
 
-- [ ] Full campaign replay is byte-identical from the event log, on both packs
-- [ ] Fork at any `seq` produces correct divergent branches
-- [ ] 10k-roll distribution passes for every operator and die type in use
-- [ ] Zero `secret` leakage across 1,000 player-scoped canon queries
-- [ ] Zero illegal moves across 10,000 enumerated candidates, per backend
-- [ ] Mastery tiers produce measurably different option sets on identical tactical states
-- [ ] Scripted 3-session campaign completes on each pack with no LLM involvement
-- [ ] **The second pack runs with zero kernel code changes made for it**
-- [ ] Kernel noun lint is clean
-- [ ] Every hook in every shipped pack passes the determinism contract
-- [ ] Replay against a mismatched pack hash or kernel version is refused
-- [ ] A derived house-rules pack is built as data only and passes conformance
-- [ ] Both shipped packs are strict-ready on every control and carry rule-card data for every action, procedure, condition, currency, and tag
-- [ ] For every control set to strict, zero model-supplied numbers reach resolution from that role — enforced by schema, confirmed by auditing `judgement_input` events
-- [ ] Mid-campaign settings changes apply only at scene boundaries and replay byte-identically
-- [ ] Inline and sectioned rules text both pass conformance, and the sectioned variant runs with zero kernel code changes made for it
-- [ ] `query_rules` resolves 100% of section IDs, aliases, and catalogue refs in every shipped pack
-- [ ] Zero canon records containing an excluded term are accepted, across scripted campaigns on a pack that declares them
-- [ ] Every progression model awards and advances through a scripted campaign, only by options the pack offers, and replays byte-identically
+- [x] Full campaign replay is byte-identical from the event log, on both packs
+- [x] Fork at any `seq` produces correct divergent branches
+- [x] 10k-roll distribution passes for every operator and die type in use
+- [x] Zero `secret` leakage across 1,000 player-scoped canon queries
+- [x] Zero illegal moves across 10,000 enumerated candidates, per backend
+- [x] Mastery tiers produce measurably different option sets on identical tactical states
+- [x] Scripted 3-session campaign completes on each pack with no LLM involvement
+- [x] **The second pack runs with zero kernel code changes made for it**
+- [x] Kernel noun lint is clean
+- [x] Every hook in every shipped pack passes the determinism contract
+- [x] Replay against a mismatched pack hash or kernel version is refused
+- [x] A derived house-rules pack is built as data only and passes conformance
+- [x] Both shipped packs are strict-ready on every control and carry rule-card data for every action, procedure, condition, currency, and tag
+- [x] For every control set to strict, zero model-supplied numbers reach resolution from that role — enforced by schema, confirmed by auditing `judgement_input` events
+- [x] Mid-campaign settings changes apply only at scene boundaries and replay byte-identically
+- [x] Inline and sectioned rules text both pass conformance, and the sectioned variant runs with zero kernel code changes made for it
+- [x] `query_rules` resolves 100% of section IDs, aliases, and catalogue refs in every shipped pack
+- [x] Zero canon records containing an excluded term are accepted, across scripted campaigns on a pack that declares them
+- [x] Every progression model awards and advances through a scripted campaign, only by options the pack offers, and replays byte-identically
 
+
+**Signed off 2026-10-26 by the owner** (T0.13). Evidence for each item is in `docs/dev/HANDOFF.md` at commit `276d367`; item 8 and the hook return shape (D-033) are to be re-audited when the P0 architecture is finalised.
 ---
 
 ## Phase 1 — First Agent

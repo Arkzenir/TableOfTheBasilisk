@@ -7,12 +7,14 @@ Work is broken into agent-sized tasks in [`docs/dev/TASKS.md`](docs/dev/TASKS.md
 
 ## Phase 0 — Rules kernel and deterministic core
 
+**Gate P0: signed off 2026-10-26** (T0.13). Phase 0 is closed; Track 1 is next.
+
 | Step | Status | Where | Notes |
 |---|---|---|---|
 | P0.1 Event store | ✅ | `kernel/events.py` | Hash chain, append-only triggers, transactions, snapshots, fork, online backup, pinning checks |
 | P0.2 Randomizer | ✅ | `kernel/rng.py`, `kernel/dice.py`, `kernel/decks.py`, `kernel/fudging.py` | Seeded dice, full grammar (keep, explode, count, fate, step dice), lookup tables, weighted draws, seed commitment; seeded decks with five reshuffle rules; `peek_roll` with the direction-of-drama constraint by outcome rank and a per-session cap from the GM's `fudging` trait. Shuffles and rerolls re-derive with `verify --seed` |
-| P0.3 Entity model, expressions | ✅ | `kernel/engine.py`, `kernel/expr.py` | Stats, derived, resources, tracks, conditions, tags, currencies, a harm declaration (`harm_state`); inventory abstract or by weight (item catalogue, carry limit); inventory is a simple list. Noun lint in the gate |
-| P0.4 Effects, resolution, turns | ✅ | `kernel/engine.py`, `kernel/resolution.py`, `kernel/effects.py`, `kernel/turns.py` | All primitives except `trigger_procedure` (reserved); roll-over and banded resolution; ruling slots; fiction triggers; determinism settings with mid-campaign changes; all three §2.5 procedure shapes (roll-over, banded, pool with degrees by margin) plus roll-under and opposed checks (in `core`); encounter turn controller with all six orders (`spotlight`, `initiative`, `sides`, `handoff`, `fixed`, `deck`) and three economies (`none`, `slots`, `points`), and `current_turn` for the scheduler. all 17 primitives implemented, `trigger_procedure` included, each tested to emit events and replay exactly |
+| P0.3 Entity model, expressions | ✅ | `kernel/engine.py`, `kernel/expr.py` | Stats, derived, resources, tracks, conditions, tags, currencies, a harm declaration (`harm_state`); inventory abstract or by weight (item catalogue, carry limit). Noun lint in the gate |
+| P0.4 Effects, resolution, turns | ✅ | `kernel/engine.py`, `kernel/resolution.py`, `kernel/effects.py`, `kernel/turns.py` | Roll-over and banded resolution; ruling slots; fiction triggers; determinism settings with mid-campaign changes; all three §2.5 procedure shapes (roll-over, banded, pool with degrees by margin) plus roll-under and opposed checks (in `core`); encounter turn controller with all six orders (`spotlight`, `initiative`, `sides`, `handoff`, `fixed`, `deck`) and three economies (`none`, `slots`, `points`), and `current_turn` for the scheduler. all 17 primitives implemented, `trigger_procedure` included, each tested to emit events and replay exactly |
 | P0.5 Pack loader | ✅ | `kernel/packs.py`, `kernel/tools.py` | Inheritance, merge rules, removals, hashing, kernel compatibility, tool-schema generation. Sandboxed hooks (`kernel/hooks.py`): static contract check at load, whitelisted runtime with a step limit, logged kernel randomness, double runs that must agree, source pinned in the pack hash; `resolution.step` and `sheet.validate` wired, the other §2.7 points reserved. Fixture `lanternlight_hooked` |
 | P0.6 Baselines and packs | 🟡 | `packs/` | `core`, `core.roll_over`, `core.banded`, two demo games from different families, three data-only derived packs (house rules, sectioned rules text, excluded terms) and one with hooks (`lanternlight_hooked`). The broadcast pack (SRD 5.1) is P4.0 |
 | P0.7 Conformance and authoring | ✅ | `kernel/packlint.py`, `kernel/conformance.py`, `tob pack new` | Scaffold, static lint, strict-readiness, defect-class tests; generated property tests for every playable pack (outcome bands reachable by exact dice distributions, every action resolvable from sampled states, no effect sequence leaves an invalid sheet); golden fixtures in `packs/<id>/fixtures/golden.yaml` |
@@ -42,7 +44,5 @@ Work is broken into agent-sized tasks in [`docs/dev/TASKS.md`](docs/dev/TASKS.md
 
 ## Suggested order from here
 
-1. Owner decisions on the 1.6 draft (D-036): done. `scene_closed` (T0.24), condition stacking (T0.25), weight inventory (T0.26), progression (T0.27, BUILD_PLAN P0.15), harm targets (T0.28). The owner reviews the revised 1.6 draft text.
-2. Gate P0 sign-off (T0.13): the agent refreshes the evidence, and the owner signs off.
-3. Then start P1 with the Anthropic adapter.
-4. The broadcast pack (SRD 5.1) waits until P4.0.
+1. Track 1 (D-014): T1.1 (schema validator), T1.3 (mock adapter) and T1.4 (recording transport), then T1.5, the Anthropic adapter (D-013), which needs the owner's API key.
+2. The broadcast pack (SRD 5.1) waits until P4.0.

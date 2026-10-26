@@ -192,11 +192,11 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** `entity_model.harm: { targets: [resource or track ids] }`, targets only; a `harm_state(entity)` read for later systems; lint (targets exist, no trigger keys).
 - **Acceptance:** both demo packs declare harm and lint clean; `harm_state` reports each target's value, bounds, and which way is worse.
 
-### T0.13 Gate P0 sign-off — `human`
+### T0.13 Gate P0 sign-off — `done`
 - **Agent prepares:** evidence for every Gate P0 item in `HANDOFF.md`, as the commands run and their results.
-- **Owner signs off.**
+- **Owner signs off.** Signed off 2026-10-26: every item ticked in HANDOFF and BUILD_PLAN, and ARCHITECTURE 1.6 applied.
 - **Re-opened 2026-10-26:** T0.24 to T0.28 (owner decisions on the 1.6 draft) came first; all are done.
-- **Prepared 2026-10-18, refreshed 2026-10-26** after T0.12 and T0.17 to T0.22 finished Phase 0. The evidence table is in `HANDOFF.md`. Item 8 and the hook return shape (D-033) need the owner's judgement. Waiting on the owner.
+- **Prepared 2026-10-18, refreshed 2026-10-26** after T0.12 and T0.17 to T0.22 finished Phase 0. The evidence table is in `HANDOFF.md`. Item 8 and the hook return shape (D-033) were accepted for now, to be re-audited with the P0 architecture.
 
 ---
 
