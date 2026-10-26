@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import canon, decks, fudging, spatial, turns
+from . import canon, decks, fudging, spatial, timekeeping, turns
 from .determinism import STANDARD, setting_for
 from .packs import ResolvedPack
 
@@ -149,6 +149,9 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
             tools["next_round"] = {}
         tools["advance_clock"] = {"clock_id": ID, "amount": _enum([1, 2, 3])}
         tools["pause_clock"] = {"clock_id": ID, "paused": {"type": "boolean"}}  # the party has interfered
+        time_units = [u["id"] for u in timekeeping.units(pack)]
+        if time_units:
+            tools["advance_time"] = {"unit": _enum(time_units), "amount": _enum(list(range(1, 13)))}
         tools["spawn_entity"] = {"entity_id": ID, "name": NARRATIVE}
         tools["set_scene"] = {"scene_id": ID}
         if zones:

@@ -17,7 +17,7 @@ The code-level list of event types (`EVENT_TYPES` in `src/basilisk/kernel/engine
 | `effect_applied` | folds | every effect primitive; also condition expiry (`params.reason: duration`), off-air clock advancement (`advance_clock`, `params.reason: off_air`, at `start_session`), and GM placement (`move`, `params.reason: placement`). A `move` in a band scene changes `scene.spatial.ranges` (and, for a newcomer, `participants`) instead of the entity's `zone` | `primitive, target, params, changes[{path, value \| delete}]` |
 | `character_created` | folds | `create_character` | `entity, unique_choices, choices` |
 | `entity_spawned` | folds | `spawn_entity` | `entity` |
-| `clock_created` | folds | `create_clock` | `clock_id, label, total, visible`, plus `schedule{every, amount}, stages[{at, record}], created_session` only when the clock has a schedule or stages |
+| `clock_created` | folds | `create_clock` | `clock_id, label, total, visible`, plus `schedule{every, amount, unit?}, stages[{at, record}], created_session` only when the clock has a schedule or stages, and `created_elapsed` when the schedule runs on in-world time |
 | `action_committed` | folds | `commit_action` | `entity, by, action, target, spend, trigger, eligible` |
 | `gm_ruling_requested` | folds | `request_gm_ruling` effect | `slot, table, mode, ids, entries` |
 | `gm_ruling_filled` | folds | engine draw or `fill_ruling` | `slot, entry, by` |
@@ -38,6 +38,7 @@ The code-level list of event types (`EVENT_TYPES` in `src/basilisk/kernel/engine
 | `peek_settled` | folds | `peek_roll` | `slot, decision` (`keep` / `reroll`), `roll_seq, total` (the final roll); clears the pending peek, then `procedure_resolved` and the action's effects follow |
 | `clock_stage_reached` | folds | a clock's fill crossing a stage mark (`advance_clock`, off-air advancement, effects) | `clock, at, record` (the canon id just written by the preceding `canon_written`) |
 | `clock_paused` | folds | `pause_clock` | `clock, paused` (a paused clock skips off-air advancement) |
+| `time_advanced` | folds | `advance_time`; `start_session` when the pack sets `time.between_sessions` (`reason: off_air`) | `unit, amount, from, to` (elapsed counts of the smallest unit; creates `state.time`); time-scheduled clocks then advance with `effect_applied` (`reason: time`) |
 | `chargen_started` | passive | `create_character` | `agent, entity` |
 | `judgement_input` | passive | any model-chosen mechanical input | `seat, control, setting, choice, options` |
 | `procedure_resolved` | passive | resolution runner | `procedure, entity, scale, outcome, rank, ranks, total, difficulty, modifiers, roll_seq, direct`; for an opposed check `difficulty` is `{value, origin: opposed, rung: null, roll_seq, stat}`, naming the other side's roll |

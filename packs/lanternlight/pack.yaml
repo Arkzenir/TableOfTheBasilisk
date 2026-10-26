@@ -147,6 +147,15 @@ chargen:
         - {id: tinker, label: Tinker, stats: {wits: 1, grace: 1}}
     - {id: detail, kind: table, table: detail_table}
 
+# In-world time (§2.2): four watches to a day, twenty-eight days to a moon.
+# A night passes between sessions.
+time:
+  units:
+    - {id: watch, label: Watch, per: 4}
+    - {id: day, label: Day, per: 28}
+    - {id: moon, label: Moon}
+  between_sessions: {unit: day, amount: 1}
+
 # Encounter turns (§2.4): rolled initiative, typed slots per turn.
 turn_structure:
   encounter:

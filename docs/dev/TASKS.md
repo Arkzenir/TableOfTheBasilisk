@@ -152,7 +152,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** pack-declared movement allowance per move; provoke rules (leaving a threat's reach logs who it provokes, which can be answered with a reaction); region cover and terrain readable in rule expressions; annotations can use them.
 - **Acceptance:** moves respect the allowance on both backends; provokes are logged and replay; derived tags can read cover.
 
-### T0.21 Watches and calendar — `ready`
+### T0.21 Watches and calendar — `done`
 - **Plan:** P0.11 · §2.2 (Clocks and time)
 - **Deliverables:** pack-declared time units (for example watches within days), `advance_time`, the current date in state, and clocks that can be scheduled on in-world time as well as on sessions.
 - **Acceptance:** time advances and rolls over units correctly, is logged, replays, and drives a time-scheduled clock.

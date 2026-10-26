@@ -260,6 +260,8 @@ def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
                 for p in players:
                     _play_turn(engine, p, turn, report)
                     turn += 1
+            if engine.pack.get("time.units"):  # a watch passes each scene
+                engine.advance_time(engine.pack.get("time.units")[0]["id"], 1)
             for deck in engine.pack.catalogue("randomizers.decks"):  # one draw per deck per scene
                 engine.draw_card(deck["id"], to=players[sc % len(players)] if sc % 2 else None)
             engine.advance_clock("pressure", 1)
@@ -316,6 +318,8 @@ def _run_steps(engine: Engine, steps: list[dict], report: RunReport) -> None:
                 engine.next_round()
             elif do == "end_encounter":
                 engine.end_encounter()
+            elif do == "advance_time":
+                engine.advance_time(step["unit"], step.get("amount", 1))
             elif do == "write_canon":
                 engine.write_canon(step["record"])
             elif do == "query_rules":

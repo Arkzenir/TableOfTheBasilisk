@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import copy
 
+from . import timekeeping
 from .command import EngineError, _suggest, atomic
 
 EVENT_TYPES = frozenset({"clock_stage_reached", "clock_paused"})
@@ -50,6 +51,8 @@ def created_clock(p: dict) -> dict:
     if "schedule" in p or "stages" in p:  # optional fields: older payloads fold unchanged
         clock.update({"schedule": copy.deepcopy(p.get("schedule")), "stages": copy.deepcopy(p.get("stages") or []),
                       "created_session": p["created_session"], "fired": [], "paused": False})
+        if "created_elapsed" in p:
+            clock["created_elapsed"] = p["created_elapsed"]
     return clock
 
 
@@ -72,17 +75,25 @@ class ClockCommands:
         if schedule is not None or stages is not None:
             payload.update({"schedule": self._check_schedule(schedule), "stages": self._check_stages(stages, total),
                             "created_session": self.state["session"]})
+            if (schedule or {}).get("unit"):  # scheduled on in-world time: count from now
+                payload["created_elapsed"] = self.elapsed()
         self._emit("clock_created", payload, actor=by or self.gm_seat)
 
     def _check_schedule(self, schedule: dict | None) -> dict | None:
         if schedule is None:
             return None
-        every, amount = schedule.get("every"), schedule.get("amount", 1)
-        if set(schedule) - {"every", "amount"}:
-            raise EngineError("a schedule has every (sessions) and amount (segments)")
-        for name, value, lo, hi in (("every", every, 1, 12), ("amount", amount, 1, 3)):
+        every, amount, unit = schedule.get("every"), schedule.get("amount", 1), schedule.get("unit")
+        if set(schedule) - {"every", "amount", "unit"}:
+            raise EngineError("a schedule has every (sessions), amount (segments), and optionally unit: "
+                              "an in-world time unit that every then counts instead")
+        for name, value, lo, hi in (("every", every, 1, 1000 if unit else 12), ("amount", amount, 1, 3)):
             if isinstance(value, bool) or not isinstance(value, int) or not lo <= value <= hi:
                 raise EngineError(f"schedule {name} must be an integer from {lo} to {hi}")
+        if unit is not None:
+            ids = [u["id"] for u in timekeeping.units(self.pack)]
+            if unit not in ids:
+                raise EngineError(_suggest("time unit", unit, ids))
+            return {"every": every, "amount": amount, "unit": unit}
         return {"every": every, "amount": amount}
 
     def _check_stages(self, stages: list[dict] | None, total: int) -> list[dict]:
@@ -139,8 +150,8 @@ class ClockCommands:
         for clock_id in sorted(self.state["clocks"]):
             clock = self.state["clocks"][clock_id]
             schedule = clock.get("schedule")
-            if not schedule or clock["paused"] or clock["filled"] >= clock["total"]:
-                continue
+            if not schedule or schedule.get("unit") or clock["paused"] or clock["filled"] >= clock["total"]:
+                continue  # time-scheduled clocks move with in-world time instead
             # gaps between sessions since creation: a clock made during (or after) session n
             # first advances at the start of n + 1; one made in prep, after session 1
             created = clock["created_session"]

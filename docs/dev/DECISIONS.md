@@ -305,3 +305,13 @@ Template:
   - **Cover and terrain in expressions:** an entity's view now carries `region` (`elevation`, `terrain.<id>`, `cover.<id>`) for where it stands, so a derived tag like `target.region.cover.partial == 1` works. An empty view (no target) reads every nested field as 0.
 - Consequences: no shipped pack changed, so the golden fixtures are untouched. The tests use variants.
 
+## D-032 In-world time: one elapsed counter, mixed-radix dates
+- Date: 2026-10-26 · Status: accepted (T0.21; §2.2 "Clocks and time", P0.11).
+- Decision:
+  - **Pack data:** `time.units: [{id, label, per}]`, smallest first. `per` says how many make the next unit up; the last unit has none. Optionally `time.between_sessions: {unit, amount}`. Lint class `time`.
+  - **State:** `state.time.elapsed` counts the smallest unit and is created by the first `time_advanced`, so older logs fold unchanged. Dates are derived by mixed radix, each unit counted from 1. `current_time()` gives `{elapsed, units, text}`, for example "Moon 1, Day 3, Watch 2". There is no separate date state to drift.
+  - **`advance_time(unit, amount)`** (GM, 1 to 1,000) logs `time_advanced {unit, amount, from, to}`. When the pack sets `between_sessions`, `start_session` advances time first (`reason: off_air`), then off-air clocks.
+  - **Clocks on in-world time:** a schedule `{every, amount, unit}` advances `amount` segments for every `every` units that pass since the clock was made (`created_elapsed`), however many intervals one advance spans. Time-scheduled clocks are skipped by session-based off-air advancement, and pausing applies to both. Stages fire as before.
+  - Tool `advance_time {unit: enum, amount: enum 1..12}` for the GM when the pack keeps a calendar; strict schemas stay free of open numbers.
+- Consequences: Lanternlight keeps watches (4 per day), days (28 per moon), and moons, and a day passes between sessions. Smoke campaigns pass a watch per scene. The Lanternlight-family golden fixtures were regenerated deliberately.
+

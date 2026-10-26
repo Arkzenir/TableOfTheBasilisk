@@ -13,7 +13,7 @@ import copy
 from datetime import datetime, timezone
 from typing import Any, Callable, Iterable
 
-from . import KERNEL_VERSION, canon, clocks, decks, dice, expr, fudging, rules, spatial, turns
+from . import KERNEL_VERSION, canon, clocks, decks, dice, expr, fudging, rules, spatial, timekeeping, turns
 from .canon import CanonCommands
 from .canonical import hash_obj
 from .clocks import ClockCommands
@@ -31,6 +31,7 @@ from .rng import Randomizer
 from .rules import RulesCommands
 from .spatial import SpatialCommands
 from .terms import TermCommands
+from .timekeeping import TimeCommands
 from .tactics import TacticalCommands
 from .turns import TurnCommands
 
@@ -76,7 +77,7 @@ EVENT_TYPES = frozenset({
     "effect_applied", "character_created", "entity_spawned", "clock_created",
     "action_committed", "gm_ruling_requested", "gm_ruling_filled",
 }) | canon.EVENT_TYPES | spatial.EVENT_TYPES | turns.EVENT_TYPES | decks.EVENT_TYPES | fudging.EVENT_TYPES \
-    | clocks.EVENT_TYPES | _PASSIVE
+    | clocks.EVENT_TYPES | timekeeping.EVENT_TYPES | _PASSIVE
 
 
 def apply_event(state: dict, ev: dict) -> None:
@@ -132,6 +133,8 @@ def apply_event(state: dict, ev: dict) -> None:
         fudging.apply_event(state, ev)
     elif t in clocks.EVENT_TYPES:
         clocks.apply_event(state, ev)
+    elif t in timekeeping.EVENT_TYPES:
+        timekeeping.apply_event(state, ev)
     elif t in _PASSIVE:
         pass
     else:
@@ -149,7 +152,7 @@ def fold(events: Iterable[dict], state: dict | None = None) -> dict:
 
 class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands, TacticalCommands,
              TurnCommands, DeckCommands, FudgeCommands, SheetCommands, ClockCommands, RulesCommands,
-             TermCommands):
+             TermCommands, TimeCommands):
     def __init__(self, pack: ResolvedPack, seed: str, store: EventStore | None = None,
                  campaign_id: str = "campaign", clock: Callable[[], str | None] | None = None):
         if pack.data["meta"].get("abstract"):
@@ -333,6 +336,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
 
     @atomic
     def start_session(self, by: str | None = None) -> int:
+        self._time_between_sessions()  # in-world time passes off-air, if the pack says how much
         self._advance_off_air()  # axiom 15: world changes are canon before play resumes
         self._boundary()
         seq = self._emit("session_started", {"number": self.state["session"] + 1}, actor=by or self.gm_seat)
