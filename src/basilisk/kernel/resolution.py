@@ -101,6 +101,27 @@ class ResolutionCommands:
         self._progress_on_outcome(proc_id, entity_id, outcome, [] if direct else modifiers, seq)  # P0.15
         return seq
 
+    def _rolls(self, proc: dict) -> bool:
+        steps = {k: v for step in proc.get("steps") or [] for k, v in step.items()}
+        return not steps["interpret"].get("automatic")
+
+    def _roll_refusal(self, proc: dict, ent: dict, target: dict | None = None) -> str | None:
+        """Why this roll cannot be made, or None. Where the pack's GM never rolls
+        (`gm.gm_rolls: false`, §2.4 who rolls), no GM-side entity rolls: not as
+        the actor, and not as the other side of an opposed check."""
+        if self.pack.get("gm.gm_rolls", True) or not self._rolls(proc):
+            return None
+        steps = {k: v for step in proc.get("steps") or [] for k, v in step.items()}
+        opposed = steps["interpret"].get("against") == "opposed"
+        roller = ent if self._side_of(ent["id"]) == "gm" else             target if opposed and target is not None and self._side_of(target["id"]) == "gm" else None
+        if roller is None:
+            return None
+        procs = self.pack.by_id("resolution.procedures")
+        still = [a["id"] for a in self.pack.catalogue("actions") if not self._rolls(procs[a["procedure"]])]
+        return (f"the GM never rolls in {self.pack.id}: {roller['id']} is GM-controlled, so it cannot roll "
+                f"{proc['id']}. GM-side moves happen without a roll: "
+                + (f"use an action that does not roll ({', '.join(still)}) or narrate it" if still else "narrate it"))
+
     def _run_procedure(self, proc: dict, ent: dict, target: dict | None, stat: str | None,
                        difficulty_spec: dict | None, gm_inputs: dict, cause: int,
                        direct_outcome: str | None = None,
@@ -125,6 +146,9 @@ class ResolutionCommands:
                 raise EngineError(_suggest("outcome", direct_outcome, scale))
             outcome = direct_outcome
         else:
+            refusal = self._roll_refusal(proc, ent, target)
+            if refusal:
+                raise EngineError(refusal)
             sources = (steps.get("modifiers") or {}).get("from", [])
             if "stat" in sources and stat:
                 value = self._derived(ent)[stat]

@@ -7,7 +7,7 @@ Instructions for any coding agent working in this repository. Humans: see `READM
 Table of The Basilisk: four LLM players and an LLM GM play a tabletop RPG on a
 livestream. Every number lives in a deterministic rules kernel, and game rules
 come from data packs. This repo holds the kernel, packs, harness, and tooling.
-P0 is mostly built; development continues with the rest of P0 and with P1.
+Phase 0 is built and Gate P0 is signed off; development continues with P1.
 
 **Sources of truth, in order:**
 1. `docs/ARCHITECTURE.md` — design and intent. Section numbers (§) are referenced everywhere.

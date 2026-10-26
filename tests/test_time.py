@@ -9,7 +9,7 @@ from basilisk.kernel import timekeeping
 from basilisk.kernel.canonical import hash_obj
 from basilisk.kernel.engine import Engine, EngineError, fold
 from basilisk.kernel.packlint import errors, lint
-from basilisk.kernel.packs import resolve
+from basilisk.kernel.packs import PackError, resolve
 from basilisk.kernel.tools import free_values, generate
 
 
@@ -93,7 +93,6 @@ def test_refusals(lantern, tide):
 
 @pytest.mark.parametrize("time, fragment", [
     ({"units": [{"id": "watch", "label": "Watch", "per": 1}, {"id": "day", "label": "Day"}]}, "per must be"),
-    ({"units": [{"id": "watch", "label": "Watch", "per": 4}, {"id": "watch", "label": "Day"}]}, "duplicate"),
     ({"units": [{"id": "watch", "per": 4}, {"id": "day", "label": "Day"}]}, "needs a label"),
     ({"units": [{"id": "watch", "label": "Watch"}], "between_sessions": {"unit": "year"}}, "No time unit 'year'"),
 ])
@@ -106,6 +105,18 @@ def test_bad_calendars_fail_lint(packs_dir, tmp_path, time, fragment):
     path.write_text(yaml.safe_dump(data, sort_keys=False))
     found = [f.message for f in errors(lint(resolve("lanternlight", dst))) if f.code == "time"]
     assert any(fragment in m for m in found), found
+
+
+def test_a_duplicate_time_unit_is_refused_by_name(packs_dir, tmp_path):
+    """Caught before lint since T0.31: the loader refuses an id declared twice in one pack."""
+    dst = tmp_path / "packs"
+    shutil.copytree(packs_dir, dst)
+    path = dst / "lanternlight" / "pack.yaml"
+    data = yaml.safe_load(path.read_text())
+    data["time"] = {"units": [{"id": "watch", "label": "Watch", "per": 4}, {"id": "watch", "label": "Day"}]}
+    path.write_text(yaml.safe_dump(data, sort_keys=False))
+    with pytest.raises(PackError, match="declares an id twice in one catalogue: time.units: watch"):
+        resolve("lanternlight", dst)
 
 
 def test_time_tool(lantern, tide):

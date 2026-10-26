@@ -187,6 +187,11 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** BUILD_PLAN P0.15.
 - **Acceptance:** BUILD_PLAN P0.15's test and its Gate P0 line.
 
+### T0.31 Second Phase 0 audit fixes — `done`
+- **Plan:** P0.1, P0.4, P0.5, P0.6, P0.7 · §2.3 (`gm`), §2.4 (who rolls, meta-currency) · from the second audit (2026-10-27), D-046
+- **Deliverables:** `gm_rolls: false` enforced: no GM-side entity rolls, as the actor or the opposed side; rolling actions are not offered to it; lint refuses a resource or track trigger that would make one roll. `holder: party` is one shared pool; an unknown holder fails lint. The loader refuses an id declared twice in one pack file (the merge used to fold it unseen). Tests for every untested lint class and for removing a condition an inherited action uses. The verifier checks the kernel pin and each snapshot's pins. `tob pack lint` reports rules-text size against its budget. AGENTS.md no longer says P0 is unfinished.
+- **Acceptance:** tests for each; `tob check` passes. The GM-held currency and the §2.3 wording wait for the owner: `docs/dev/proposals/REV-ARCH-1.7.md`.
+
 ### T0.30 Log every GM call — `done`
 - **Plan:** P0.4 · §2.13, D-044 (owner answer to the audit's question 5)
 - **Deliverables:** `@gm_call` on every GM-callable command; a coverage test over the generated GM tools; EVENTS.md and AGENTS.md updated.

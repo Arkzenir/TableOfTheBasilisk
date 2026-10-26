@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from . import decks, dice, expr, progression, rules, sheets, spatial, tactics, terms, timekeeping, turns
+from .command import _suggest
 from .determinism import CONTROLS, ROLES, STRICT, expand
 from .effects import PRIMITIVES, RESERVED, TARGET_SYMBOLS, references
 from .packs import ResolvedPack
@@ -18,6 +19,7 @@ CARD_TITLE_MAX = 32
 CARD_SUMMARY_MAX = 120
 RULES_TEXT_TOKEN_BUDGET = 30_000  # rough: chars / 4
 REQUIRED_SECTIONS = ("randomizers", "entity_model", "resolution", "presentation")
+HOLDERS = ("each_player", "party", "gm")  # gm.meta_currencies holder (§2.3)
 
 
 @dataclass
@@ -157,6 +159,9 @@ def lint(pack: ResolvedPack) -> list[Finding]:
     tags = pack.by_id("resolution.situational_tags")
     ctables = pack.by_id("gm.consequence_tables")
     rtables = pack.by_id("randomizers.tables")
+    for c in currencies.values():  # who holds it (§2.3)
+        if c.get("holder", "each_player") not in HOLDERS:
+            err("reference", f"currency {c['id']}: " + _suggest("holder", c.get("holder"), HOLDERS))
     known = {"resource": resources, "track": tracks, "condition": conditions,
              "currency": currencies, "consequence_table": ctables}
 
@@ -258,6 +263,11 @@ def lint(pack: ResolvedPack) -> list[Finding]:
                 for outcome in (e.get("outcome_effects") or {}):
                     if outcome not in scale:
                         err("reference", f"{where}: outcome {outcome!r} is not on {e.get('procedure')}'s scale")
+                rolls = not ({k: v for s in proc.get("steps") or [] for k, v in s.items()}.get("interpret")
+                             or {}).get("automatic")
+                if rolls and not pack.get("gm.gm_rolls", True) and where.startswith(("track ", "resource ")):
+                    err("effect", f"{where}: any entity can reach this, and a GM-side one would have to roll "
+                                  f"{e.get('procedure')}, but the GM never rolls (gm.gm_rolls: false)")
         missing = [p for p in PRIMITIVES[prim] if p not in e]
         if missing:
             err("effect", f"{where}: {prim} is missing {missing}")

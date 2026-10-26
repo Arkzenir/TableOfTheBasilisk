@@ -137,7 +137,8 @@ def cmd_lint_nouns(args) -> int:
 
 
 def cmd_pack(args) -> int:
-    from .kernel.packlint import errors, lint, readiness
+    from .kernel.packlint import RULES_TEXT_TOKEN_BUDGET, errors, lint, readiness
+    from .kernel.rules import layer_size
     from .kernel.packs import discover, resolve, scaffold
 
     if args.pack_cmd == "list":
@@ -168,6 +169,9 @@ def cmd_pack(args) -> int:
             ready = readiness(pack)
             print("   strict-ready:", ", ".join(f"{c}={'yes' if v else 'NO'}" for c, v in ready.items()))
             print(f"   hooks: {len(pack.get('hooks') or [])}")  # a health metric for the pack language (§2.4)
+            size = layer_size(pack, RULES_TEXT_TOKEN_BUDGET)  # layer 2 against its budget (P0.6)
+            print(f"   rules text: {size['mode']}, ~{size['tokens']} of {size['budget']} tokens"
+                  + (f", {size['sections']} sections" if "sections" in size else ""))
             code |= bool(errors(findings))
         return code
     if args.pack_cmd == "new":

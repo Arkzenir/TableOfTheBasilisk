@@ -108,3 +108,77 @@ def test_capability_absence(lantern, tide):
     assert "fill_ruling" not in generate(tide, gm_strict, "gm")       # engine draws instead
     assert "rule_on_action" not in generate(lantern, gm_std, "players")
     assert all(readiness(lantern).values()) and all(readiness(tide).values())
+
+
+# ---------------------------------------------------------------- every lint class (P0.7; T0.31)
+
+def _assign(**step):
+    return lambda d: d["chargen"]["steps"].append({"id": "array", "kind": "assign", **step})
+
+
+MORE_DEFECTS = [
+    ("outcome-scale", lambda d: d["resolution"].setdefault("outcome_scales", []).append(
+        {"id": "flat", "ordered": ["meh", "meh"]}), "flat: needs at least two unique, ordered outcomes"),
+    ("chargen", lambda d: d["chargen"]["steps"][0]["targets"].append("nerve"), "step stats: unknown stat 'nerve'"),
+    ("chargen", lambda d: d["chargen"]["steps"][1]["options"][0]["stats"].__setitem__("nerve", 1),
+     "step background.soldier: unknown stat 'nerve'"),
+    ("chargen", lambda d: d["chargen"]["steps"][2].__setitem__("table", "nowhere"),
+     "step detail: unknown table 'nowhere'"),
+    ("chargen", _assign(targets=["might", "nerve"], values=[0, 1]), "step array: unknown stat 'nerve'"),
+    ("chargen", _assign(targets=["might", "grace"], values=[1]), "needs one value per target (1 values, 2 targets)"),
+    ("chargen", _assign(targets=["might"], values=[99]), "value 99 is outside might's range"),
+    ("chargen", lambda d: d["chargen"]["steps"].append({"id": "dance", "kind": "dance"}),
+     "kind must be roll, choice, assign or table"),
+    ("rules-text", lambda d: d["rules_text"].__setitem__("full_text", "word " * 30_000),
+     "inline rules text is ~37500 tokens; budget 30000"),
+]
+
+
+@pytest.mark.parametrize("code, defect, fragment", MORE_DEFECTS, ids=[m[2][:40] for m in MORE_DEFECTS])
+def test_every_lint_class_catches_its_defect(packs_dir, tmp_path, code, defect, fragment):
+    pd = _copy(packs_dir, tmp_path)
+    _edit(pd / "lanternlight" / "pack.yaml", defect)
+    found = [(f.code, f.message) for f in errors(lint(resolve("lanternlight", pd)))]
+    assert any(c == code and fragment in m for c, m in found), found
+
+
+def test_a_missing_section_is_a_schema_error(lantern):
+    from basilisk.kernel.packs import ResolvedPack
+    data = {k: v for k, v in lantern.data.items() if k != "presentation"}
+    found = [(f.code, f.message) for f in lint(ResolvedPack(data=data, hash="x", lineage=[]))]
+    assert found == [("schema", "missing section 'presentation'")]
+
+
+def test_a_schema_that_cannot_generate_is_a_lint_error(lantern, monkeypatch):
+    from basilisk.kernel import packlint
+
+    def broken(pack, effective, role, seat=None):
+        raise ValueError("no enum for spend")
+    monkeypatch.setattr(packlint, "generate", broken)
+    found = [(f.code, f.message) for f in errors(lint(lantern))]
+    assert ("tool-schema", "players/strict: no enum for spend") in found and len(found) == 4  # 2 roles x 2 presets
+
+
+@pytest.mark.parametrize("edit, where", [
+    (lambda d: d["actions"].append(dict(d["actions"][0])), "actions: strike"),
+    (lambda d: d["entity_model"]["conditions"].append({"id": "shaken", "modifier": -2, "duration": "scene"}),
+     "entity_model.conditions: shaken"),
+    (lambda d: d["chargen"]["steps"][1]["options"].append({"id": "soldier", "label": "Soldier again"}),
+     "chargen.steps[background].options: soldier"),  # nested catalogues too
+])
+def test_an_id_declared_twice_in_one_pack_is_refused(packs_dir, tmp_path, edit, where):
+    """Within one file a second entry would merge into the first unseen (T0.31)."""
+    pd = _copy(packs_dir, tmp_path)
+    _edit(pd / "lanternlight" / "pack.yaml", edit)
+    with pytest.raises(PackError, match="declares an id twice in one catalogue: " + where.replace("[", r"\[")
+                       .replace("]", r"\]")):
+        resolve("lanternlight", pd)
+
+
+def test_removing_a_condition_an_inherited_action_uses_names_it(packs_dir, tmp_path):
+    """P0.5: the child removes `shaken`, which Lanternlight's `strike` still adds."""
+    pd = _copy(packs_dir, tmp_path)
+    _edit(pd / "lanternlight_house" / "pack.yaml",
+          lambda d: d.setdefault("remove", {}).__setitem__("entity_model.conditions", ["shaken"]))
+    found = [(f.code, f.message) for f in errors(lint(resolve("lanternlight_house", pd)))]
+    assert ("reference", "action strike [fail]: unknown condition 'shaken'") in found, found

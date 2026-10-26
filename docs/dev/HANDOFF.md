@@ -2,13 +2,22 @@
 
 Rewritten at the end of every work session, so the next session — any agent or human — can start cold.
 
-## Current state (2026-10-26)
+## Current state (2026-10-27)
 
-- **Phase 0 is closed. Gate P0 was signed off by the owner on 2026-10-26** (T0.13, D-042). Every build step P0.1 to P0.15 is done, and every gate item is ticked here and in BUILD_PLAN. **Track 1 is next.** See `ROADMAP.md`.
+- **Phase 0 is closed. Gate P0 was signed off by the owner on 2026-10-26** (T0.13, D-042). Every build step P0.1 to P0.15 is done, and every gate item is ticked here and in BUILD_PLAN. A second audit of Phase 0 (2026-10-27) found gaps; T0.31 fixed the ones that needed no design decision, and one decision is waiting (`docs/dev/proposals/REV-ARCH-1.7.md`). **Track 1 is next** once the owner has decided it. See `ROADMAP.md`.
 - **Design:** ARCHITECTURE 1.6 (§2.3 and §5.7 as built) and BUILD_PLAN 1.6 (Gate P0 signed off). The broadcast pack is the SRD 5.1 under CC-BY 4.0, written last (P4.0). Track 0 is finished before Track 1. Anthropic is the first provider. See D-012 to D-015.
 - **Git:** `main` tracks `origin/main` (github.com/Arkzenir/TableOfTheBasilisk). Hooks are installed: pre-commit runs `tob check --quick`, pre-push runs the full gate.
 
-## What changed this session (owner decisions on the 1.6 draft, sign-off, audit)
+## What changed this session (owner decisions on the 1.6 draft, sign-off, two audits)
+
+- **T0.31** (D-046), from the second audit:
+  - `gm_rolls: false` is enforced: no GM-side entity rolls (Tidewrack's NPCs could).
+  - `holder: party` is one shared pool, and an unknown holder fails lint.
+  - The loader refuses an id declared twice in one pack file; the merge used to fold it unseen.
+  - Every lint class now has a defect test, as does removing a condition an inherited action uses.
+  - The verifier checks the kernel pin and snapshot pins.
+  - `tob pack lint` prints rules-text size against its budget.
+  - The GM-held currency and the §2.3 `gm` wording are proposed in `REV-ARCH-1.7.md`, not applied.
 
 - **T0.30** (D-044): every GM call is logged as a `judgement_input` (`@gm_call`), with a test that every GM tool is covered. **D-045:** `KERNEL_VERSION` stays `0.1.0` until every Phase 0 audit returns complete.
 
@@ -28,8 +37,8 @@ Rewritten at the end of every work session, so the next session — any agent or
 
 Refreshed 2026-10-26 after T0.24 to T0.28. Every item below was run on the development desktop:
 
-- `tob check`: **GATE: PASS** in about 30 s (budget 60 s). It runs the noun lint, pack lint for 9 packs, verified smoke campaigns on the 6 playable packs, and pytest with **508 tests passed**.
-- `tob pack lint`: 0 errors and 0 warnings on every pack, every pack strict-ready on every control. Hook counts: 2 in `lanternlight_hooked`, 0 elsewhere.
+- `tob check`: **GATE: PASS** in about 30 s (budget 60 s). It runs the noun lint, pack lint for 9 packs, verified smoke campaigns on the 6 playable packs, and pytest with **534 tests passed** (after T0.31).
+- `tob pack lint`: 0 errors and 0 warnings on every pack, every pack strict-ready on every control. Hook counts: 2 in `lanternlight_hooked`, 0 elsewhere. Rules text (P0.6): Lanternlight inline ~167 of 30,000 tokens, Tidewrack ~103, the sectioned variant's digest ~69 of 6,000 with 12 sections.
 
 "Both packs" means the two kernel test games from different families, `lanternlight` (roll-over) and `tidewrack` (banded) (BUILD_PLAN P0.6). The four derivatives are also run.
 
@@ -57,14 +66,16 @@ Refreshed 2026-10-26 after T0.24 to T0.28. Every item below was run on the devel
 
 ## Next step
 
+- **T0.32**, once the owner approves `REV-ARCH-1.7.md` (the GM-held pool and the §2.3 text).
 - **Track 1** (D-014): T1.1 (schema validator), T1.3 (mock adapter) and T1.4 (recording transport), then T1.5, the Anthropic adapter (D-013). T1.5's live tests need the owner's API key and approval before any paid call.
 
 ## Open questions for the owner
 
-1. **Re-audit when the P0 architecture is finalised:** Gate item 8 (structural evidence only) and the hook return shape (D-033: point-specific results rather than `[events]`).
-2. **When `KERNEL_VERSION` moves:** decided to wait (D-045). It stays `0.1.0` until every Phase 0 audit returns complete; then the owner sets the bump and the policy.
-3. Before T1.5's live tests, the Anthropic API key, set as an environment variable.
-4. Before P4.0, the SRD source document. Before launch, the legal review in ARCHITECTURE §11.3.
+1. **`REV-ARCH-1.7.md`:** the semantics of a GM-held currency (one GM-side pool plus a `target: gm` symbol, recommended) and the §2.3 `gm` block wording (`gm_rolls`, holders, `lethality_levers` reserved for P2.5). If approved, T0.32 builds it and applies the text. Also: whether this second audit counts as complete for D-045 once that lands.
+2. **Re-audit when the P0 architecture is finalised:** Gate item 8 (structural evidence only) and the hook return shape (D-033: point-specific results rather than `[events]`).
+3. **When `KERNEL_VERSION` moves:** decided to wait (D-045). It stays `0.1.0` until every Phase 0 audit returns complete; then the owner sets the bump and the policy.
+4. Before T1.5's live tests, the Anthropic API key, set as an environment variable.
+5. Before P4.0, the SRD source document. Before launch, the legal review in ARCHITECTURE §11.3.
 
 ## Notes for the next session
 

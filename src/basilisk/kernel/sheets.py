@@ -111,8 +111,8 @@ class SheetCommands:
                                               max=self._max(ent, item)))
                 elif section == "track":
                     fields.append(self._field(section, fid, ent["tracks"][fid], not shown, max=int(item["boxes"])))
-                elif fid in ent.get("currencies", {}):
-                    fields.append(self._field(section, fid, ent["currencies"][fid], not shown,
+                elif fid in self._currencies(ent):
+                    fields.append(self._field(section, fid, self._currencies(ent)[fid], not shown,
                                               max=int(item["max"]) if "max" in item else None))
         for cid in sorted(ent["conditions"]):
             fields.append(self._field("condition", cid, int(ent["conditions"][cid].get("level", 1)), False))
@@ -152,8 +152,8 @@ class SheetCommands:
             if not isinstance(v, int) or not 0 <= v <= int(t["boxes"]):
                 out.append(f"track {t['id']} = {v} outside 0..{t['boxes']}")
         for c in self.pack.catalogue("gm.meta_currencies"):
-            if c["id"] in ent.get("currencies", {}):
-                v = ent["currencies"][c["id"]]
+            if c["id"] in self._currencies(ent):
+                v = self._currencies(ent)[c["id"]]
                 if not isinstance(v, int) or v < 0 or ("max" in c and v > int(c["max"])):
                     out.append(f"currency {c['id']} = {v} outside 0..{c.get('max', 'unbounded')}")
         known = self.pack.by_id("entity_model.conditions")
@@ -202,7 +202,7 @@ class SheetCommands:
     def _sheet_view(self, ent: dict) -> dict:
         """The sheet a `sheet.validate` hook sees: plain values only."""
         return {"stats": dict(ent["stats"]), "derived": dict(self._derived(ent)), "resources": dict(ent["resources"]),
-                "tracks": dict(ent["tracks"]), "currencies": dict(ent.get("currencies", {})),
+                "tracks": dict(ent["tracks"]), "currencies": self._currencies(ent),
                 "conditions": sorted(ent["conditions"]), "tags": list(ent["tags"]),
                 "inventory": list(ent["inventory"]), "kind": ent["kind"]}
 

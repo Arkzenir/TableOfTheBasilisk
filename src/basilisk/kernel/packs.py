@@ -133,6 +133,21 @@ def _merge(base: Any, child: Any) -> Any:
     return copy.deepcopy(child)
 
 
+def _duplicate_ids(node: Any, path: str = ""):
+    """Yield (path, ids) for each catalogue in one pack file that declares an id
+    twice. The merge would fold the second entry into the first unseen."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            yield from _duplicate_ids(value, f"{path}.{key}" if path else str(key))
+    elif _is_catalogue(node) and node:
+        ids = [str(item["id"]) for item in node]
+        dupes = sorted({i for i in ids if ids.count(i) > 1})
+        if dupes:
+            yield path, dupes
+        for item in node:
+            yield from _duplicate_ids(item, f"{path}[{item['id']}]")
+
+
 def _apply_removals(data: dict, removals: dict[str, list[str]], pack_id: str) -> None:
     for dotted, ids in (removals or {}).items():
         node: Any = data
@@ -214,6 +229,11 @@ def resolve(pack_ref: str, packs_dir: str | Path, *, allow_abstract: bool = True
         raw = copy.deepcopy(raw)
         removals = raw.pop("remove", None)
         meta = raw.pop("meta", {}) or {}
+        dupes = list(_duplicate_ids(raw))
+        if dupes:
+            raise PackError(f"{key} declares an id twice in one catalogue: "
+                            + "; ".join(f"{where}: {', '.join(ids)}" for where, ids in dupes)
+                            + ". Ids are unique per catalogue; to change an inherited entry, declare it once")
         if not _version_ok(meta.get("kernel_compat")):
             raise PackError(f"{key} is not compatible with kernel {KERNEL_VERSION}")
         merged = _merge(merged, raw)

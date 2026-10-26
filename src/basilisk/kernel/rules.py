@@ -107,6 +107,16 @@ class SectionIndex:
         return list(dict.fromkeys(close))[:n]
 
 
+def layer_size(pack, inline_budget: int) -> dict:
+    """Context layer 2's rough size against its budget (BUILD_PLAN P0.6): the
+    inline text, or a sectioned pack's digest."""
+    rt = pack.get("rules_text") or {}
+    if rt.get("mode") == "sectioned":
+        return {"mode": "sectioned", "tokens": approx_tokens(rt.get("digest")), "budget": DIGEST_TOKEN_BUDGET,
+                "sections": len(rt.get("sections") or [])}
+    return {"mode": "inline", "tokens": approx_tokens(rt.get("full_text")), "budget": inline_budget}
+
+
 def lint_rules(pack, abstract: bool, inline_budget: int) -> tuple[list[str], list[str]]:
     """(errors, warnings) for a pack's rules text (§2.10, §2.11)."""
     errs, warns = [], []

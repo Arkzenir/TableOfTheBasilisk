@@ -207,7 +207,8 @@ class EffectCommands:
             target_id = resolve_target()
             ent = self.state["entities"][target_id]
             cdef = self.pack.by_id("gm.meta_currencies")[effect["currency"]]
-            old = ent["currencies"].get(effect["currency"], 0)
+            old = self._currencies(ent).get(effect["currency"], 0)
+            path = self._currency_path(ent, effect["currency"])
             amt = self._amount(effect["amount"], variables, cause)
             if prim == "spend_currency":
                 if amt > old:
@@ -216,7 +217,7 @@ class EffectCommands:
             else:
                 new = min(int(cdef.get("max", 10**6)), old + amt)
             params.update({"amount": amt, "old": old, "new": new})
-            changes.append({"path": ["entities", target_id, "currencies", effect["currency"]], "value": new})
+            changes.append({"path": path, "value": new})
 
         if target_id:
             params["target"] = target_id

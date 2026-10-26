@@ -18,7 +18,7 @@ from typing import Any
 
 import yaml
 
-from ..kernel import dice
+from ..kernel import KERNEL_VERSION, dice
 from ..kernel.canonical import hash_obj
 from ..kernel.determinism import STANDARD, STRICT
 from ..kernel.engine import Engine, EngineError, fold
@@ -130,7 +130,7 @@ def _spend(engine: Engine, action: dict, actor: str) -> int | None:
     cost = action.get("cost") or {}
     if "amounts" not in cost:
         return None
-    have = engine.state["entities"][actor]["currencies"].get(cost["currency"], 0)
+    have = engine.currency(actor, cost["currency"])
     if engine.mode("spend_amounts", actor) == STRICT:
         affordable = [a for a in cost["amounts"] if a <= have]
         return affordable[-1] if affordable else None
@@ -408,15 +408,20 @@ def verify(store: EventStore, campaign_id: str, pack: ResolvedPack | None = None
         return problems + [f"fold failed: {e}"]
     if expected_state_hash and hash_obj(state) != expected_state_hash:
         problems.append("replayed state differs from live state")
+    first = events[0]["payload"]
+    if first.get("kernel_version") != KERNEL_VERSION:
+        problems.append(f"pinned kernel {first.get('kernel_version')} != running {KERNEL_VERSION}")
     snap = store.latest_snapshot(campaign_id)
     if snap:
+        if (snap["pack_hash"], snap["kernel_version"]) != (first.get("pack_hash"), first.get("kernel_version")):
+            problems.append(f"snapshot at seq {snap['seq']} was taken under pack {str(snap['pack_hash'])[:12]} and "
+                            f"kernel {snap['kernel_version']}, not the campaign's pinned ones")
         partial = fold(store.read(campaign_id, upto=snap["seq"]))
         if hash_obj(partial) != snap["state_hash"]:
             problems.append(f"snapshot at seq {snap['seq']} does not match the log")
         tail = fold(store.read(campaign_id, after=snap["seq"]), state=snap["state"])
         if hash_obj(tail) != hash_obj(state):
             problems.append("snapshot + tail does not equal a full fold")
-    first = events[0]["payload"]
     if pack is not None and first.get("pack_hash") != pack.hash:
         problems.append(f"pinned pack hash {first.get('pack_hash', '')[:12]} != {pack.hash[:12]}")
     if seed is not None:

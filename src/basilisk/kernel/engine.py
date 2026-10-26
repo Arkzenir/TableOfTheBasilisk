@@ -329,6 +329,33 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
                    caused_by=cause)
         return result
 
+    # ------------------------------------------------------------ currencies (§2.3, §2.4)
+
+    def _currencies(self, ent: dict) -> dict[str, int]:
+        """What the entity holds or can spend: its own currencies and, for a
+        player character, the party's shared ones (`holder: party`). A shared
+        currency reads its `start` until the first change creates
+        `state.currencies.party`."""
+        out = dict(ent.get("currencies", {}))
+        if ent["kind"] == "pc":
+            pool = (self.state.get("currencies") or {}).get("party", {})
+            for c in self.pack.catalogue("gm.meta_currencies"):
+                if c.get("holder") == "party":
+                    out[c["id"]] = pool.get(c["id"], int(c.get("start", 0)))
+        return out
+
+    def _currency_path(self, ent: dict, currency_id: str) -> list[str]:
+        """Where a change to this entity's currency lands."""
+        if self.pack.by_id("gm.meta_currencies")[currency_id].get("holder") == "party":
+            if ent["kind"] != "pc":
+                raise EngineError(f"{currency_id} belongs to the party, and {ent['id']} is not a player character")
+            return ["currencies", "party", currency_id]
+        return ["entities", ent["id"], "currencies", currency_id]
+
+    def currency(self, entity_id: str, currency_id: str) -> int:
+        """How much of a currency the entity can spend now (own or shared)."""
+        return self._currencies(self._entity(entity_id)).get(currency_id, 0)
+
     def view(self, ent: dict | None) -> dict:
         if ent is None:  # no entity: every field reads 0, nested ones too (target.region.cover.x)
             return expr.Lenient({"conditions": expr.Lenient(), "tags": expr.Lenient(),
@@ -337,7 +364,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         out = self._derived(ent)
         out.update(ent["resources"])
         out.update(ent["tracks"])
-        out.update(ent.get("currencies", {}))
+        out.update(self._currencies(ent))
         out["conditions"] = expr.Lenient({c: int(v.get("level", 1)) for c, v in ent["conditions"].items()})
         out["tags"] = expr.Lenient({t: 1 for t in ent["tags"]})
         out["region"] = self._region_view(ent["id"], None)  # cover, terrain, elevation where it stands
@@ -586,7 +613,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         if not cost:
             return True
         need = cost.get("amount", min(cost.get("amounts") or [cost.get("range", [0])[0]]))
-        return ent["currencies"].get(cost["currency"], 0) >= need
+        return self._currencies(ent).get(cost["currency"], 0) >= need
 
     def available_actions(self, entity_id: str, target_id: str | None = None) -> list[str]:
         """Ids of the actions the entity could commit now, in catalogue order. The
@@ -603,6 +630,8 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
                 continue
             if self._turn_problem(entity_id, a) is not None:
                 continue
+            if self._roll_refusal(self.pack.by_id("resolution.procedures")[a["procedure"]], ent, target):
+                continue  # the GM never rolls (§2.4)
             out.append(a["id"])
         return out
 
@@ -664,7 +693,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
                 if spend_mode == STANDARD and not (lo <= spend <= hi):
                     raise EngineError(f"spend must be between {lo} and {hi}")
                 amount = int(spend)
-            if ent["currencies"].get(cost["currency"], 0) < amount:
+            if self._currencies(ent).get(cost["currency"], 0) < amount:
                 raise EngineError(f"{entity_id} cannot afford {amount} {cost['currency']}")
 
         seq = self._emit("action_committed", {

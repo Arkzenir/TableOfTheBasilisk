@@ -32,6 +32,25 @@ def test_seed_verification_detects_wrong_seed(packs_dir, lantern):
     assert verify(engine.store, report.campaign_id, lantern, "not-the-seed")
 
 
+def test_verify_checks_the_pins_on_the_log_and_every_snapshot(packs_dir, lantern, monkeypatch):
+    """P0.1: the first event and each snapshot record the pack hash and kernel
+    version; the verifier refuses a mismatch in either (T0.31)."""
+    from basilisk.harness import scripted
+    from basilisk.kernel import KERNEL_VERSION
+    from basilisk.kernel.engine import fold
+    script = smoke_script(lantern, sessions=1)
+    engine, report = run_script(script, packs_dir)
+    store, cid = engine.store, report.campaign_id
+    assert verify(store, cid, lantern, script["seed"], report.state_hash) == []
+    seq = store.head(cid)[0]  # replaces the run's own snapshot, the latest
+    store.write_snapshot(cid, seq, fold(store.read(cid, upto=seq)), "f" * 64, KERNEL_VERSION)
+    problems = verify(store, cid, lantern, script["seed"], report.state_hash)
+    assert problems == [f"snapshot at seq {seq} was taken under pack ffffffffffff and kernel {KERNEL_VERSION}, "
+                        "not the campaign's pinned ones"]
+    monkeypatch.setattr(scripted, "KERNEL_VERSION", "9.9.9")
+    assert f"pinned kernel {KERNEL_VERSION} != running 9.9.9" in verify(store, cid)
+
+
 def test_scenario_file_runs(packs_dir):
     from basilisk.harness.scripted import load_script
     script = load_script(ROOT / "scenarios" / "lanternlight_demo.yaml")
