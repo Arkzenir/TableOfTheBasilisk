@@ -245,8 +245,18 @@ def lint(pack: ResolvedPack) -> list[Finding]:
     # roll expressions -----------------------------------------------------
     grammar = pack.get("randomizers.dice_grammar", {}) or {}
     enabled = set(grammar.get("operators") or ["sum"])
+    sizes = grammar.get("step_sizes")
+    if sizes is not None:
+        if not isinstance(sizes, list) or not sizes or any(isinstance(z, bool) or not isinstance(z, int) or z < 2
+                                                           for z in sizes):
+            err("roll", "dice_grammar.step_sizes must be a list of die sizes of 2 or more")
+        elif max(sizes) > int(grammar.get("max_sides", 100)):
+            err("roll", f"step size d{max(sizes)} exceeds max_sides {grammar.get('max_sides', 100)}")
+    if "step" in enabled and not sizes:
+        err("roll", "the step operator needs dice_grammar.step_sizes, the legal die sizes")
     for where, src in _rolls_in(pack):
-        for problem in dice.check_expression(src, enabled, int(grammar.get("max_dice", 20)), int(grammar.get("max_sides", 100))):
+        for problem in dice.check_expression(src, enabled, int(grammar.get("max_dice", 20)),
+                                             int(grammar.get("max_sides", 100)), grammar.get("step_sizes")):
             err("roll", f"{where}: {problem}")
 
     # other expressions ----------------------------------------------------

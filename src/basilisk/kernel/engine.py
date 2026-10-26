@@ -271,7 +271,8 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
     def _roll(self, src: str, variables: dict[str, int], cause: int | None, purpose: str, actor: str = "engine") -> tuple[dice.RollResult, int]:
         grammar = self.pack.get("randomizers.dice_grammar", {}) or {}
         counter, draw = self._draw()
-        result = dice.evaluate(src, variables, draw, max_dice=int(grammar.get("max_dice", 20)))
+        result = dice.evaluate(src, variables, draw, max_dice=int(grammar.get("max_dice", 20)),
+                               step_sizes=grammar.get("step_sizes"))
         seq = self._emit("roll_made", {"counter": counter, "purpose": purpose, **result.to_payload()},
                          actor=actor, caused_by=cause)
         return result, seq

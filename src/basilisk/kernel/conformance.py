@@ -4,12 +4,14 @@ Pure functions over a resolved pack, used by the generated property tests.
 
 `outcome_reachability(pack)` answers, for every procedure that rolls: can
 each outcome on its scale happen at all? It uses the exact distribution of
-the roll (`dice.distribution`) at the lowest and highest modifier a
-character's stats allow, and, for a compared roll, against every rung of
-every difficulty ladder. That is an under-approximation of the reachable
-states, so an outcome it calls reachable really is. Where no exact
-distribution exists (exploding dice), the outcome is reported as unknown
-(None) and the caller samples instead.
+the roll (`dice.distribution`) with every stat at the low and then the high
+end of its own range. The stat counts in `mod` only if the procedure draws
+modifiers from it. A compared roll is checked against every rung of every
+difficulty ladder, an opposed roll against the other side at either end.
+Every state it checks is one a real character can be in, so an outcome it
+calls reachable really is. Where no exact distribution exists (exploding
+dice), the outcome is reported as unknown (None) and the caller samples
+instead.
 """
 
 from __future__ import annotations
@@ -18,6 +20,8 @@ from fractions import Fraction
 
 from . import dice
 from .resolution import interpret_total
+
+ENDS = ("low", "high")
 
 
 def _steps(proc: dict) -> dict:
@@ -30,28 +34,41 @@ def modifier_range(pack) -> tuple[int, int]:
     return min(r[0] for r in ranges), max(r[1] for r in ranges)
 
 
-def _stat_variables(pack, value: int) -> dict[str, int]:
-    """Every stat and derived name bound to one value, for rolls that name stats."""
-    names = [s["id"] for s in pack.catalogue("entity_model.stats")] + \
-            [d["id"] for d in pack.catalogue("entity_model.derived")]
-    return {n: value for n in names}
+def _stats_at(pack, end: str) -> dict[str, int]:
+    """Every stat at the low or high end of its own range."""
+    out = {}
+    for s in pack.catalogue("entity_model.stats"):
+        lo, hi = s.get("range", [s.get("default", 0)] * 2)
+        out[s["id"]] = lo if end == "low" else hi
+    return out
 
 
-def outcome_probabilities(pack, proc_id: str, mod: int, against: int | None) -> dict[str, Fraction] | None:
+def _variables(pack, proc: dict, at: int | str) -> dict[str, int]:
+    """Roll variables: stats (for pool counts and step dice) and `mod`. `at` is a
+    modifier value, or an end of the stat ranges."""
+    if not isinstance(at, str):
+        return {**_stats_at(pack, "low"), "mod": int(at)}
+    sources = (_steps(proc).get("modifiers") or {}).get("from", [])
+    lo, hi = modifier_range(pack)
+    return {**_stats_at(pack, at), "mod": (lo if at == "low" else hi) if "stat" in sources else 0}
+
+
+def outcome_probabilities(pack, proc_id: str, mod: int | str, against: int | str | None) -> dict[str, Fraction] | None:
     """Exact probability of each outcome of one roll, or None if not computable.
-    For an opposed check, `against` is the other side's modifier: both rolls
-    are distributions."""
+    `mod` is a modifier, or "low" / "high" for every stat at that end of its
+    range. For an opposed check, `against` is the other side's modifier or end;
+    otherwise it is the difficulty value."""
     proc = pack.by_id("resolution.procedures")[proc_id]
     steps = _steps(proc)
     interp = steps["interpret"]
     scale = pack.by_id("resolution.outcome_scales")[interp["scale"]]["ordered"]
-    dist = dice.distribution(steps["roll"], {**_stat_variables(pack, mod), "mod": mod})
+    dist = dice.distribution(steps["roll"], _variables(pack, proc, mod))
     if dist is None:
         return None
     out = {o: Fraction(0) for o in scale}
     if interp.get("against") == "opposed":
         theirs = dice.distribution((interp.get("opposed") or {}).get("roll") or "1d6 + {mod}",
-                                   {**_stat_variables(pack, against or 0), "mod": against or 0})
+                                   _variables(pack, proc, against if against is not None else 0))
         if theirs is None:
             return None
         for total, p in dist.items():
@@ -65,7 +82,6 @@ def outcome_probabilities(pack, proc_id: str, mod: int, against: int | None) -> 
 
 def outcome_reachability(pack) -> dict[str, dict[str, bool | None]]:
     """{procedure: {outcome: reachable}} for every procedure that rolls."""
-    lo, hi = modifier_range(pack)
     rungs = sorted({int(r["value"]) for lad in pack.catalogue("resolution.difficulty_ladders")
                     for r in lad.get("rungs") or []}) or [None]
     out: dict[str, dict[str, bool | None]] = {}
@@ -76,14 +92,14 @@ def outcome_reachability(pack) -> dict[str, dict[str, bool | None]]:
         scale = pack.by_id("resolution.outcome_scales")[interp["scale"]]["ordered"]
         seen: dict[str, bool | None] = {o: False for o in scale}
         if "bands" in interp:
-            against_values = [None]
+            against_values: list = [None]
         elif interp.get("against") == "opposed":
-            against_values = [lo, hi]  # the other side's stat
+            against_values = list(ENDS)
         else:
             against_values = rungs
-        for mod in (lo, hi):
+        for end in ENDS:
             for against in against_values:
-                probs = outcome_probabilities(pack, proc["id"], mod, against)
+                probs = outcome_probabilities(pack, proc["id"], end, against)
                 if probs is None:
                     seen = {o: (True if seen[o] else None) for o in scale}
                     continue

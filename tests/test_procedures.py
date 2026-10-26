@@ -114,8 +114,8 @@ def test_pool_counts_successes_and_grades_by_margin(packs):
         assert outcome == expected
         seen.add(outcome)
     assert {"failure", "success", "strong"} <= seen
-    probs = outcome_probabilities(pack, "pool", 0, 1)  # attr + skill bound to 0: zero dice
-    assert probs["failure"] == 1
+    probs = outcome_probabilities(pack, "pool", "low", 1)  # attr 1 + skill 0: one d10 against 1
+    assert probs == {"failure": Fraction(7, 10), "success": Fraction(3, 10), "strong": 0, "legendary": 0}
 
 
 def test_pool_probabilities_are_exact(packs):

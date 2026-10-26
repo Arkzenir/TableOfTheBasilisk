@@ -286,3 +286,9 @@ Template:
   - Lint understands `margins` (contiguous bands, one per outcome) and opposed (a two-outcome scale, `target` among the inputs, a valid `ties`).
 - Consequences: every pack inherits `opposed`, so all pack hashes and golden fixtures changed; they were regenerated deliberately. `lanternlight_sectioned` lists `opposed` in its refs. Live cards label the opposed difficulty as an "opposed roll".
 
+## D-029 Step dice; reachability checks real states only
+- Date: 2026-10-26 · Status: accepted (T0.18; §2.4, P0.2, §2.10).
+- Decision:
+  - **Step dice:** a die's size may be a variable, `1d{trait}`. A pack enables the `step` operator and lists `dice_grammar.step_sizes`, the legal sizes. A size outside the list is refused atomically, with the legal sizes named. Lint requires `step_sizes` when `step` is enabled, sizes of at least 2, and none above `max_sides`. `roll_made` records the size variable among its variables and the group as `1d<size>`. Re-derivation (`verify --seed`) evaluates without the size list, since a logged size was already legal.
+  - **Conformance fix found by step dice:** `outcome_reachability` used to bind every stat, and `mod`, to one shared value. That is a state no character need be in. For a step die it claimed "never fails", which was false. It now sets every stat to the low and then the high end of its own range. `mod` carries a stat only when the procedure draws modifiers from one. Every checked state is a real one, so "reachable" is never a false claim and nothing reachable at the extremes is missed.
+

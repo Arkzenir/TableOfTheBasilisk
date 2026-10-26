@@ -9,10 +9,12 @@ Grammar:
     term    := factor ('*' factor)*
     factor  := '-' factor | primary [dice_suffix]
     primary := INT | '{' NAME '}' | '(' expr ')' | dice_suffix   (count defaults to 1)
-    dice_suffix := 'd' (INT | 'F') modifier*
+    dice_suffix := 'd' (INT | 'F' | '{' NAME '}') modifier*     # '{NAME}' sides: step dice
     modifier := 'kh' INT | 'kl' INT | '!' | 'count' ('>=' | '<=') INT
 
-Operators (enabled per pack): sum, keep, explode, count, fate.
+Operators (enabled per pack): sum, keep, explode, count, fate, step. A step die
+takes its size from a variable (`1d{trait}`); the pack lists the legal sizes
+(`dice_grammar.step_sizes`), and any other size is refused.
 Arithmetic (+, -, *, constants, variables) is always available.
 """
 
@@ -23,7 +25,7 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 from typing import Any, Callable
 
-OPERATORS = {"sum", "keep", "explode", "count", "fate"}
+OPERATORS = {"sum", "keep", "explode", "count", "fate", "step"}
 EXPLODE_CAP = 10  # max extra dice per original die; guarantees termination
 
 
@@ -106,7 +108,7 @@ class Bin:
 @dataclass(frozen=True)
 class Dice:
     count: Any
-    sides: int | str  # int or "F"
+    sides: Any  # int, "F", or Var (a step die)
     keep: tuple[str, int] | None = None
     explode: bool = False
     count_mode: tuple[str, int] | None = None
@@ -173,7 +175,9 @@ class _Parser:
         self.take("D")
         if self.peek() == "F":
             self.take()
-            sides: int | str = "F"
+            sides: Any = "F"
+        elif self.peek() == "VAR":
+            sides = Var(self.take()[1])
         else:
             sides = self.take("INT")[1]
             if sides < 1:
@@ -225,6 +229,8 @@ def operators_used(src: str) -> set[str]:
     for node in _walk(parse(src)):
         if isinstance(node, Dice):
             used.add("fate" if node.sides == "F" else "sum")
+            if isinstance(node.sides, Var):
+                used.add("step")
             if node.keep:
                 used.add("keep")
             if node.explode:
@@ -235,14 +241,16 @@ def operators_used(src: str) -> set[str]:
 
 
 def variables_used(src: str) -> set[str]:
-    return {n.name for n in _walk(parse(src)) if isinstance(n, Var)}
+    names = {n.name for n in _walk(parse(src)) if isinstance(n, Var)}
+    return names | {n.sides.name for n in _walk(parse(src)) if isinstance(n, Dice) and isinstance(n.sides, Var)}
 
 
 def has_dice(src: str) -> bool:
     return any(isinstance(n, Dice) for n in _walk(parse(src)))
 
 
-def check_expression(src: str, enabled: set[str], max_dice: int, max_sides: int) -> list[str]:
+def check_expression(src: str, enabled: set[str], max_dice: int, max_sides: int,
+                     step_sizes: list[int] | None = None) -> list[str]:
     """Problems with an expression under a pack's grammar settings (empty list = fine)."""
     try:
         tree = parse(src)
@@ -254,6 +262,8 @@ def check_expression(src: str, enabled: set[str], max_dice: int, max_sides: int)
         problems.append(f"{src!r} uses operators not enabled by the pack: {sorted(extra)}")
     for node in _walk(tree):
         if isinstance(node, Dice):
+            if isinstance(node.sides, Var) and "step" in enabled and not step_sizes:
+                problems.append(f"{src!r}: step dice need dice_grammar.step_sizes, the legal die sizes")
             if isinstance(node.sides, int) and node.sides > max_sides:
                 problems.append(f"{src!r}: d{node.sides} exceeds max_sides {max_sides}")
             if isinstance(node.count, Num) and node.count.value > max_dice:
@@ -279,6 +289,10 @@ def distribution(src: str, variables: dict[str, int] | None = None) -> dict[int,
         return out
 
     def faces(node) -> list[int]:
+        if isinstance(node.sides, Var):
+            if node.sides.name not in variables:
+                raise DiceError(f"unbound step-die size {{{node.sides.name}}} in {src!r}")
+            return list(range(1, int(variables[node.sides.name]) + 1))
         return [-1, 0, 1] if node.sides == "F" else list(range(1, node.sides + 1))
 
     def group(node, n: int):
@@ -371,7 +385,11 @@ def value_range(src: str, variables: dict[str, tuple[int, int]] | None = None) -
             if c is None:
                 return None
             lo_n, hi_n = max(c[0], 0), max(c[1], 0)
-            lo_face, hi_face = (-1, 1) if node.sides == "F" else (1, node.sides)
+            if isinstance(node.sides, Var):
+                side_range = variables.get(node.sides.name, (1, 1))
+                lo_face, hi_face = 1, max(1, side_range[1])
+            else:
+                lo_face, hi_face = (-1, 1) if node.sides == "F" else (1, node.sides)
             kept_lo = min(node.keep[1], lo_n) if node.keep else lo_n
             kept_hi = min(node.keep[1], hi_n) if node.keep else hi_n
             if node.count_mode:
@@ -408,9 +426,11 @@ def evaluate(
     variables: dict[str, int] | None = None,
     draw: Callable[[int, int, int], int] | None = None,
     max_dice: int = 100,
+    step_sizes: list[int] | None = None,
 ) -> RollResult:
     """Evaluate `src`. `draw(sub, lo, hi)` supplies random integers; it may be None
-    only for expressions without dice."""
+    only for expressions without dice. `step_sizes` lists the legal sizes for
+    step dice; None allows any size of 2 or more (re-derivation of logged rolls)."""
     variables = dict(variables or {})
     tree = parse(src)
     result = RollResult(expression=src, total=0)
@@ -449,7 +469,15 @@ def evaluate(
                 raise DiceError("negative dice count")
             if n > max_dice:
                 raise DiceError(f"{n} dice exceeds limit {max_dice}")
-            lo, hi = (-1, 1) if node.sides == "F" else (1, node.sides)
+            if isinstance(node.sides, Var):  # a step die: its size is a variable
+                size = ev(node.sides)
+                if step_sizes is not None and size not in step_sizes:
+                    raise DiceError(f"step die d{size} is not a legal size; sizes: {', '.join(map(str, step_sizes))}")
+                if size < 2:
+                    raise DiceError(f"step die d{size} needs at least two sides")
+                lo, hi = 1, size
+            else:
+                lo, hi = (-1, 1) if node.sides == "F" else (1, node.sides)
             rolls = []
             for _ in range(n):
                 v = next_die(lo, hi)
@@ -468,7 +496,7 @@ def evaluate(
                 value = sum(1 for r in kept if (r >= target if cmp == ">=" else r <= target))
             else:
                 value = sum(kept)
-            sides_label = "F" if node.sides == "F" else str(node.sides)
+            sides_label = "F" if node.sides == "F" else str(hi)
             result.groups.append(
                 {"dice": f"{n}d{sides_label}", "rolls": rolls, "kept": kept, "value": value}
             )

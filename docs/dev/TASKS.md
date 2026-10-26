@@ -137,7 +137,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** the pool shape (dice count from stats, successes compared to a difficulty, degrees of success by margin via pack-declared margin bands); opposed checks (both sides roll; ties per pack) in `core`; roll-under covered; actor stats available as roll variables.
 - **Acceptance:** BUILD_PLAN P0.4's test: the three reference procedure shapes in §2.5 resolve correctly against hand-computed outcomes, plus opposed and roll-under.
 
-### T0.18 Step dice — `ready`
+### T0.18 Step dice — `done`
 - **Plan:** P0.2 · §2.4
 - **Deliverables:** die size from a variable (`1d{trait}`), enabled per pack as the `step` operator, with a pack-declared ladder of legal sizes; exact distributions and value ranges.
 - **Acceptance:** seeded rolls, exact distribution, and the 10k distribution test include step dice; an illegal size is refused.
