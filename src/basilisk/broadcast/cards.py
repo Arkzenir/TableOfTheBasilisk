@@ -116,6 +116,8 @@ class CardRenderer:
                 rows.append((f"vs {d['rung'].title()} ({d['value']}) (rung · GM)", ""))
             elif d["origin"] == "gm-value":
                 rows.append((f"vs {d['value']} (set by GM)", ""))
+            elif d["origin"] == "opposed":
+                rows.append((f"vs {d['value']} (opposed roll)", ""))
             else:
                 rows.append((f"vs {d['value']} (derived)", ""))
         if proc:

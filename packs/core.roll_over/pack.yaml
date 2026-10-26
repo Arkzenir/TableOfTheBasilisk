@@ -21,6 +21,11 @@ resolution:
         - modifiers: {from: [stat, conditions, tags]}
         - roll: "1d20 + {mod}"
         - interpret: {scale: pass_fail, compare: ">=", against: difficulty}
+    - id: opposed
+      steps:
+        - modifiers: {from: [stat, conditions, tags]}
+        - roll: "1d20 + {mod}"
+        - interpret: {scale: pass_fail, against: opposed, opposed: {roll: "1d20 + {mod}"}, ties: target}
   difficulty_ladders:
     - id: ladder
       rungs:

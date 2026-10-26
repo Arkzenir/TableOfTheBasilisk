@@ -17,6 +17,7 @@ from __future__ import annotations
 from fractions import Fraction
 
 from . import dice
+from .resolution import interpret_total
 
 
 def _steps(proc: dict) -> dict:
@@ -29,30 +30,36 @@ def modifier_range(pack) -> tuple[int, int]:
     return min(r[0] for r in ranges), max(r[1] for r in ranges)
 
 
-def _outcome_of(interp: dict, scale: list[str], total: int, against: int | None) -> str:
-    if "bands" in interp:
-        idx = len(interp["bands"]) - 1
-        for i, (lo, hi) in enumerate(interp["bands"]):
-            if total <= hi:
-                idx = i
-                break
-        return scale[max(0, idx)]
-    ok = total >= (against or 0) if interp["compare"] == ">=" else total <= (against or 0)
-    return scale[1] if ok else scale[0]
+def _stat_variables(pack, value: int) -> dict[str, int]:
+    """Every stat and derived name bound to one value, for rolls that name stats."""
+    names = [s["id"] for s in pack.catalogue("entity_model.stats")] + \
+            [d["id"] for d in pack.catalogue("entity_model.derived")]
+    return {n: value for n in names}
 
 
 def outcome_probabilities(pack, proc_id: str, mod: int, against: int | None) -> dict[str, Fraction] | None:
-    """Exact probability of each outcome of one roll, or None if not computable."""
+    """Exact probability of each outcome of one roll, or None if not computable.
+    For an opposed check, `against` is the other side's modifier: both rolls
+    are distributions."""
     proc = pack.by_id("resolution.procedures")[proc_id]
     steps = _steps(proc)
     interp = steps["interpret"]
     scale = pack.by_id("resolution.outcome_scales")[interp["scale"]]["ordered"]
-    dist = dice.distribution(steps["roll"], {"mod": mod})
+    dist = dice.distribution(steps["roll"], {**_stat_variables(pack, mod), "mod": mod})
     if dist is None:
         return None
     out = {o: Fraction(0) for o in scale}
+    if interp.get("against") == "opposed":
+        theirs = dice.distribution((interp.get("opposed") or {}).get("roll") or "1d6 + {mod}",
+                                   {**_stat_variables(pack, against or 0), "mod": against or 0})
+        if theirs is None:
+            return None
+        for total, p in dist.items():
+            for other, q in theirs.items():
+                out[interpret_total(interp, scale, total, {"value": other, "origin": "opposed"})] += p * q
+        return out
     for total, p in dist.items():
-        out[_outcome_of(interp, scale, total, against)] += p
+        out[interpret_total(interp, scale, total, {"value": against or 0})] += p
     return out
 
 
@@ -68,7 +75,12 @@ def outcome_reachability(pack) -> dict[str, dict[str, bool | None]]:
             continue
         scale = pack.by_id("resolution.outcome_scales")[interp["scale"]]["ordered"]
         seen: dict[str, bool | None] = {o: False for o in scale}
-        against_values = rungs if "bands" not in interp else [None]
+        if "bands" in interp:
+            against_values = [None]
+        elif interp.get("against") == "opposed":
+            against_values = [lo, hi]  # the other side's stat
+        else:
+            against_values = rungs
         for mod in (lo, hi):
             for against in against_values:
                 probs = outcome_probabilities(pack, proc["id"], mod, against)

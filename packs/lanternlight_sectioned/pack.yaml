@@ -35,7 +35,7 @@ rules_text:
         To act under pressure, roll a Check: d20 + stat + modifiers, meeting or
         beating the difficulty the GM sets (Easy 8, Moderate 12, Hard 15, Extreme 18).
         Some actions succeed automatically and need no roll.
-      refs: [check, automatic, ladder, aided, rushed, dim_light]
+      refs: [check, automatic, opposed, ladder, aided, rushed, dim_light]
 
     - id: harm
       title: Vigor and Fatigue

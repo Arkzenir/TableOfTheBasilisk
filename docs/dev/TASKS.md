@@ -100,9 +100,10 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Plan:** P0.11 · §7.6.2 axiom 15
 - **Acceptance:** clocks advance on schedule between sessions and emit canon (needs T0.2) for each world change.
 
-### T0.12 Hook sandbox — `deferred`
-- **Plan:** P0.5 · §2.7
-- **Why deferred:** no pack uses hooks, and the loader refuses all hooks until this exists, which satisfies the gate. Build it when a real pack needs one.
+### T0.12 Hook sandbox — `ready` (un-deferred 2026-10-26 by owner direction: finish all of Phase 0)
+- **Plan:** P0.5 · §2.7, Appendix C `hook_runtime_limits`
+- **Deliverables:** pack-supplied hook source in a restricted language: a static check at load (no imports, no I/O, no attribute escapes, no unbounded loops), a runtime with no builtins beyond a whitelist, a step limit, a read-only state view, and randomness only through the kernel `rng` handle (logged); the registry is populated from validated pack hooks; at least the `resolution.step` and `sheet.validate` points wired; a fixture pack that uses hooks.
+- **Acceptance:** BUILD_PLAN P0.5's hook test (an unregistered hook is refused; a hook that reads the clock, performs I/O, or draws its own randomness fails the contract and the pack does not load); every hook runs twice on fixtures with identical events.
 
 ### T0.14 Sectioned rules text — `done`
 - **Plan:** P0.13 · §2.3, §2.11, §6.5 Layer 0
@@ -130,6 +131,36 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
   - A fixture pack (e.g. a data-only variant of `tidewrack`) declaring a few invented terms, so tests stay system-agnostic.
 - **Rules:** the kernel names no real-world IP; every term comes from pack data. Keep the noun lint clean.
 - **Acceptance:** BUILD_PLAN P0.14's test. The validation-pass and TTS-gate integration is done later, in P3.3.
+
+### T0.17 Resolution shapes: pool, opposed, roll-under — `done`
+- **Plan:** P0.4, P0.6 · §2.5, §2.8
+- **Deliverables:** the pool shape (dice count from stats, successes compared to a difficulty, degrees of success by margin via pack-declared margin bands); opposed checks (both sides roll; ties per pack) in `core`; roll-under covered; actor stats available as roll variables.
+- **Acceptance:** BUILD_PLAN P0.4's test: the three reference procedure shapes in §2.5 resolve correctly against hand-computed outcomes, plus opposed and roll-under.
+
+### T0.18 Step dice — `ready`
+- **Plan:** P0.2 · §2.4
+- **Deliverables:** die size from a variable (`1d{trait}`), enabled per pack as the `step` operator, with a pack-declared ladder of legal sizes; exact distributions and value ranges.
+- **Acceptance:** seeded rolls, exact distribution, and the 10k distribution test include step dice; an illegal size is refused.
+
+### T0.19 Chargen assign steps and sheet guarantees — `ready`
+- **Plan:** P0.8, P0.7 · §1.5, §2.10
+- **Deliverables:** an `assign` chargen step (place a pack-declared array of values onto stats, chosen by the agent and logged); 1,000 generated characters per pack all schema-valid; read views proven unable to mutate state.
+- **Acceptance:** BUILD_PLAN P0.8's test.
+
+### T0.20 Pack movement, provoke, and cover rules — `ready`
+- **Plan:** P0.10 · §1.4, §2.3 (`spatial: movement, cover, provokes`)
+- **Deliverables:** pack-declared movement allowance per move; provoke rules (leaving a threat's reach logs who it provokes, which can be answered with a reaction); region cover and terrain readable in rule expressions; annotations can use them.
+- **Acceptance:** moves respect the allowance on both backends; provokes are logged and replay; derived tags can read cover.
+
+### T0.21 Watches and calendar — `ready`
+- **Plan:** P0.11 · §2.2 (Clocks and time)
+- **Deliverables:** pack-declared time units (for example watches within days), `advance_time`, the current date in state, and clocks that can be scheduled on in-world time as well as on sessions.
+- **Acceptance:** time advances and rolls over units correctly, is logged, replays, and drives a time-scheduled clock.
+
+### T0.22 Remaining Phase 0 test gaps — `ready`
+- **Plan:** P0.3, P0.5, P0.6, P0.12
+- **Deliverables:** a default tactical profile in `core`; a test that flipping one control changes only the affected role's schema; harness runs of a 3-session campaign under all-strict, all-standard, and default settings, each with a mid-campaign change; evaluator property tests (termination, determinism, rounding per pack).
+- **Acceptance:** each BUILD_PLAN test line named above has a test.
 
 ### T0.13 Gate P0 sign-off — `human`
 - **Agent prepares:** evidence for every Gate P0 item in `HANDOFF.md`, as the commands run and their results.

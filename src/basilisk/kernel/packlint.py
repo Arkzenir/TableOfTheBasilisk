@@ -69,6 +69,9 @@ def _rolls_in(pack: ResolvedPack):
         for step in p.get("steps") or []:
             if "roll" in step:
                 yield f"procedure {p['id']}", step["roll"]
+            opposed = (step.get("interpret") or {}).get("opposed") or {}
+            if opposed.get("roll"):
+                yield f"procedure {p['id']} opposed", opposed["roll"]
     for t in pack.catalogue("randomizers.tables"):
         yield f"table {t['id']}", t.get("roll", "")
     for s in pack.get("chargen.steps") or []:
@@ -167,13 +170,29 @@ def lint(pack: ResolvedPack) -> list[Finding]:
             for (a_lo, a_hi), (b_lo, _) in zip(bands, bands[1:]):
                 if b_lo != a_hi + 1:
                     err("procedure", f"{p['id']}: bands are not contiguous at {a_hi}/{b_lo}")
+        elif "margins" in interp:  # degrees of success by margin over the difficulty (§2.5)
+            margins = interp["margins"]
+            if len(margins) != n:
+                err("procedure", f"{p['id']}: {len(margins)} margin bands for a {n}-outcome scale")
+            for (a_lo, a_hi), (b_lo, _) in zip(margins, margins[1:]):
+                if b_lo != a_hi + 1:
+                    err("procedure", f"{p['id']}: margin bands are not contiguous at {a_hi}/{b_lo}")
+            if interp.get("compare", ">=") not in (">=", "<=", "successes"):
+                err("procedure", f"{p['id']}: compare must be >=, <=, or successes")
+        elif interp.get("against") == "opposed":
+            if n != 2:
+                err("procedure", f"{p['id']}: an opposed check needs a two-outcome scale")
+            if interp.get("ties", "target") not in ("actor", "target"):
+                err("procedure", f"{p['id']}: ties must go to actor or target")
+            if "target" not in (p.get("inputs") or []):
+                err("procedure", f"{p['id']}: an opposed check needs target among its inputs")
         elif "compare" in interp:
             if n != 2:
                 err("procedure", f"{p['id']}: compare needs a two-outcome scale")
-            if interp["compare"] not in (">=", "<="):
-                err("procedure", f"{p['id']}: compare must be >= or <=")
+            if interp["compare"] not in (">=", "<=", "successes"):
+                err("procedure", f"{p['id']}: compare must be >=, <=, or successes")
         elif not interp.get("automatic"):
-            err("procedure", f"{p['id']}: interpret needs bands, compare, or automatic")
+            err("procedure", f"{p['id']}: interpret needs bands, margins, compare, an opposed roll, or automatic")
 
     # actions --------------------------------------------------------------
     for a in pack.catalogue("actions"):

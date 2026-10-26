@@ -19,6 +19,11 @@ resolution:
         - modifiers: {from: [stat, conditions, tags]}
         - roll: "2d6 + {mod}"
         - interpret: {scale: miss_partial_full, bands: [[-99, 6], [7, 9], [10, 99]]}
+    - id: opposed
+      steps:
+        - modifiers: {from: [stat, conditions, tags]}
+        - roll: "2d6 + {mod}"
+        - interpret: {scale: pass_fail, against: opposed, opposed: {roll: "2d6 + {mod}"}, ties: target}
 
 gm:
   gm_rolls: false

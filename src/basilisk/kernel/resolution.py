@@ -15,6 +15,31 @@ from .command import EngineError, _suggest, atomic
 from .determinism import STRICT
 
 
+def _band(bands: list, value: int) -> int:
+    for i, (lo, hi) in enumerate(bands):
+        if value <= hi:
+            return i
+    return len(bands) - 1
+
+
+def interpret_total(interp: dict, scale: list[str], total: int, difficulty: dict | None) -> str:
+    """The outcome for a total. `compare: successes` reads as `>=` (a pool
+    compares its success count with the difficulty)."""
+    if "bands" in interp:
+        return scale[max(0, _band(interp["bands"], total))]
+    against = difficulty["value"] if difficulty else 0
+    compare = ">=" if interp.get("compare", ">=") == "successes" else interp.get("compare", ">=")
+    if "margins" in interp:  # degrees of success by margin
+        margin = total - against if compare == ">=" else against - total
+        return scale[_band(interp["margins"], margin)]
+    if (difficulty or {}).get("origin") == "opposed":
+        if total == against:
+            return scale[1] if interp.get("ties", "target") == "actor" else scale[0]
+        return scale[1] if total > against else scale[0]
+    ok = total >= against if compare == ">=" else total <= against
+    return scale[1] if ok else scale[0]
+
+
 class ResolutionCommands:
     """Engine commands for resolution. Uses the engine's state, `_emit`, `_roll`,
     `_judge`, and seat roles."""
@@ -55,20 +80,13 @@ class ResolutionCommands:
         return self.pack.by_id("resolution.outcome_scales")[steps["interpret"]["scale"]]["ordered"]
 
     def _interpret(self, proc_id: str, total: int, difficulty: dict | None) -> str:
-        """Map a roll total onto the procedure's outcome scale (§2.5)."""
+        """Map a roll total onto the procedure's outcome scale (§2.5): by bands of
+        the total, by bands of the margin over the difficulty (degrees of
+        success), or pass/fail against the difficulty (roll-over `>=`, roll-under
+        `<=`, or an opposed roll)."""
         proc = self.pack.by_id("resolution.procedures")[proc_id]
         interp = {k: v for step in proc.get("steps") or [] for k, v in step.items()}["interpret"]
-        scale = self._scale(proc_id)
-        if "bands" in interp:
-            idx = len(interp["bands"]) - 1
-            for i, (lo, hi) in enumerate(interp["bands"]):
-                if total <= hi:
-                    idx = i
-                    break
-            return scale[max(0, idx)]
-        against = difficulty["value"] if difficulty else 0
-        ok = total >= against if interp["compare"] == ">=" else total <= against
-        return scale[1] if ok else scale[0]
+        return interpret_total(interp, self._scale(proc_id), total, difficulty)
 
     def _resolved(self, proc_id: str, entity_id: str, outcome: str, total: int | None, difficulty: dict | None,
                   modifiers: list[dict], roll_seq: int | None, direct: bool, cause: int) -> int:
@@ -123,15 +141,19 @@ class ResolutionCommands:
 
             mod = sum(m["value"] for m in modifiers)
             if gm_inputs.get("peek"):
-                refusal = self._peek_refusal(proc["id"])
+                refusal = ("an opposed check has two rolls; it cannot be peeked"
+                           if interp.get("against") == "opposed" else self._peek_refusal(proc["id"]))
                 if refusal:
                     raise EngineError(f"peek refused: {refusal}")
-            result, roll_seq = self._roll(steps["roll"], {"mod": mod}, cause, f"procedure:{proc['id']}")
+            if interp.get("against") == "opposed":
+                difficulty = self._opposed(proc, interp, target, stat, cause)
+            variables = {**self._derived(ent), "mod": mod}  # stats name dice too: ({attr}+{skill})d10
+            result, roll_seq = self._roll(steps["roll"], variables, cause, f"procedure:{proc['id']}")
             total = result.total
             outcome = self._interpret(proc["id"], total, difficulty)
             if gm_inputs.get("peek"):
                 self._open_peek({"procedure": proc["id"], "entity": ent["id"], "roll_seq": roll_seq,
-                                 "expression": steps["roll"], "variables": {"mod": mod}, "total": total,
+                                 "expression": steps["roll"], "variables": variables, "total": total,
                                  "outcome": outcome, "rank": scale.index(outcome), "ranks": len(scale),
                                  "modifiers": modifiers, "difficulty": difficulty, "cause": cause,
                                  "continuation": continuation or {"kind": "none"}}, cause)
@@ -140,6 +162,20 @@ class ResolutionCommands:
         seq = self._resolved(proc["id"], ent["id"], outcome, total, difficulty, modifiers, roll_seq,
                              direct_outcome is not None, cause)
         return outcome, scale.index(outcome), seq
+
+    def _opposed(self, proc: dict, interp: dict, target: dict | None, stat: str | None, cause: int) -> dict:
+        """The other side's roll for an opposed check: it becomes the difficulty."""
+        if target is None:
+            raise EngineError(f"{proc['id']} is an opposed check and needs a target entity to oppose")
+        spec = interp.get("opposed") or {}
+        their_stat = spec.get("stat") or stat
+        derived = self._derived(target)
+        mod = derived.get(their_stat, 0) if their_stat else 0
+        conds = self.pack.by_id("entity_model.conditions")
+        mod += sum(int(conds.get(c, {}).get("modifier", 0)) for c in sorted(target["conditions"]))
+        result, seq = self._roll(spec.get("roll") or "1d6 + {mod}", {**derived, "mod": mod}, cause,
+                                 f"opposed:{proc['id']}:{target['id']}")
+        return {"value": result.total, "origin": "opposed", "rung": None, "roll_seq": seq, "stat": their_stat}
 
     def _situational(self, ent: dict, target: dict | None, gm_inputs: dict, cause: int) -> list[dict]:
         tags = self.pack.by_id("resolution.situational_tags")

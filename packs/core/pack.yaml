@@ -49,6 +49,15 @@ resolution:
       inputs: [actor]
       steps:
         - interpret: {scale: pass_fail, automatic: best}
+    # Both sides roll; the higher total wins, ties to the defender. Family
+    # baselines replace the dice (§2.5, §2.8).
+    - id: opposed
+      kind: roll
+      inputs: [actor, stat, target]
+      steps:
+        - modifiers: {from: [stat, conditions, tags]}
+        - roll: "1d6 + {mod}"
+        - interpret: {scale: pass_fail, against: opposed, opposed: {roll: "1d6 + {mod}"}, ties: target}
   difficulty_ladders: []
   situational_tags: []
   tags_cap_per_roll: 2
@@ -80,6 +89,7 @@ presentation:
   rounding: floor
   rule_cards:
     automatic: {title: Automatic, summary: "Happens without a roll.", category: procedure, icon_id: auto}
+    opposed: {title: Opposed, summary: "Both sides roll; the higher total wins, ties to the defender.", category: procedure, icon_id: versus}
 
 hooks: []
 fixtures: []

@@ -271,3 +271,18 @@ Template:
   - **Golden fixtures:** `packs/<id>/fixtures/golden.yaml` for every playable pack, found by convention rather than through the pack's `fixtures` field, so derived packs never inherit a parent's paths. Each run is a smoke campaign (`golden-seed`, 3 sessions, 2 scenes), plus the Lanternlight demo scenario, with its log head hash and event count. A pack without fixtures fails. `TOB_UPDATE_GOLDEN=1` rewrites them deliberately.
   - **Budget:** the full `tob check` takes about 20 s and `--quick` about 1.5 s on the development desktop, within TESTING.md's 60 s and 10 s.
 - Consequences: P0.7 is complete. Any change to any pack or to kernel behaviour now shows up as a golden diff that has to be regenerated on purpose.
+
+## D-028 Resolution shapes: margins, opposed rolls, stats as dice variables
+- Date: 2026-10-26 · Status: accepted (T0.17; §2.5, P0.4, P0.6). The owner asked for everything left in Phase 0 to be finished before sign-off. An audit found the §2.5 pool shape and `core`'s opposed checks missing.
+- Decision:
+  - **Interpretations** (one pure function, `resolution.interpret_total`, shared with the conformance checker):
+    - `bands` over the total
+    - `margins` over the margin of the total over the difficulty, for degrees of success. `compare: successes` reads as `>=`, so a pool's success count is compared with the difficulty. `<=` gives roll-under margins.
+    - `compare: >= | <=` pass/fail
+    - `against: opposed`
+    - `automatic`
+  - **Stats name dice:** a procedure's roll variables are the actor's stats and derived values plus `mod`, so `({attr}+{skill})d10count>=8` works. `roll_made` records only the variables an expression uses, so existing logs are unchanged.
+  - **Opposed checks:** `core` declares `opposed` (inputs actor, stat, target). The target rolls first (`purpose: opposed:<procedure>:<target>`), using the same stat unless `opposed.stat` names another, plus its condition modifiers. Its total becomes the difficulty (`origin: opposed`). The actor wins on a higher total, and ties go to `ties: target` (the default) or `actor`. `core` rolls 1d6; `core.roll_over` and `core.banded` override with 1d20 and 2d6. An opposed check cannot be peeked (two rolls).
+  - Lint understands `margins` (contiguous bands, one per outcome) and opposed (a two-outcome scale, `target` among the inputs, a valid `ties`).
+- Consequences: every pack inherits `opposed`, so all pack hashes and golden fixtures changed; they were regenerated deliberately. `lanternlight_sectioned` lists `opposed` in its refs. Live cards label the opposed difficulty as an "opposed roll".
+

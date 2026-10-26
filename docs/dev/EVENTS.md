@@ -40,7 +40,7 @@ The code-level list of event types (`EVENT_TYPES` in `src/basilisk/kernel/engine
 | `clock_paused` | folds | `pause_clock` | `clock, paused` (a paused clock skips off-air advancement) |
 | `chargen_started` | passive | `create_character` | `agent, entity` |
 | `judgement_input` | passive | any model-chosen mechanical input | `seat, control, setting, choice, options` |
-| `procedure_resolved` | passive | resolution runner | `procedure, entity, scale, outcome, rank, ranks, total, difficulty, modifiers, roll_seq, direct` |
+| `procedure_resolved` | passive | resolution runner | `procedure, entity, scale, outcome, rank, ranks, total, difficulty, modifiers, roll_seq, direct`; for an opposed check `difficulty` is `{value, origin: opposed, rung: null, roll_seq, stat}`, naming the other side's roll |
 | `table_rolled` | passive | chargen table step | `table, value, text` |
 | `gm_resolution` | passive | `resolve_unmodelled` | `entity, procedure, stat, direct_outcome` |
 | `rules_queried` | passive | `query_rules` | `seat, query, via` (`id`, `ref`, `alias`, `partial`, or `null` for a miss), `sections` (ids returned, never their text), `suggestions` (titles, on a miss) |
