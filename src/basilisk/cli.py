@@ -432,7 +432,16 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _utf8_streams() -> None:
+    """Cards and sheets print box-drawing and accented text; a Windows console
+    defaults to a legacy code page that cannot encode it. Replace, never crash."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure") and (stream.encoding or "").lower() not in ("utf-8", "utf8"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: list[str] | None = None) -> int:
+    _utf8_streams()
     args = build_parser().parse_args(argv)
     try:
         return int(args.fn(args) or 0)

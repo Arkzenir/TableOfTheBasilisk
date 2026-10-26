@@ -246,3 +246,86 @@ def test_milestone_and_use_campaigns_advance_and_replay(packs_dir, tmp_path, pro
     assert verify(eng.store, eng.campaign_id, pack, seed=script["seed"]) == []
     again, _ = run_script(script, tmp_path / "packs")
     assert again.store.head(again.campaign_id) == eng.store.head(eng.campaign_id)
+
+
+# ---------------------------------------------------------------- T0.29 (audit fixes)
+
+def test_stats_without_a_range_still_advance(packs_dir, tmp_path):
+    dst = tmp_path / "packs"
+    shutil.copytree(packs_dir, dst)
+    path = dst / "lanternlight" / "pack.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    for s in data["entity_model"]["stats"]:
+        s.pop("range", None)  # range is optional; nothing bounds these stats
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    pack = resolve("lanternlight", dst)
+    assert errors(lint(pack)) == []
+    eng = table(pack, {"background": "soldier"})
+    eng.end_session()
+    eng.start_session()
+    eng.end_session()
+    assert "hardier" in eng.advance_options("ash")
+    eng.take_advance("ash", "hardier")
+    assert eng.sheet_problems("ash") == [] and replays(eng)
+
+
+@pytest.mark.parametrize("advance, tags, fragment", [
+    ({"id": "noop"}, None, "changes nothing"),
+    ({"id": "odd", "tags": "veteran"}, None, "tags must be a list"),
+    ({"id": "odd", "tags": ["veteran"]}, ["seasoned"], "No tag 'veteran'"),
+])
+def test_advances_that_change_nothing_or_name_unknown_tags_fail_lint(packs_dir, tmp_path, advance, tags, fragment):
+    dst = tmp_path / "packs"
+    shutil.copytree(packs_dir, dst)
+    path = dst / "lanternlight" / "pack.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data["progression"]["advances"].append(advance)
+    if tags is not None:
+        data["entity_model"]["tags"] = tags
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    found = [f.message for f in errors(lint(resolve("lanternlight", dst))) if f.code == "progression"]
+    assert any(fragment in m for m in found), found
+
+
+def test_the_sheet_shows_progress_to_its_owner_only(lantern, packs_dir, tmp_path):
+    eng = table(lantern, {"background": "soldier"})
+    eng.create_character("bram", "Bram", {"background": "scholar"})
+    eng.end_session()
+    eng.start_session()
+    eng.end_session()
+    field = next(f for f in eng.read_sheet("ash", None)["fields"] if f["id"] == "progress")
+    assert field["value"] == 4 and field["pending"] == 1 and field["model"] == "xp"
+    assert field["options"] == eng.advance_options("ash") and field["private"]
+    party = eng.read_party_sheets("bram")
+    assert all(f["id"] != "progress" for s in party for f in s["fields"])  # summaries drop it
+    plain = table(variant(packs_dir, tmp_path, "lanternlight", {"model": "milestone"}), {"background": "soldier"})
+    assert all(f["id"] != "progress" for f in plain.full_sheet("ash")["fields"])
+
+
+def test_sheet_validation_covers_levels_and_progress(packs_dir, tmp_path, lantern):
+    """The validator reads corrupt copies of state; the engine itself never writes these."""
+    eng = table(lantern, {"background": "soldier"})
+    eng.end_session()
+    eng.start_session()
+    eng.end_session()
+    ent = eng.state["entities"]["ash"]
+    ent["conditions"]["shaken"] = {"since_scene": 1, "level": 2}  # Shaken does not stack
+    ent["progress"] = {**ent["progress"], "pending": -1, "advances": ["lamplighter", "lamplighter", "flight"]}
+    problems = eng.sheet_problems("ash")
+    assert any("shaken at level 2, outside 1..1" in p for p in problems)
+    assert any("below 0" in p for p in problems)
+    assert any("unknown advance taken: flight" in p for p in problems)
+    assert any("once-only advance was taken twice" in p for p in problems)
+
+
+def test_cli_output_survives_a_legacy_console(monkeypatch):
+    import io
+    import sys
+
+    from basilisk import cli
+    legacy = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+    monkeypatch.setattr(sys, "stdout", legacy)
+    cli._utf8_streams()
+    print("│ ↳ Vigor 8 → 3")  # box drawing and arrows, as rule cards print
+    sys.stdout.flush()
+    assert sys.stdout.encoding.lower() == "utf-8"

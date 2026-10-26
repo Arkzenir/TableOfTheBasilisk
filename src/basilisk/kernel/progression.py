@@ -39,6 +39,13 @@ def spec(pack) -> dict:
     return dict(pack.get("progression") or {})
 
 
+def stat_range(pack, stat: str) -> tuple[int | None, int | None]:
+    """A stat's bounds; None where the pack sets none (`range` is optional)."""
+    s = pack.by_id("entity_model.stats").get(stat) or {}
+    lo, hi = s.get("range") or (None, None)
+    return lo, hi
+
+
 def active(pack) -> bool:
     return spec(pack).get("model") in MODELS and bool(spec(pack).get("advances") or spec(pack).get("model") == "use")
 
@@ -80,7 +87,17 @@ def lint_progression(pack) -> list[str]:
     ids = [a.get("id") for a in p.get("advances") or []]
     if len(ids) != len(set(ids)):
         out.append("duplicate advance ids")
+    known_tags = pack.get("entity_model.tags")  # checked only when the pack lists its tags
     for a in p.get("advances") or []:
+        if not a.get("stats") and not a.get("tags"):
+            out.append(f"advance {a.get('id')}: changes nothing (give it stats or tags)")
+        tags = a.get("tags") or []
+        if not isinstance(tags, list) or not all(isinstance(t, str) for t in tags):
+            out.append(f"advance {a.get('id')}: tags must be a list of tag ids")
+        elif known_tags is not None:
+            for t in tags:
+                if t not in known_tags:
+                    out.append(f"advance {a.get('id')}: " + _suggest("tag", t, known_tags))
         for sid, delta in (a.get("stats") or {}).items():
             if sid not in stats:
                 out.append(f"advance {a.get('id')}: " + _suggest("stat", sid, stats))
@@ -155,9 +172,8 @@ class ProgressionCommands:
         uses[stat] = uses.get(stat, 0) + 1
         threshold = int((spec(self.pack).get("use") or {}).get("threshold", 1))
         changes = []
-        _, hi = next((s.get("range", [None, None]) for s in self.pack.catalogue("entity_model.stats")
-                       if s["id"] == stat), [None, None])
-        if uses[stat] >= threshold and hi is not None and ent["stats"][stat] < hi:
+        _, hi = stat_range(self.pack, stat)
+        if uses[stat] >= threshold and (hi is None or ent["stats"][stat] < hi):
             uses[stat] = 0
             changes.append({"path": ["entities", eid, "stats", stat], "value": ent["stats"][stat] + 1})
             new = {**prog, "uses": uses, "advances": prog["advances"] + [f"use:{stat}"]}
@@ -169,23 +185,31 @@ class ProgressionCommands:
         self._emit("progress_awarded", {"entity": eid, "amount": 1, "reason": f"use:{stat}", "changes": changes},
                    caused_by=cause)
 
-    def advance_models(self) -> bool:
+    def progression_active(self) -> bool:
         """Whether this pack's progression is live (declared with something to advance)."""
         return active(self.pack)
+
+    def _fits(self, ent: dict, stats: dict) -> bool:
+        """Every stat change stays within the stat's range, where it has one."""
+        for s, d in stats.items():
+            lo, hi = stat_range(self.pack, s)
+            value = ent["stats"][s] + int(d)
+            if (lo is not None and value < lo) or (hi is not None and value > hi):
+                return False
+        return True
 
     def advance_options(self, entity_id: str) -> list[str]:
         """The advances the entity may take now, in pack order."""
         ent = self._entity(entity_id)
         if not active(self.pack) or self._progress(ent)["pending"] < 1:
             return []
-        ranges = {s["id"]: s.get("range", [None, None]) for s in self.pack.catalogue("entity_model.stats")}
         out = []
         for a in spec(self.pack).get("advances") or []:
             if a.get("once") and a["id"] in self._progress(ent)["advances"]:
                 continue
             if "requires" in a and not expr.evaluate(str(a["requires"]), self._ctx(ent, None), self.rounding):
                 continue
-            if any(not (ranges[s][0] <= ent["stats"][s] + d <= ranges[s][1]) for s, d in (a.get("stats") or {}).items()):
+            if not self._fits(ent, a.get("stats") or {}):
                 continue
             out.append(a["id"])
         return out

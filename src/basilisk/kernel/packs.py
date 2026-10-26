@@ -17,6 +17,7 @@ Merge rules:
 from __future__ import annotations
 
 import copy
+import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -92,9 +93,16 @@ def discover(packs_dir: str | Path) -> dict[str, dict[str, Path]]:
     return found
 
 
+_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)  # libyaml when installed; same results, faster
+_PARSED: dict[bytes, object] = {}  # parsed documents by content hash: discovery reads every pack per resolve
+
+
 def load_raw(path: str | Path) -> dict:
-    with open(path, encoding="utf-8") as fh:
-        data = yaml.safe_load(fh) or {}
+    raw = Path(path).read_bytes()
+    key = hashlib.sha256(raw).digest()
+    if key not in _PARSED:
+        _PARSED[key] = yaml.load(raw.decode("utf-8"), Loader=_LOADER) or {}
+    data = copy.deepcopy(_PARSED[key])
     if not isinstance(data, dict):
         raise PackError(f"{path}: top level must be a mapping")
     return data

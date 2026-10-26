@@ -390,3 +390,12 @@ Template:
 - Date: 2026-10-26 · Status: accepted (owner; T0.13).
 - Decision: the owner ticked all 19 Gate P0 items in HANDOFF and approved the 1.6 draft. Gate P0 is ticked in BUILD_PLAN (revision 1.6), and ARCHITECTURE 1.6 is applied: §2.3's schema and §5.7's event list now describe the build, `scene_closed` and the progression events included, and slot-based inventory is listed in §11.4. In the applied schema the draft's `# was:` and `# new` markers were dropped; the revision note records the change. `docs/dev/proposals/REV-ARCH-1.6.md` stays as the record of the review.
 - Carried forward: Gate item 8 (structural evidence) and the hook return shape (D-033) are accepted for now and re-audited when the P0 architecture is finalised.
+
+## D-043 Audit fixes after Gate P0 (T0.29)
+- Date: 2026-10-27 · Status: accepted (owner asked for the audit's fixes before pushing).
+- **Unbounded stats:** a stat's `range` is optional, so progression checks bounds only where a stat has them (`stat_range`). Before this, a lint-clean pack with rangeless stats crashed `advance_options`.
+- **Advance lint:** an advance must change at least one stat or add a tag; `tags` is a list of ids, checked against `entity_model.tags` when the pack lists them (no pack does yet, so unlisted packs accept any tag id, as `add_tag` does).
+- **Sheets:** under live progression the full sheet gains a private `progress` field: value is points, with `model`, `pending`, `advances`, and `options` (the same list `take_advance` accepts), so an agent can see that an advance is due without another tool. Summaries drop it, like every private field. `sheet_problems` now also checks stacked levels (1 to `max_level`, and no level on a condition that does not stack) and progress (pending not below 0, every advance known, once-only advances once).
+- **Speed:** `load_raw` caches parsed pack YAML by content hash and returns deep copies, and uses libyaml's `CSafeLoader` when present (same resolver, same results; the golden fixtures and pack hashes are unchanged). Pack discovery parses every pack on each resolve, so the full gate fell from about 50 s to about 30 s.
+- **CLI:** `tob` reconfigures stdout and stderr to UTF-8 (`errors="replace"`) when the console uses another encoding; `tob sim --cards` crashed on a cp1252 Windows console.
+- Left to the owner (open questions in HANDOFF): the scope of `judgement_input` for GM choices outside resolution, and when `KERNEL_VERSION` moves.

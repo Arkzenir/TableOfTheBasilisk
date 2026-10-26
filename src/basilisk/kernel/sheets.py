@@ -22,6 +22,7 @@ Pure reads: nothing here emits events or changes state.
 from __future__ import annotations
 
 from . import hooks as hook_runtime
+from .progression import spec as _progression
 from .command import EngineError, _suggest
 
 SECTIONS = (
@@ -45,6 +46,10 @@ def lint_sheet(pack) -> list[str]:
         elif known[fid].get("private"):
             out.append(f"{fid} is marked private: true and cannot be shown on summaries")
     return out
+
+
+def progression_model(pack) -> str:
+    return str(_progression(pack).get("model"))
 
 
 def harm_targets(pack) -> list[str]:
@@ -119,6 +124,11 @@ class SheetCommands:
         else:
             fields.append(self._field("inventory", "inventory", list(ent["inventory"]), True))
         fields.append(self._field("details", "details", list(ent.get("details") or []), True))
+        if self.progression_active():  # what is earned and what can be chosen (P0.15)
+            prog = self._progress(ent)
+            fields.append(self._field("progress", "progress", prog["points"], True, model=progression_model(self.pack),
+                                      pending=prog["pending"], advances=list(prog["advances"]),
+                                      options=self.advance_options(entity_id)))
         return {"entity": entity_id, "name": ent["name"], "kind": ent["kind"], "controller": ent["controller"],
                 "fields": fields}
 
@@ -146,10 +156,25 @@ class SheetCommands:
                 v = ent["currencies"][c["id"]]
                 if not isinstance(v, int) or v < 0 or ("max" in c and v > int(c["max"])):
                     out.append(f"currency {c['id']} = {v} outside 0..{c.get('max', 'unbounded')}")
-        known = set(self.pack.by_id("entity_model.conditions"))
-        for cid in ent["conditions"]:
+        known = self.pack.by_id("entity_model.conditions")
+        for cid, held in ent["conditions"].items():
             if cid not in known:
                 out.append(f"unknown condition {cid}")
+            elif "level" in held:
+                top = int(known[cid].get("max_level", 3)) if known[cid].get("stacking") == "intensity" else 1
+                if isinstance(held["level"], bool) or not isinstance(held["level"], int) or not 1 <= held["level"] <= top:
+                    out.append(f"condition {cid} at level {held['level']}, outside 1..{top}")
+        if "progress" in ent:
+            prog = self._progress(ent)
+            offered = {a["id"]: a for a in _progression(self.pack).get("advances") or []}
+            if not isinstance(prog["pending"], int) or prog["pending"] < 0:
+                out.append(f"progress pending = {prog['pending']}, below 0")
+            for aid in prog["advances"]:
+                if aid not in offered and not str(aid).startswith("use:"):
+                    out.append(f"unknown advance taken: {aid}")
+            once = [a for a in prog["advances"] if offered.get(a, {}).get("once")]
+            if len(once) != len(set(once)):
+                out.append(f"a once-only advance was taken twice: {sorted(once)}")
         if ent["tags"] != sorted(set(ent["tags"])):
             out.append("tags are not a sorted set")
         if not isinstance(ent["inventory"], list) or not all(isinstance(i, str) for i in ent["inventory"]):

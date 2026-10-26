@@ -266,7 +266,7 @@ def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
                 engine.draw_card(deck["id"], to=players[sc % len(players)] if sc % 2 else None)
             engine.advance_clock("pressure", 1)
         engine.end_session()
-        if (engine.pack.get("progression") or {}).get("model") == "milestone" and engine.advance_models():
+        if (engine.pack.get("progression") or {}).get("model") == "milestone" and engine.progression_active():
             engine.award_milestone()  # the scripted GM marks each session a milestone
         _take_advances(engine, players, s)
 
