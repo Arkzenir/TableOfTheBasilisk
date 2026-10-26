@@ -182,7 +182,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** `inventory: { model: abstract | weight, limit_expr }`, with a pack item catalogue carrying weights; `create_item` and `transfer_item` refuse an item that would exceed the holder's limit; a carried-weight value readable in expressions (for an encumbrance tag). `slots` stays out of scope for now (owner, 2026-10-26).
 - **Acceptance:** weight limits are enforced atomically on every item primitive; the abstract model behaves as now; replay is exact.
 
-### T0.27 Progression — `ready`
+### T0.27 Progression — `done`
 - **Plan:** P0.15 · §2.3 (`progression`), §2.4, §1.5
 - **Deliverables:** BUILD_PLAN P0.15.
 - **Acceptance:** BUILD_PLAN P0.15's test and its Gate P0 line.
@@ -195,7 +195,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 ### T0.13 Gate P0 sign-off — `human`
 - **Agent prepares:** evidence for every Gate P0 item in `HANDOFF.md`, as the commands run and their results.
 - **Owner signs off.**
-- **Re-opened 2026-10-26:** T0.24 to T0.27 (owner decisions on the 1.6 draft) come first.
+- **Re-opened 2026-10-26:** T0.24 to T0.28 (owner decisions on the 1.6 draft) came first; all are done.
 - **Prepared 2026-10-18, refreshed 2026-10-26** after T0.12 and T0.17 to T0.22 finished Phase 0. The evidence table is in `HANDOFF.md`. Item 8 and the hook return shape (D-033) need the owner's judgement. Waiting on the owner.
 
 ---

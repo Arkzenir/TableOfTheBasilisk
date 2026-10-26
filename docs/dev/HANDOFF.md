@@ -4,26 +4,25 @@ Rewritten at the end of every work session, so the next session — any agent or
 
 ## Current state (2026-10-26)
 
-- **Phase 0 is complete.** Every build step P0.1 to P0.14 is done, and every BUILD_PLAN test line has a test. After an audit of every Phase 0 bullet against the code, the owner asked for everything left to be finished before sign-off; T0.17 to T0.22 and T0.12 did that. Only **T0.13, the Gate P0 sign-off, remains, and it needs the owner.** See `ROADMAP.md`.
-- **Design:** ARCHITECTURE 1.5 and BUILD_PLAN 1.4. The broadcast pack is the SRD 5.1 under CC-BY 4.0, written last (P4.0). Track 0 is finished before Track 1. Anthropic is the first provider. See D-012 to D-015.
+- **Phase 0 is complete again.** Every build step P0.1 to P0.15 is done, and every BUILD_PLAN test line has a test. The owner's decisions on the 1.6 draft (D-036) reopened Phase 0 for T0.24 to T0.28; all five are done. Only **T0.13, the Gate P0 sign-off, remains, and it needs the owner.** See `ROADMAP.md`.
+- **Design:** ARCHITECTURE 1.5 and BUILD_PLAN 1.5 (P0.15 Progression). The broadcast pack is the SRD 5.1 under CC-BY 4.0, written last (P4.0). Track 0 is finished before Track 1. Anthropic is the first provider. See D-012 to D-015.
 - **Git:** `main` tracks `origin/main` (github.com/Arkzenir/TableOfTheBasilisk). Hooks are installed: pre-commit runs `tob check --quick`, pre-push runs the full gate.
 
-## What changed this session (finishing Phase 0)
+## What changed this session (owner decisions on the 1.6 draft, D-036)
 
-- **T0.17** (D-028): pool shape (degrees of success by margin), opposed checks in `core`, roll-under, and stats as dice variables. All three §2.5 shapes are tested against outcomes computed by hand.
-- **T0.18** (D-029): step dice (`1d{trait}`, pack-declared legal sizes). This also fixed the reachability checker, which had been judging states no character can be in.
-- **T0.19** (D-030): chargen `assign` steps (used by `lanternlight_house`), 1,000 generated characters per pack all valid, and read views shown unable to mutate state.
-- **T0.20** (D-031): pack movement allowance, provoke rules (`move_provoked`), and cover, terrain, and elevation readable in expressions.
-- **T0.21** (D-032): watches and calendar (`kernel/timekeeping.py`), time passing between sessions, and clocks scheduled on in-world time.
-- **T0.12** (D-033): the hook sandbox (`kernel/hooks.py`), with fixture pack `lanternlight_hooked`. **One deviation from §2.7 is flagged below.**
-- **T0.22** (D-034): `core`'s default tactical profile, the one-control-one-role schema test, every-preset campaigns, and evaluator properties.
-- **T0.23** (D-035), from a second audit: the `trigger_procedure` primitive (no primitive is reserved now), a test that every primitive emits events and replays, the toggle test's mid-encounter case, seat-override schemas, and hook memory limits.
+- **T0.28** (D-037): harm is a declaration of targets only (`entity_model.harm.targets`), read through `harm_state(entity)`. Tidewrack's track was renamed `strain` (label still "Harm").
+- **T0.24** (D-038): the `scene_closed` marker, after the events that close a scene.
+- **T0.25** (D-039): condition stacking by intensity (`stacking: intensity`, `max_level`); modifiers scale with the level.
+- **T0.26** (D-040): weight inventory (`inventory: {model: weight, limit_expr}`, `entity_model.items`); no slots.
+- **T0.27** (D-041): progression (`kernel/progression.py`): `xp`, `marks`, `milestone`, and `use`; new events `progress_awarded` and `advance_taken`; `advance_options`, `take_advance` (a logged `judgement_input`), `award_milestone`; tools `take_advance` and `award_milestone`. Lanternlight uses XP and Tidewrack marks, and the smoke harness takes every advance due, so every gated campaign progresses.
+- **The 1.6 draft** (`docs/dev/proposals/REV-ARCH-1.6.md`) now matches the build: each former ⚑ point is a ✔ Decided note.
+- Golden fixtures were regenerated deliberately for T0.24, T0.26, T0.27, and T0.28.
 
 ## Gate P0 evidence (T0.13, for the owner's sign-off)
 
-Refreshed 2026-10-26 after finishing Phase 0 and the second audit (T0.23). Every item below was run on the development desktop:
+Refreshed 2026-10-26 after T0.24 to T0.28. Every item below was run on the development desktop:
 
-- `tob check`: **GATE: PASS** in about 40 s (budget 60 s). It runs the noun lint, pack lint for 9 packs, verified smoke campaigns on the 6 playable packs, and pytest with **455 tests passed**.
+- `tob check`: **GATE: PASS** in about 50 s (budget 60 s). It runs the noun lint, pack lint for 9 packs, verified smoke campaigns on the 6 playable packs, and pytest with **496 tests passed**.
 - `tob pack lint`: 0 errors and 0 warnings on every pack, every pack strict-ready on every control. Hook counts: 2 in `lanternlight_hooked`, 0 elsewhere.
 
 "Both packs" means the two kernel test games from different families, `lanternlight` (roll-over) and `tidewrack` (banded) (BUILD_PLAN P0.6). The four derivatives are also run.
@@ -48,28 +47,26 @@ Refreshed 2026-10-26 after finishing Phase 0 and the second audit (T0.23). Every
 | 16 | Inline and sectioned rules text both pass conformance; the sectioned variant needs zero kernel changes | ✅ | `tests/test_sectioned_pack.py`; commit `5b0400a` |
 | 17 | `query_rules` resolves 100% of section ids, aliases, and catalogue refs in every shipped pack | ✅ | `tests/test_sectioned_pack.py::test_every_section_is_reachable_by_id_and_alias` plus the coverage lint (only `lanternlight_sectioned` declares sections) |
 | 18 | Zero canon records containing an excluded term are accepted, across scripted campaigns on a pack that declares them | ✅ | `tests/test_gate_p0.py::test_no_excluded_term_reaches_canon_in_a_scripted_campaign`; `tests/test_terms.py` |
+| 19 | Every progression model awards and advances through a scripted campaign, only by options the pack offers, and replays byte-identically | ✅ | `tests/test_progression.py::test_a_scripted_campaign_advances_and_replays` (xp on `lanternlight`, marks on `tidewrack`) and `test_milestone_and_use_campaigns_advance_and_replay`, each verified and run twice; `test_no_advance_the_pack_does_not_offer`, `test_once_advances_are_taken_once`; every gated smoke campaign now takes advances |
 
 ## Next step
 
-- **Owner decisions on the 1.6 draft (D-036)** reopen Phase 0. Build T0.24 (`scene_closed` marker), T0.25 (condition stacking), T0.26 (weight inventory), and T0.27 (progression, the new BUILD_PLAN P0.15 with its own Gate P0 line). Then refresh the evidence and apply the 1.6 doc edits.
-- **Pending:** what to do with `harm` (C3). See the open questions.
-
-- **Owner:** review the evidence above and the two flagged points below, then sign off Gate P0 (tick it in BUILD_PLAN.md, an approved design-doc edit, and set T0.13 to `done`).
+- **Owner:** review the evidence above (now 19 items) and the revised 1.6 draft, then sign off Gate P0 (tick it in BUILD_PLAN.md, an approved design-doc edit, and set T0.13 to `done`). On approval, apply the 1.6 draft to ARCHITECTURE.md.
 - **Then Track 1** (D-014): T1.1 (schema validator), T1.3 (mock adapter) and T1.4 (recording transport), then T1.5 (the Anthropic adapter, D-013).
 
 ## Open questions for the owner
 
 1. **Gate P0 item 8** rests on structural evidence (see the table). The owner has accepted it for now, to be re-audited when the P0 architecture is finalised.
-2. **Hook return shape (D-033):** accepted for now by the owner, to be re-audited with the P0 architecture. §2.7 gives a hook's shape as `(state_view, params, rng) → [events]`. The sandbox has hooks return a small, point-specific result (`{total}`/`{outcome}` for `resolution.step`, a list of problems for `sheet.validate`), which the kernel validates and turns into events. Confirm this reading, or ask for an ARCHITECTURE note or a change.
-3. **Harm (C3):** §2.3's `harm: { targets, on_zero, on_fill }` would declare which resources and tracks count as harm. The mechanics already live on those resources and tracks, so the open question is whether to keep it as a pointer for later consumers (lethality, metrics, overlay, fudging's "unearned death"). Waiting on the owner.
-4. **Draft ARCHITECTURE edits:** §5.7 (event list) and §2.3 (pack schema) are out of date. A draft is in `docs/dev/proposals/REV-ARCH-1.6.md` for review.
-5. Before P4.0, the SRD source document. Before launch, the legal review in ARCHITECTURE §11.3.
+2. **Hook return shape (D-033):** accepted for now by the owner, to be re-audited with the P0 architecture. §2.7 gives a hook's shape as `(state_view, params, rng) → [events]`; the sandbox has hooks return a small, point-specific result that the kernel validates and turns into events.
+3. **The 1.6 draft** (`docs/dev/proposals/REV-ARCH-1.6.md`): ready for review of the text. Nothing is applied to ARCHITECTURE.md yet.
+4. Before P4.0, the SRD source document. Before launch, the legal review in ARCHITECTURE §11.3.
 
 ## Notes for the next session
 
-- Engine mixins: `resolution.py`, `effects.py`, `canon.py`, `spatial.py`, `tactics.py`, `turns.py`, `decks.py`, `fudging.py`, `sheets.py`, `clocks.py`, `timekeeping.py`, `rules.py`, `terms.py`. Also the pure `conformance.py` and the hook runtime `hooks.py`. Add new command groups as mixins.
+- Engine mixins: `resolution.py`, `effects.py`, `canon.py`, `spatial.py`, `tactics.py`, `turns.py`, `decks.py`, `fudging.py`, `sheets.py`, `clocks.py`, `timekeeping.py`, `rules.py`, `terms.py`, `progression.py`. Also the pure `conformance.py` and the hook runtime `hooks.py`. Add new command groups as mixins.
 - Golden fixtures change whenever a pack or kernel behaviour changes. Regenerate deliberately with `TOB_UPDATE_GOLDEN=1 python -m pytest tests/test_golden.py` and say why in the commit.
 - The pre-commit hook runs `tob check --quick`, which skips pytest. Run the full `tob check` (or let pre-push run it) before trusting a change.
 - When writing files with Python on Windows, pass `newline` set to LF, or write bytes. Text mode writes CRLF.
 - Kernel source is noun-linted, comments too. Avoid words that are pack catalogue ids, such as "down", "rest", "recall", "might", "guard", "hope", and "prepared".
+- In pack YAML, never use a bare `on:` key: YAML 1.1 reads it as the boolean true (hence `when:` in progression awards).
 - A local venv exists at `.venv/` (Python 3.14); activate it with `.venv\Scripts\activate`.

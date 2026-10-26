@@ -85,6 +85,9 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
     if action_ids:
         tools["commit_action"] = commit
     tools["enumerate_actions"] = {}
+    advances = [a["id"] for a in (pack.get("progression") or {}).get("advances") or []]
+    if advances:  # an advance is an enumerated pick (P0.15); the GM names whose
+        tools["take_advance"] = {"advance_id": _enum(advances), **({"entity_id": ID} if role == "gm" else {})}
     order = turns.structure(pack).get("order")
     all_decks = pack.catalogue("randomizers.decks")
     drawable = [d["id"] for d in all_decks if role == "gm" or d.get("players_draw")]
@@ -152,6 +155,8 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
         time_units = [u["id"] for u in timekeeping.units(pack)]
         if time_units:
             tools["advance_time"] = {"unit": _enum(time_units), "amount": _enum(list(range(1, 13)))}
+        if (pack.get("progression") or {}).get("model") == "milestone" and advances:
+            tools["award_milestone"] = {"entity_id": ID}  # omitted: every player character
         tools["spawn_entity"] = {"entity_id": ID, "name": NARRATIVE}
         tools["set_scene"] = {"scene_id": ID}
         if zones:

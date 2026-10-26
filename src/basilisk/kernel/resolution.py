@@ -93,11 +93,13 @@ class ResolutionCommands:
         scale = self._scale(proc_id)
         proc = self.pack.by_id("resolution.procedures")[proc_id]
         interp = {k: v for step in proc.get("steps") or [] for k, v in step.items()}["interpret"]
-        return self._emit("procedure_resolved", {
+        seq = self._emit("procedure_resolved", {
             "procedure": proc_id, "entity": entity_id, "scale": interp["scale"], "outcome": outcome,
             "rank": scale.index(outcome), "ranks": len(scale), "total": total, "difficulty": difficulty,
             "modifiers": modifiers, "roll_seq": roll_seq, "direct": direct,
         }, caused_by=cause)
+        self._progress_on_outcome(proc_id, entity_id, outcome, [] if direct else modifiers, seq)  # P0.15
+        return seq
 
     def _run_procedure(self, proc: dict, ent: dict, target: dict | None, stat: str | None,
                        difficulty_spec: dict | None, gm_inputs: dict, cause: int,

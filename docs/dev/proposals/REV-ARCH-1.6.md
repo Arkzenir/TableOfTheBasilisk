@@ -1,11 +1,11 @@
 # Draft revision: ARCHITECTURE 1.6 (§2.3 pack schema, §5.7 event schema)
 
 **Status:** draft for owner review. Nothing below has been applied to `docs/ARCHITECTURE.md`.
-**Owner answers (2026-10-26, D-036):** B1 keep `scene_closed` (T0.24); C1 keep `stacking` (T0.25); C2 add the `weight` inventory model, no `slots` (T0.26); C3 harm: pending; C4 progression: scheduled as BUILD_PLAN P0.15 (T0.27). Sections B and C below will be revised to match before they are applied.
-**Why:** Phase 0 is built (T0.2 to T0.23). Two design sections describe it as it was planned, not as it is: the abbreviated pack schema (§2.3) and the abbreviated event list (§5.7). D-009 deferred §5.7 to "the next design revision"; this is that revision. `docs/dev/EVENTS.md` stays the exact registry (a test enforces it). These sections stay summaries, but true ones.
+**Owner answers (2026-10-26, D-036, D-037):** B1 keep `scene_closed` (built, T0.24); C1 keep `stacking` (built as intensity levels, T0.25); C2 add the `weight` inventory model, no `slots` (built, T0.26); C3 harm is a declaration of targets only (built, T0.28); C4 progression is BUILD_PLAN P0.15 (built, T0.27). Sections B and C below now match the build. What is left is the owner's review of the text itself.
+**Why:** Phase 0 is built (T0.2 to T0.28). Two design sections describe it as it was planned, not as it is: the abbreviated pack schema (§2.3) and the abbreviated event list (§5.7). D-009 deferred §5.7 to "the next design revision"; this is that revision. `docs/dev/EVENTS.md` stays the exact registry (a test enforces it). These sections stay summaries, but true ones.
 **Owner direction:** the flagged Gate P0 item 8 and the hook return shape (D-033) are accepted for now and will be re-audited when the P0 architecture is finalised. Point C3 below records the hook shape so the re-audit has it in writing.
 
-Points marked **⚑ Decide** describe design text that the build does not implement. Each needs a call: change the doc to match the build, or keep the design and add a task.
+The former **⚑ Decide** points are now **✔ Decided** notes, each naming the owner's answer and the task that built it.
 
 ---
 
@@ -15,7 +15,7 @@ Points marked **⚑ Decide** describe design text that the build does not implem
 **Proposed:** `**Version:** 1.6 (revised design freeze for v1)`, plus:
 
 > **Revision notes (1.6):**
-> - §2.3 (pack schema) and §5.7 (event schema) now describe what Phase 0 built (T0.2 to T0.23). `docs/dev/EVENTS.md` remains the exact event registry.
+> - §2.3 (pack schema) and §5.7 (event schema) now describe what Phase 0 built (T0.2 to T0.28), including the owner's decisions of 2026-10-26: the `scene_closed` marker, condition stacking by intensity, weight inventory, harm as a declaration of targets, and progression (BUILD_PLAN P0.15). `docs/dev/EVENTS.md` remains the exact event registry.
 > - Mechanical state changes are logged as one `effect_applied` event that names its primitive (D-003), not as one event type per primitive.
 
 ---
@@ -62,17 +62,19 @@ Points marked **⚑ Decide** describe design text that the build does not implem
   clock_created, clock_stage_reached, clock_paused
   time_advanced
   chargen_started, character_created
+  progress_awarded, advance_taken   # §2.4 progression (BUILD_PLAN P0.15)
   # world
   canon_written, canon_superseded, fact_revealed
   entity_spawned
   scene_set                   # carries the spatial layout when the scene has one
+  scene_closed                # after the events that close the scene, before the next scene_set or session_ended
   visibility_set, move_provoked
   rules_queried
 ```
 
 The `# table`, `# audience`, `# meta`, and `# production` groups are unchanged; they belong to P1 to P5. `judgement_input` moves from `# meta` to `# mechanics`, since it is emitted by the kernel.
 
-**⚑ Decide (B1):** `scene_closed` is in the design but not built. A scene closes when the next `scene_set` or `session_ended` arrives, and the events that close it (condition expiry, `encounter_ended`) are logged then. Proposed: drop `scene_closed`. Or keep it, and add a task to emit it explicitly.
+**✔ Decided (B1):** keep `scene_closed` as a marker (owner, D-036). Built in T0.24 (D-038): `{scene_id, index, reason: next_scene | session_ended}`, logged after `encounter_ended` and condition expiry.
 
 ---
 
@@ -109,9 +111,12 @@ system_pack:
     derived:    [{ id, expr }]
     resources:  [{ id, min, max, on_zero }]           # was: max_expr, regain, spend
     tracks:     [{ id, boxes, on_fill }]
-    conditions: [{ id, modifier, duration: scene | session | until_removed }]   # was: modifiers, duration, stacking, exit
+    conditions: [{ id, modifier, duration: scene | session | until_removed,
+                   stacking: none | intensity, max_level }]   # was: modifiers, duration, stacking, exit
     tags:       [id]
-    inventory:  { model }                             # see ⚑ C2
+    inventory:  { model: abstract | weight, limit_expr }  # was: slots | weight | abstract
+    items:      [{ id, label, weight }]               # new: the weight model's catalogue
+    harm:       { targets: [resource or track id] }   # was: targets, on_zero, on_fill
 
   resolution:
     outcome_scales:     [{ id, ordered: [worst … best] }]
@@ -146,7 +151,12 @@ system_pack:
     meta_currencies: [{ id, holder: gm | party | each_player, start, max }]   # was: earn, spend
     consequence_tables: [{ id, entries: [{ id, label, effects, weight, severity }] }]
 
-  progression:  { model: xp | milestone | marks | use, ... }  # see ⚑ C4
+  progression:                                               # §2.4, BUILD_PLAN P0.15
+    model: xp | marks | milestone | use
+    awards:     [{ when: session_end | outcome, amount, outcomes, procedures }]   # xp, marks
+    thresholds: [points]                                     # xp, marks: one advance per threshold
+    use:        { threshold }                                # use: uses of a stat before it rises
+    advances:   [{ id, label, stats: { stat: delta }, tags, requires, once }]
   chargen:      { steps: [{ id, kind: roll | choice | assign | table,
                             targets, roll, options, values, table, unique_per_table }] }   # was: roll | assign | choice, source
 
@@ -169,18 +179,17 @@ system_pack:
   # golden fixtures live in fixtures/golden.yaml by convention (§2.10)   # was: fixtures: [path]
 ```
 
-**⚑ Decide (C1): conditions `stacking` and `exit`.** The build has no stacking rule: a condition is held or not. Its exit is its `duration` or an effect that removes it, and lint refuses a condition with no exit (§2.10). Proposed: the schema above, with no `stacking` or `exit` fields. Or keep stacking, and add a task.
+**✔ Decided (C1): conditions `stacking`.** Keep it (owner, D-036). Built in T0.25 (D-039) as `stacking: intensity` with `max_level` (2 to 10): applying a held condition raises its level, its modifier scales with the level, and `remove_condition` may lower it by `levels`. `exit` is not a field: a condition's exit is its `duration` or an effect that removes it, and lint refuses a condition with neither (§2.10).
 
-**⚑ Decide (C2): `inventory: { model: slots | weight | abstract, limit_expr }`.** Inventory is a plain list of item ids, and `model` is read nowhere. Proposed: write `inventory: { model: abstract }  # v1: a list of item ids; slots and weight are v2`, and add the slot and weight models to §11.4. Or build them in Phase 0, as a new task.
+**✔ Decided (C2): inventory.** `abstract` (any item id, no limit) or `weight` (only catalogue items, carried weight against `limit_expr`); no `slots` for now (owner, D-036). Built in T0.26 (D-040). Proposed §11.4 line: "Slot-based inventory."
 
-**⚑ Decide (C3): `harm: { targets, on_zero, on_fill }`.** No separate `harm` section exists. Harm is composed from resources and tracks with their own `on_zero` / `on_fill` triggers (and, since T0.23, triggered procedures). Proposed: delete the `harm` line and add a sentence to §2.3: "Harm is composed from resources, tracks, and their triggers; it has no section of its own." Separately, for the re-audit you asked for: §2.7's hook shape `(state_view, params, rng) → [events]` was implemented as point-specific results (D-033).
+**✔ Decided (C3): `harm`.** A declaration of which resources and tracks count as harm, targets only, so later systems (lethality, metrics, the overlay, fudging's "unearned death") can read it; `on_zero` and `on_fill` stay on the resources and tracks themselves (owner, D-037). Built in T0.28 with `harm_state(entity)`. Proposed §2.3 sentence: "Harm names its targets; the mechanics stay on each resource and track." Separately, for the re-audit you asked for: §2.7's hook shape `(state_view, params, rng) → [events]` was implemented as point-specific results (D-033).
 
-**⚑ Decide (C4): `progression`.** It is declared in §2.3 and listed in §2.4 (XP, milestones, marks, use), but no BUILD_PLAN step builds it and the kernel ignores it. Proposed: leave §2.3 as it is and add progression to BUILD_PLAN as a P3 step, since campaigns need it, or as a P0 task if you want Phase 0 to include it.
+**✔ Decided (C4): `progression`.** A Phase 0 kernel mechanism, BUILD_PLAN P0.15 with its own Gate P0 line (owner, D-036; BUILD_PLAN 1.5). Built in T0.27 (D-041). The `award` key is `when`, not `on`, because YAML reads a bare `on` as a boolean. Arc-boundary milestones wait for P3.6.
 
 ---
 
 ## D. After approval (not design docs)
 
 - Apply A to C to `docs/ARCHITECTURE.md` with the 1.6 revision note.
-- Update D-009 ("§5.7 updated in revision 1.6"), and record each ⚑ answer in DECISIONS.
-- Any "keep the design" answer becomes a new task in `docs/dev/TASKS.md`.
+- Update D-009 ("§5.7 updated in revision 1.6"). The answers are already recorded (D-036 to D-041) and built (T0.24 to T0.28).

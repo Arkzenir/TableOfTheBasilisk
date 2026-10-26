@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from . import decks, dice, expr, rules, sheets, spatial, tactics, terms, timekeeping, turns
+from . import decks, dice, expr, progression, rules, sheets, spatial, tactics, terms, timekeeping, turns
 from .determinism import CONTROLS, ROLES, STRICT, expand
 from .effects import PRIMITIVES, RESERVED, TARGET_SYMBOLS, references
 from .packs import ResolvedPack
@@ -419,6 +419,8 @@ def lint(pack: ResolvedPack) -> list[Finding]:
         err("sheet", problem)
     for problem in sheets.lint_harm(pack):
         err("harm", problem)
+    for problem in progression.lint_progression(pack):
+        err("progression", problem)
 
     # inventory (§2.3) ---------------------------------------------------------
     inv = pack.get("entity_model.inventory") or {}

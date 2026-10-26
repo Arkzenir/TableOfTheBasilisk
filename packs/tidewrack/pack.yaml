@@ -185,6 +185,19 @@ spatial:
       - {id: stare, applies_to: action, category: pressure, when: "threats_here > 0", text: "{target} is right in front of you"}
       - {id: long_odds, applies_to: action, category: odds, when: "target.grit > 4", text: "{target} still has plenty of fight"}
 
+# Marks (ARCHITECTURE §2.3, BUILD_PLAN P0.15): mark one on every miss or failed
+# roll; each threshold reached is one advance to choose.
+progression:
+  model: marks
+  awards:
+    - {when: outcome, outcomes: [miss, fail], amount: 1}
+  thresholds: [3, 6, 10, 15]
+  advances:
+    - {id: tempered, label: "Tempered (+1 Iron)", stats: {iron: 1}}
+    - {id: tidewise, label: "Tidewise (+1 Tide)", stats: {tide: 1}}
+    - {id: weathered, label: "Weathered (+1 Salt)", stats: {salt: 1}}
+    - {id: kindled, label: "Kindled (+1 Ember)", stats: {ember: 1}}
+
 presentation:
   nameplate_resources: [grit]
   sheet:

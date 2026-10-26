@@ -13,7 +13,7 @@ import copy
 from datetime import datetime, timezone
 from typing import Any, Callable, Iterable
 
-from . import KERNEL_VERSION, canon, clocks, decks, dice, expr, fudging, hooks, rules, spatial, timekeeping, turns
+from . import KERNEL_VERSION, canon, clocks, decks, dice, expr, fudging, hooks, progression, rules, spatial, timekeeping, turns
 from .canon import CanonCommands
 from .canonical import hash_obj
 from .clocks import ClockCommands
@@ -25,6 +25,7 @@ from .events import EventStore
 from .fudging import FudgeCommands
 from .packlint import readiness
 from .packs import ResolvedPack
+from .progression import ProgressionCommands
 from .resolution import ResolutionCommands
 from .sheets import SheetCommands
 from .rng import Randomizer
@@ -77,7 +78,7 @@ EVENT_TYPES = frozenset({
     "effect_applied", "character_created", "entity_spawned", "clock_created",
     "action_committed", "gm_ruling_requested", "gm_ruling_filled",
 }) | canon.EVENT_TYPES | spatial.EVENT_TYPES | turns.EVENT_TYPES | decks.EVENT_TYPES | fudging.EVENT_TYPES \
-    | clocks.EVENT_TYPES | timekeeping.EVENT_TYPES | _PASSIVE
+    | clocks.EVENT_TYPES | timekeeping.EVENT_TYPES | progression.EVENT_TYPES | _PASSIVE
 
 
 def apply_event(state: dict, ev: dict) -> None:
@@ -137,6 +138,8 @@ def apply_event(state: dict, ev: dict) -> None:
         clocks.apply_event(state, ev)
     elif t in timekeeping.EVENT_TYPES:
         timekeeping.apply_event(state, ev)
+    elif t in progression.EVENT_TYPES:
+        progression.apply_event(state, ev)
     elif t in _PASSIVE:
         pass
     else:
@@ -154,7 +157,7 @@ def fold(events: Iterable[dict], state: dict | None = None) -> dict:
 
 class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands, TacticalCommands,
              TurnCommands, DeckCommands, FudgeCommands, SheetCommands, ClockCommands, RulesCommands,
-             TermCommands, TimeCommands):
+             TermCommands, TimeCommands, ProgressionCommands):
     def __init__(self, pack: ResolvedPack, seed: str, store: EventStore | None = None,
                  campaign_id: str = "campaign", clock: Callable[[], str | None] | None = None):
         if pack.data["meta"].get("abstract"):
@@ -396,6 +399,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         self._close_encounter(by or self.gm_seat)
         self._expire({"scene", "session"})
         self._close_scene(by or self.gm_seat, "session_ended")
+        self._progress_on_session_end()
         return self._emit("session_ended", {"number": self.state["session"]}, actor=by or self.gm_seat)
 
     @atomic

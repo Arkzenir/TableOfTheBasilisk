@@ -192,6 +192,7 @@ def test_every_scene_is_closed_once_and_in_order(lantern):
     assert types[one_closed + 1] == "scene_set"
     two_closed = types.index("scene_closed", one_closed + 1)
     assert "encounter_ended" in types[one_closed:two_closed]  # the encounter ended before its scene closed
-    assert types[two_closed + 1] == "session_ended"
+    after = [t for t in types[two_closed + 1:] if t != "progress_awarded"]  # session-end awards (P0.15) come between
+    assert after[0] == "session_ended"
     assert eng.state["scene"].get("closed") is None  # "three" is open
     assert hash_obj(fold(eng.store.read(eng.campaign_id))) == eng.state_hash()

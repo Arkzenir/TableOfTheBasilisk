@@ -266,6 +266,9 @@ def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
                 engine.draw_card(deck["id"], to=players[sc % len(players)] if sc % 2 else None)
             engine.advance_clock("pressure", 1)
         engine.end_session()
+        if (engine.pack.get("progression") or {}).get("model") == "milestone" and engine.advance_models():
+            engine.award_milestone()  # the scripted GM marks each session a milestone
+        _take_advances(engine, players, s)
 
     # coverage sweep: take every action the pack defines at least once (P0.12)
     engine.start_session()
@@ -280,6 +283,13 @@ def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
                 if action_id in report.actions_taken:
                     break
     engine.end_session()
+
+
+def _take_advances(engine: Engine, players: list[str], salt: int) -> None:
+    """Each player takes every advance due, choosing from the engine's list (P0.15)."""
+    for p in players:
+        while options := engine.advance_options(p):
+            engine.take_advance(p, options[(salt + players.index(p)) % len(options)])
 
 
 def _run_steps(engine: Engine, steps: list[dict], report: RunReport) -> None:
@@ -320,6 +330,10 @@ def _run_steps(engine: Engine, steps: list[dict], report: RunReport) -> None:
                 engine.end_encounter()
             elif do == "advance_time":
                 engine.advance_time(step["unit"], step.get("amount", 1))
+            elif do == "take_advance":
+                engine.take_advance(step["entity"], step["advance"], step.get("by"))
+            elif do == "award_milestone":
+                engine.award_milestone(step.get("entity"))
             elif do == "write_canon":
                 engine.write_canon(step["record"])
             elif do == "query_rules":

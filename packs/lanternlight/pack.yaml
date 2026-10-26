@@ -201,6 +201,22 @@ spatial:
       - {id: hurt_ally, applies_to: action, category: support, when: "target.conditions.down == 1", text: "{target} is down and needs you"}
       - {id: slip, applies_to: action, category: footing, when: "region.elevation > here.elevation", text: "a climb up to {region}"}
 
+# Experience (ARCHITECTURE §2.3, BUILD_PLAN P0.15): 2 at each session's end,
+# 1 for every failed roll. Each threshold reached is one advance to choose.
+progression:
+  model: xp
+  awards:
+    - {when: session_end, amount: 2}
+    - {when: outcome, outcomes: [fail], amount: 1}
+  thresholds: [4, 9, 15, 22, 30]
+  advances:
+    - {id: hardier, label: "Hardier (+1 Might)", stats: {might: 1}}
+    - {id: nimbler, label: "Nimbler (+1 Grace)", stats: {grace: 1}}
+    - {id: sharper, label: "Sharper (+1 Wits)", stats: {wits: 1}}
+    - {id: steadier, label: "Steadier (+1 Heart)", stats: {heart: 1}}
+    - {id: lamplighter, label: "Lamplighter (+1 Wits, +1 Heart, once)", stats: {wits: 1, heart: 1},
+       requires: "actor.wits >= 1", once: true}
+
 presentation:
   nameplate_resources: [vigor]
   sheet:
