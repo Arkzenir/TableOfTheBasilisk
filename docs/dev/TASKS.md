@@ -147,7 +147,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** an `assign` chargen step (place a pack-declared array of values onto stats, chosen by the agent and logged); 1,000 generated characters per pack all schema-valid; read views proven unable to mutate state.
 - **Acceptance:** BUILD_PLAN P0.8's test.
 
-### T0.20 Pack movement, provoke, and cover rules — `ready`
+### T0.20 Pack movement, provoke, and cover rules — `done`
 - **Plan:** P0.10 · §1.4, §2.3 (`spatial: movement, cover, provokes`)
 - **Deliverables:** pack-declared movement allowance per move; provoke rules (leaving a threat's reach logs who it provokes, which can be answered with a reaction); region cover and terrain readable in rule expressions; annotations can use them.
 - **Acceptance:** moves respect the allowance on both backends; provokes are logged and replay; derived tags can read cover.

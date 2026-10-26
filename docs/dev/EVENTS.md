@@ -44,6 +44,7 @@ The code-level list of event types (`EVENT_TYPES` in `src/basilisk/kernel/engine
 | `table_rolled` | passive | chargen table step | `table, value, text` |
 | `gm_resolution` | passive | `resolve_unmodelled` | `entity, procedure, stat, direct_outcome` |
 | `rules_queried` | passive | `query_rules` | `seat, query, via` (`id`, `ref`, `alias`, `partial`, or `null` for a miss), `sections` (ids returned, never their text), `suggestions` (titles, on a miss) |
+| `move_provoked` | passive | a `move` effect that leaves a threat's reach, when the pack declares `spatial.provokes` | `mover, by` (the provoking entities), `to`; a reaction may answer it (§2.4) |
 | `campaign_forked` | passive | `EventStore.fork` | `source_campaign, source_seq, source_hash` |
 
 ## Adding an event type

@@ -92,6 +92,7 @@ class EffectCommands:
             return eid
 
         changes: list[dict] = []
+        provoked: list[str] = []
         params: dict[str, Any] = {k: v for k, v in effect.items() if k != "primitive"}
         triggers: list[tuple[list, str]] = []
         target_id = None
@@ -149,6 +150,7 @@ class EffectCommands:
                 raise EngineError("move: no destination")
             self._check_move(target_id, to)
             params["to"] = to
+            provoked = self._provokers(target_id, to)
             changes += self._move_changes(target_id, to)
         elif prim in ("create_item", "destroy_item"):
             target_id = resolve_target()
@@ -199,6 +201,8 @@ class EffectCommands:
                                             "changes": changes}, caused_by=cause)
         if prim == "advance_clock":
             self._clock_moved(effect["clock"], params["old"], params["new"], seq)
+        if prim == "move" and provoked:  # a reaction may answer it (§2.4)
+            self._emit("move_provoked", {"mover": target_id, "by": provoked, "to": params["to"]}, caused_by=seq)
         for effects, owner in triggers:
             self._depth += 1
             try:

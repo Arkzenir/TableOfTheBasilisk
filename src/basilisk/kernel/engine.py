@@ -62,7 +62,7 @@ def _set_path(state: dict, path: list, value: Any, delete: bool = False) -> None
         node[path[-1]] = copy.deepcopy(value)
 
 
-_PASSIVE = rules.EVENT_TYPES | {
+_PASSIVE = rules.EVENT_TYPES | spatial.PASSIVE_EVENTS | {
     "chargen_started", "judgement_input", "procedure_resolved", "table_rolled",
     "gm_resolution", "campaign_forked",
 }
@@ -290,14 +290,17 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         return expr.evaluate(resource["max"], {**own, "actor": own}, self.rounding)
 
     def view(self, ent: dict | None) -> dict:
-        if ent is None:
-            return expr.Lenient()
+        if ent is None:  # no entity: every field reads 0, nested ones too (target.region.cover.x)
+            return expr.Lenient({"conditions": expr.Lenient(), "tags": expr.Lenient(),
+                                 "region": expr.Lenient({"elevation": 0, "terrain": expr.Lenient(),
+                                                         "cover": expr.Lenient()})})
         out = self._derived(ent)
         out.update(ent["resources"])
         out.update(ent["tracks"])
         out.update(ent.get("currencies", {}))
         out["conditions"] = expr.Lenient({c: 1 for c in ent["conditions"]})
         out["tags"] = expr.Lenient({t: 1 for t in ent["tags"]})
+        out["region"] = self._region_view(ent["id"], None)  # cover, terrain, elevation where it stands
         return out
 
     def _ctx(self, actor: dict | None, target: dict | None, extra: dict | None = None) -> dict:

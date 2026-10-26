@@ -36,8 +36,8 @@ from .command import EngineError, _suggest
 MASTERY_TIERS = ((33, 4, 5), (66, 7, 8), (100, 10, 12))
 CANDIDATE_CAP = 12
 FEATURES = ("threats_here", "threats_adjacent", "allies_here", "allies_adjacent", "closer", "elevation_change",
-            "target_threat", "target_ally")
-PLACEHOLDERS = {"region", "label", "action", "target", "threats_here", "allies_here"}
+            "target_threat", "target_ally", "provokes")
+PLACEHOLDERS = {"region", "label", "action", "target", "threats_here", "allies_here", "provokers"}
 APPLIES_TO = ("move", "action")
 
 
@@ -164,7 +164,9 @@ class TacticalCommands:
             found = [steps[t] for t in threats if t in steps]
             return min(found) if found else None
 
-        names = {"threats_here": within(threats, s_to, 0), "allies_here": within(allies, s_to, 0)}
+        provokers = [e for e in self._provokers(actor_id, focus) if e in seen] if focus and origin is None else []
+        names = {"threats_here": within(threats, s_to, 0), "allies_here": within(allies, s_to, 0),
+                 "provokers": provokers}
         d_from, d_to = nearest(s_from), nearest(s_to)
         target = self.state["entities"].get(target_id) if target_id else None
         feats = {
@@ -177,6 +179,7 @@ class TacticalCommands:
                                 - self._region_view(actor_id, origin)["elevation"],
             "target_threat": int(target is not None and self._side(target) != side),
             "target_ally": int(target is not None and self._side(target) == side),
+            "provokes": len(provokers),
         }
         return feats, names
 
@@ -194,7 +197,8 @@ class TacticalCommands:
     def _fill(self, names: dict, region: str | None, label: str = "", action: str = "", target: str | None = None) -> dict:
         return {"region": region or "", "label": label, "action": action, "target": target or "",
                 "threats_here": ", ".join(names["threats_here"]) or "none",
-                "allies_here": ", ".join(names["allies_here"]) or "none"}
+                "allies_here": ", ".join(names["allies_here"]) or "none",
+                "provokers": ", ".join(names.get("provokers") or []) or "none"}
 
     def _score(self, applies_to: str, ctx: dict, feats: dict, action_id: str | None = None) -> int:
         prof = profile(self.pack)

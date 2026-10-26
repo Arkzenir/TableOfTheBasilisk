@@ -27,10 +27,12 @@ import copy
 from collections import deque
 from typing import Any
 
+from . import expr
 from .canon import ID_RE
 from .command import EngineError, _suggest, atomic
 
 EVENT_TYPES = frozenset({"visibility_set"})
+PASSIVE_EVENTS = frozenset({"move_provoked"})  # recorded, never folded
 
 MAX_REGIONS = 64       # kernel settings; larger scenes belong to a different backend
 MAX_PARTICIPANTS = 16
@@ -74,11 +76,12 @@ class SpatialBackend:
     def check_position(self, spatial: dict, entities: dict, position: str, among: set | None) -> None:
         raise NotImplementedError
 
-    def moves(self, spatial: dict, entities: dict, eid: str, among: set, at: str | None = None) -> list[str]:
-        """Positions one move away, from the current position or from `at`."""
+    def moves(self, spatial: dict, entities: dict, eid: str, among: set, at: str | None = None,
+              reach: int = 1) -> list[str]:
+        """Positions one move away (up to `reach` steps), from the current position or from `at`."""
         raise NotImplementedError
 
-    def check_move(self, spatial: dict, entities: dict, eid: str, to: str, among: set) -> None:
+    def check_move(self, spatial: dict, entities: dict, eid: str, to: str, among: set, reach: int = 1) -> None:
         raise NotImplementedError
 
     def move_changes(self, spatial: dict, entities: dict, eid: str, to: str) -> list[dict]:
@@ -189,11 +192,13 @@ class ZoneGraph(SpatialBackend):
         if position not in graph:
             raise EngineError(_suggest("region", position, graph))
 
-    def moves(self, spatial, entities, eid, among, at=None):
+    def moves(self, spatial, entities, eid, among, at=None, reach=1):
         start = at if at is not None else entities[eid].get("zone")
-        return list(self._graph(spatial).get(start, []))
+        if reach == 1:
+            return list(self._graph(spatial).get(start, []))
+        return sorted(r for r, d in self._hops(spatial, start).items() if 0 < d <= reach)
 
-    def check_move(self, spatial, entities, eid, to, among):
+    def check_move(self, spatial, entities, eid, to, among, reach=1):
         graph = self._graph(spatial)
         frm = entities[eid].get("zone")
         if to not in graph:
@@ -202,9 +207,13 @@ class ZoneGraph(SpatialBackend):
             raise EngineError("the entity is not placed in this scene; the GM places it first")
         if to == frm:
             raise EngineError(f"already in {to}")
-        if to not in graph[frm]:
+        if reach == 1 and to not in graph[frm]:
             raise EngineError(f"{to} is not adjacent to {frm}. Reachable in one move: "
                               f"{', '.join(graph[frm]) or 'none'}.")
+        steps = self._hops(spatial, frm).get(to)
+        if steps is None or steps > reach:
+            raise EngineError(f"{to} is more than {reach} steps from {frm}. Reachable in one move: "
+                              f"{', '.join(self.moves(spatial, entities, eid, among, reach=reach)) or 'none'}.")
 
     def move_changes(self, spatial, entities, eid, to):
         return [{"path": ["entities", eid, "zone"], "value": to}]
@@ -295,7 +304,7 @@ class RangeBands(SpatialBackend):
             ranges[_pair(eid, other)] = band
         return ranges
 
-    def moves(self, spatial, entities, eid, among, at=None):
+    def moves(self, spatial, entities, eid, among, at=None, reach=1):
         if eid not in spatial["participants"]:
             return []
         bands, ranges, out = spatial["bands"], self._ranges(spatial, eid, at), []
@@ -303,10 +312,11 @@ class RangeBands(SpatialBackend):
             if other == eid or other not in among:
                 continue
             i = bands.index(ranges[_pair(eid, other)])
-            out += [f"{bands[j]}:{other}" for j in (i - 1, i + 1) if 0 <= j < len(bands)]
+            steps = [j for d in range(reach, 0, -1) for j in (i - d,)] + [i + d for d in range(1, reach + 1)]
+            out += [f"{bands[j]}:{other}" for j in steps if 0 <= j < len(bands)]
         return out
 
-    def check_move(self, spatial, entities, eid, to, among):
+    def check_move(self, spatial, entities, eid, to, among, reach=1):
         if eid not in spatial["participants"]:
             raise EngineError("the entity is not placed in this scene; the GM places it first")
         band, other = self._parse(spatial, to, among)
@@ -316,9 +326,10 @@ class RangeBands(SpatialBackend):
         current = spatial["ranges"][_pair(eid, other)]
         if band == current:
             raise EngineError(f"already {band} from {other}")
-        if abs(bands.index(band) - bands.index(current)) != 1:
-            near = self.moves(spatial, entities, eid, {other})
-            raise EngineError(f"{band} is more than one band from {current} ({other}). "
+        if abs(bands.index(band) - bands.index(current)) > reach:
+            near = self.moves(spatial, entities, eid, {other}, reach=reach)
+            span = "one band" if reach == 1 else f"{reach} bands"
+            raise EngineError(f"{band} is more than {span} from {current} ({other}). "
                               f"Reachable in one move: {', '.join(near) or 'none'}.")
 
     def move_changes(self, spatial, entities, eid, to):
@@ -423,12 +434,47 @@ class SpatialCommands:
             among = self._seen_by(observer) if observer else None
             self._backend(spatial).check_position(spatial, self.state["entities"], position, among)
 
+    def _reach(self) -> int:
+        """Steps (regions, or bands) one move may cover: `spatial.movement.steps_per_move`."""
+        sp = self.pack.get("spatial")
+        return int(((sp or {}).get("movement") or {}).get("steps_per_move", 1)) if isinstance(sp, dict) else 1
+
     def _check_move(self, entity_id: str, to: str) -> None:
         spatial = self._spatial()
         if spatial is None:
             return  # outside a spatial scene a zone is a plain label (§1.4: theatre of the mind)
         seer = self.state["entities"][entity_id]["controller"]
-        self._backend(spatial).check_move(spatial, self.state["entities"], entity_id, to, self._seen_by(seer))
+        self._backend(spatial).check_move(spatial, self.state["entities"], entity_id, to, self._seen_by(seer),
+                                          reach=self._reach())
+
+    def _provokers(self, entity_id: str, to: str) -> list[str]:
+        """Who a move provokes (§2.3 `spatial.provokes`): the threats the mover
+        leaves the reach of. In a zone scene, threats sharing the region it
+        leaves; in a band scene, the entity it backs away from out of the
+        closest band. The pack's `when` expression filters them (actor: the
+        provoker, target: the mover). Empty when the pack declares no provokes."""
+        rule = (self.pack.get("spatial") or {}).get("provokes") if isinstance(self.pack.get("spatial"), dict) else None
+        spatial = self._spatial()
+        if rule is None or spatial is None or not self._in_scene(entity_id):  # `provokes: {}` provokes always
+            return []
+        ents = self.state["entities"]
+        mover = ents[entity_id]
+        side = "gm" if self._role(mover["controller"]) == "gm" else "players"
+        if spatial["mode"] == "zone":
+            here = mover.get("zone")
+            near = [e for e in sorted(ents) if e != entity_id and ents[e].get("zone") == here and to != here]
+        else:
+            band, _, other = str(to).partition(":")
+            closest = spatial["bands"][0]
+            near = [other] if (spatial["ranges"].get("|".join(sorted((entity_id, other)))) == closest
+                               and band != closest) else []
+        out = []
+        for e in near:
+            their_side = "gm" if self._role(ents[e]["controller"]) == "gm" else "players"
+            if their_side != side and expr.evaluate(str(rule.get("when", "1")), self._ctx(ents[e], mover),
+                                                     self.rounding):
+                out.append(e)
+        return out
 
     def _move_changes(self, entity_id: str, to: str) -> list[dict]:
         spatial = self._spatial()
@@ -526,7 +572,8 @@ class SpatialCommands:
         if spatial is None or not self._in_scene(entity_id):
             return []
         seer = self.state["entities"][entity_id]["controller"]
-        return self._backend(spatial).moves(spatial, self.state["entities"], entity_id, self._seen_by(seer), at)
+        return self._backend(spatial).moves(spatial, self.state["entities"], entity_id, self._seen_by(seer), at,
+                                            reach=self._reach())
 
     def position_of(self, entity_id: str) -> str | None:
         spatial = self._spatial()

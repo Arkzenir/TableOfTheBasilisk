@@ -342,6 +342,20 @@ def lint(pack: ResolvedPack) -> list[Finding]:
         if backend not in spatial.BACKENDS:
             planned = " (planned for v2, §11.4)" if backend == "square_grid" else ""
             err("spatial", f"unknown backend {backend!r}{planned}; available: {', '.join(spatial.BACKENDS)}")
+    if isinstance(sp, dict):
+        movement = sp.get("movement") or {}
+        steps = movement.get("steps_per_move", 1)
+        if isinstance(steps, bool) or not isinstance(steps, int) or not 1 <= steps <= 6:
+            err("spatial", "movement.steps_per_move must be an integer from 1 to 6")
+        provokes = sp.get("provokes")
+        if provokes is not None:
+            if not isinstance(provokes, dict):
+                err("spatial", "provokes must be a mapping with an optional when expression")
+            else:
+                try:
+                    expr.compile_expr(str(provokes.get("when", "1")))
+                except expr.ExprError as e:
+                    err("spatial", f"provokes.when: {e}")
     bands = spatial.values(pack, "bands")
     if "range_bands" in spatial.declared_backends(pack) and len(bands) < 2:
         err("spatial", "range_bands needs spatial.bands: at least two bands, closest first")
