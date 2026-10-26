@@ -131,8 +131,9 @@ class ResolutionCommands:
                 conds = self.pack.by_id("entity_model.conditions")
                 for cid in sorted(ent["conditions"]):
                     if conds.get(cid, {}).get("modifier"):
+                        level = int(ent["conditions"][cid].get("level", 1))  # a stacked condition scales
                         modifiers.append({"source": cid, "kind": "condition",
-                                          "value": int(conds[cid]["modifier"]), "origin": "state"})
+                                          "value": int(conds[cid]["modifier"]) * level, "origin": "state"})
             if "tags" in sources:
                 modifiers += self._situational(ent, target, gm_inputs, cause)
 
@@ -199,7 +200,8 @@ class ResolutionCommands:
         derived = self._derived(target)
         mod = derived.get(their_stat, 0) if their_stat else 0
         conds = self.pack.by_id("entity_model.conditions")
-        mod += sum(int(conds.get(c, {}).get("modifier", 0)) for c in sorted(target["conditions"]))
+        mod += sum(int(conds.get(c, {}).get("modifier", 0)) * int(target["conditions"][c].get("level", 1))
+                   for c in sorted(target["conditions"]))
         result, seq = self._roll(spec.get("roll") or "1d6 + {mod}", {**derived, "mod": mod}, cause,
                                  f"opposed:{proc['id']}:{target['id']}")
         return {"value": result.total, "origin": "opposed", "rung": None, "roll_seq": seq, "stat": their_stat}

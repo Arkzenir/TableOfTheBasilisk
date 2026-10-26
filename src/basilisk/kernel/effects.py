@@ -134,13 +134,31 @@ class EffectCommands:
                 triggers.append((tdef.get("on_fill") or [], target_id))
         elif prim == "add_condition":
             target_id = resolve_target()
-            if effect["condition"] not in self.state["entities"][target_id]["conditions"]:
-                changes.append({"path": ["entities", target_id, "conditions", effect["condition"]],
-                                "value": {"since_scene": self.state["scene"]["index"]}})
+            cid = effect["condition"]
+            held = self.state["entities"][target_id]["conditions"].get(cid)
+            cdef = self.pack.by_id("entity_model.conditions").get(cid, {})
+            stacks = cdef.get("stacking", "none") == "intensity"
+            if held is None:
+                value = {"since_scene": self.state["scene"]["index"]}
+                if stacks:  # stacking conditions carry a level; others keep their old shape
+                    value["level"] = 1
+                changes.append({"path": ["entities", target_id, "conditions", cid], "value": value})
+            elif stacks and held.get("level", 1) < int(cdef.get("max_level", 3)):
+                changes.append({"path": ["entities", target_id, "conditions", cid, "level"],
+                                "value": held.get("level", 1) + 1})
+                params["level"] = held.get("level", 1) + 1
         elif prim == "remove_condition":
             target_id = resolve_target()
-            if effect["condition"] in self.state["entities"][target_id]["conditions"]:
-                changes.append({"path": ["entities", target_id, "conditions", effect["condition"]], "delete": True})
+            cid = effect["condition"]
+            held = self.state["entities"][target_id]["conditions"].get(cid)
+            levels = effect.get("levels")
+            if held is not None:
+                if levels and held.get("level", 1) > int(levels):  # lower a stacked condition by some levels
+                    changes.append({"path": ["entities", target_id, "conditions", cid, "level"],
+                                    "value": held["level"] - int(levels)})
+                    params["level"] = held["level"] - int(levels)
+                else:
+                    changes.append({"path": ["entities", target_id, "conditions", cid], "delete": True})
         elif prim in ("add_tag", "remove_tag"):
             target_id = resolve_target()
             tags = set(self.state["entities"][target_id]["tags"])

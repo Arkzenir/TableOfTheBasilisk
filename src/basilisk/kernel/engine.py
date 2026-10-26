@@ -335,7 +335,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         out.update(ent["resources"])
         out.update(ent["tracks"])
         out.update(ent.get("currencies", {}))
-        out["conditions"] = expr.Lenient({c: 1 for c in ent["conditions"]})
+        out["conditions"] = expr.Lenient({c: int(v.get("level", 1)) for c, v in ent["conditions"].items()})
         out["tags"] = expr.Lenient({t: 1 for t in ent["tags"]})
         out["region"] = self._region_view(ent["id"], None)  # cover, terrain, elevation where it stands
         return out

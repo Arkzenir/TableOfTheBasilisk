@@ -275,6 +275,13 @@ def lint(pack: ResolvedPack) -> list[Finding]:
             err("condition-exit", f"condition {c['id']} lasts until removed but nothing removes it")
         if c.get("duration", "until_removed") not in ("scene", "session", "until_removed"):
             err("condition", f"condition {c['id']}: duration must be scene, session or until_removed")
+        stacking = c.get("stacking", "none")
+        if stacking not in ("none", "intensity"):
+            err("condition", f"condition {c['id']}: stacking must be none or intensity")
+        if stacking == "intensity":
+            top = c.get("max_level", 3)
+            if isinstance(top, bool) or not isinstance(top, int) or not 2 <= top <= 10:
+                err("condition", f"condition {c['id']}: max_level must be an integer from 2 to 10")
 
     # roll expressions -----------------------------------------------------
     grammar = pack.get("randomizers.dice_grammar", {}) or {}

@@ -172,9 +172,9 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** a `scene_closed` event emitted when a scene ends (at the next `set_scene` or at `end_session`), after the events that close it (`encounter_ended`, condition expiry) and before the next `scene_set` or `session_ended`. It folds to a `closed` flag, so no scene closes twice; older logs fold unchanged.
 - **Acceptance:** every scene in a campaign is closed exactly once, in order; older logs fold unchanged; replay stays byte-identical.
 
-### T0.25 Condition stacking — `ready`
+### T0.25 Condition stacking — `done`
 - **Plan:** P0.3 · §2.3 (`conditions: stacking`), §2.4
-- **Deliverables:** a pack-declared `stacking` rule per condition: `none` (held or not; the default), `intensity` (re-applying raises a level, up to a cap, and modifiers scale with it), or `duration` (re-applying refreshes or extends it). Effects and expiry respect it, expressions can read a condition's level, and lint checks the declarations.
+- **Deliverables:** a pack-declared `stacking` rule per condition: `none` (held or not; the default) or `intensity` (re-applying raises a level, up to `max_level`, and modifiers scale with it). Effects and expiry respect it, expressions can read a condition's level, and lint checks the declarations. A `duration` mode was dropped (D-039): conditions end at scene or session boundaries, so there is no counted duration to refresh or extend.
 - **Acceptance:** each stacking rule behaves correctly under repeated application and removal, and replays exactly; conditions without a rule behave as now.
 
 ### T0.26 Weight-based inventory — `ready`

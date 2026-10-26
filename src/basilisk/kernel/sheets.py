@@ -110,7 +110,7 @@ class SheetCommands:
                     fields.append(self._field(section, fid, ent["currencies"][fid], not shown,
                                               max=int(item["max"]) if "max" in item else None))
         for cid in sorted(ent["conditions"]):
-            fields.append(self._field("condition", cid, 1, False))
+            fields.append(self._field("condition", cid, int(ent["conditions"][cid].get("level", 1)), False))
         for tag in ent["tags"]:
             fields.append(self._field("tag", tag, 1, True))
         fields.append(self._field("inventory", "inventory", list(ent["inventory"]), True))
