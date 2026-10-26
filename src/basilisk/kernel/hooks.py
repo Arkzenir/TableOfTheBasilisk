@@ -38,8 +38,10 @@ from typing import Any, Callable
 POINTS = ("dice.operator", "resolution.step", "effect.compound", "chargen.step", "turn.order",
           "tactical.score", "sheet.validate")
 WIRED = ("resolution.step", "sheet.validate")
-MAX_STEPS = 10_000  # Appendix C hook_runtime_limits.max_steps
-MAX_SOURCE = 8_000  # characters
+MAX_STEPS = 10_000          # Appendix C hook_runtime_limits.max_steps
+MAX_MEMORY = 16 * 1024**2   # Appendix C hook_runtime_limits.max_memory, bytes traced during one run
+MAX_ITEMS = 100_000         # largest range or repeated sequence a hook may build in one step
+MAX_SOURCE = 8_000          # characters
 SAFE_BUILTINS = {
     "len": len, "min": min, "max": max, "abs": abs, "sum": sum, "sorted": sorted, "range": range,
     "list": list, "dict": dict, "int": int, "bool": bool, "str": str, "enumerate": enumerate, "zip": zip,
@@ -139,28 +141,85 @@ def load(declared: list[dict], pack_dirs: dict[str, Path]) -> list[dict]:
     return sorted(out, key=lambda h: h["name"])
 
 
+def _range(*args):
+    r = range(*args)
+    if len(r) > MAX_ITEMS:
+        raise HookError(f"range of {len(r)} items exceeds the hook limit of {MAX_ITEMS}")
+    return r
+
+
+def _mul(a, b):
+    """`*` for hooks: numbers multiply freely; repeating a sequence is capped,
+    because one step could otherwise allocate without bound."""
+    for seq, n in ((a, b), (b, a)):
+        if isinstance(seq, (str, list, tuple)) and isinstance(n, int) and not isinstance(n, bool):
+            if len(seq) * max(n, 0) > MAX_ITEMS:
+                raise HookError(f"repeating a sequence to {len(seq) * n} items exceeds the hook limit of {MAX_ITEMS}")
+    return a * b
+
+
+class _MulCheck(ast.NodeTransformer):
+    """Route every `*` through `_mul`. Runs after the static check, so the
+    injected underscore name cannot be written by pack code."""
+
+    def visit_BinOp(self, node):
+        self.generic_visit(node)
+        if isinstance(node.op, ast.Mult):
+            return ast.copy_location(ast.Call(func=ast.Name("__mul", ast.Load()), args=[node.left, node.right],
+                                              keywords=[]), node)
+        return node
+
+    def visit_AugAssign(self, node):
+        self.generic_visit(node)
+        if isinstance(node.op, ast.Mult):
+            target = copy.deepcopy(node.target)
+            load = ast.Name(target.id, ast.Load()) if isinstance(target, ast.Name) else copy.deepcopy(node.target)
+            if hasattr(load, "ctx"):
+                load.ctx = ast.Load()
+            return ast.copy_location(ast.Assign(targets=[node.target], value=ast.Call(
+                func=ast.Name("__mul", ast.Load()), args=[load, node.value], keywords=[])), node)
+        return node
+
+
 def _compile(name: str, source: str) -> Callable:
-    namespace: dict[str, Any] = {"__builtins__": dict(SAFE_BUILTINS)}
-    exec(compile(source, f"<hook {name}>", "exec"), namespace)  # noqa: S102 - statically checked above
+    tree = _MulCheck().visit(ast.parse(source, filename=f"<hook {name}>"))
+    ast.fix_missing_locations(tree)
+    namespace: dict[str, Any] = {"__builtins__": {**SAFE_BUILTINS, "range": _range}, "__mul": _mul}
+    exec(compile(tree, f"<hook {name}>", "exec"), namespace)  # noqa: S102 - statically checked above
     return namespace["hook"]
 
 
 def _limited(fn: Callable, *args):
+    """Run under the step and memory limits. Memory is traced for this run only."""
+    import tracemalloc
     steps = [0]
+    started = not tracemalloc.is_tracing()
+    if started:
+        tracemalloc.start()
+    base = tracemalloc.get_traced_memory()[0]
+    tracemalloc.reset_peak()
 
     def tracer(frame, event, arg):
         if event == "line":
             steps[0] += 1
             if steps[0] > MAX_STEPS:
                 raise HookError(f"hook exceeded {MAX_STEPS} steps")
+            if tracemalloc.get_traced_memory()[1] - base > MAX_MEMORY:
+                raise HookError(f"hook exceeded {MAX_MEMORY // 1024**2} MB of memory")
         return tracer
 
     previous = sys.gettrace()
     sys.settrace(tracer)
     try:
-        return fn(*args)
+        result = fn(*args)
     finally:
         sys.settrace(previous)
+        peak = tracemalloc.get_traced_memory()[1] - base
+        if started:
+            tracemalloc.stop()
+    if peak > MAX_MEMORY:
+        raise HookError(f"hook exceeded {MAX_MEMORY // 1024**2} MB of memory")
+    return result
 
 
 def run(hook: dict, view: dict, params: dict, draw: Callable[[int, int, int], int] | None) -> tuple[Any, list]:

@@ -38,8 +38,8 @@ PRIMITIVES: dict[str, tuple[str, ...]] = {
     "request_gm_ruling": ("table",),
 }
 
-# Defined by the architecture but not yet implemented by this kernel build.
-RESERVED = {"trigger_procedure"}
+# Defined by the architecture but not yet implemented by this kernel build: none.
+RESERVED: set[str] = set()
 
 # Symbolic targets an effect may name; anything else must be an entity id.
 TARGET_SYMBOLS = {"actor", "target", "self"}
@@ -81,6 +81,9 @@ class EffectCommands:
             raise EngineError(f"primitive {prim!r} is not available")
         if prim == "request_gm_ruling":
             self._ruling(effect["table"], ids, cause)
+            return
+        if prim == "trigger_procedure":
+            self._triggered_procedure(effect, ids, cause)
             return
 
         def resolve_target(key: str = "target") -> str:
@@ -212,6 +215,49 @@ class EffectCommands:
                     self._apply_effect(e, {"actor": owner, "target": owner, "self": owner}, seq, variables)
             finally:
                 self._depth -= 1
+
+    def _triggered_procedure(self, effect: dict, ids: dict, cause: int | None) -> None:
+        """`trigger_procedure` (§2.6): a rule that makes someone roll, then applies
+        the effects the pack lists for that outcome. Who rolls is `target`
+        (default the actor); `against` names the other side, for derived or
+        opposed difficulties. A difficulty is fixed by the pack: an expression,
+        or a ladder rung, so no model chooses it and nothing is a judgement input."""
+        procs = self.pack.by_id("resolution.procedures")
+        if effect["procedure"] not in procs:
+            raise EngineError(_suggest("procedure", effect["procedure"], procs))
+
+        def who(sym):
+            eid = ids.get(sym) if sym in ("actor", "target", "self") else sym
+            if eid:
+                self._entity(eid)
+            return eid
+
+        roller = who(effect.get("target", "actor"))
+        if not roller:
+            raise EngineError("trigger_procedure: nobody to roll")
+        other = who(effect.get("against", "target" if effect.get("target", "actor") != "target" else "actor"))
+        other = None if other == roller else other
+        spec = effect.get("difficulty")
+        if isinstance(spec, dict) and "ladder" in spec:
+            rungs = {r["id"]: r for r in self.pack.by_id("resolution.difficulty_ladders")[spec["ladder"]]["rungs"]}
+            spec = {"derived": str(int(rungs[spec["rung"]]["value"]))}
+        params = {k: v for k, v in effect.items() if k not in ("primitive", "outcome_effects")}
+        params["target"] = roller
+        seq = self._emit("effect_applied", {"primitive": "trigger_procedure", "target": roller, "params": params,
+                                            "changes": []}, caused_by=cause)
+        self._depth += 1
+        try:
+            if self._depth > MAX_TRIGGER_DEPTH:
+                raise EngineError("trigger depth exceeded; check the pack for procedures that trigger each other")
+            ents = self.state["entities"]
+            outcome, _, proc_seq = self._run_procedure(procs[effect["procedure"]], ents[roller],
+                                                       ents.get(other) if other else None, effect.get("stat"),
+                                                       spec, {}, seq)
+            nested = {"actor": roller, "target": other, "self": roller}
+            for e in (effect.get("outcome_effects") or {}).get(outcome, []):
+                self._apply_effect(e, nested, proc_seq, {})
+        finally:
+            self._depth -= 1
 
     # ------------------------------------------------------------ rulings (§2.6, §2.13)
 

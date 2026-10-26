@@ -31,7 +31,21 @@ class Finding:
 
 
 def _effects_in(pack: ResolvedPack):
-    """Yield (where, effect) for every effect anywhere in the pack."""
+    """Yield (where, effect) for every effect anywhere in the pack, including
+    the effects nested inside `trigger_procedure` outcomes."""
+    for where, e in _top_effects(pack):
+        yield from _with_nested(where, e)
+
+
+def _with_nested(where: str, e: dict):
+    yield where, e
+    if isinstance(e, dict) and e.get("primitive") == "trigger_procedure":
+        for outcome, inner in (e.get("outcome_effects") or {}).items():
+            for sub in inner or []:
+                yield from _with_nested(f"{where} -> {e.get('procedure')} [{outcome}]", sub)
+
+
+def _top_effects(pack: ResolvedPack):
     for action in pack.catalogue("actions"):
         for outcome, effects in (action.get("outcome_effects") or {}).items():
             for e in effects or []:
@@ -224,6 +238,26 @@ def lint(pack: ResolvedPack) -> list[Finding]:
             continue
         if prim in RESERVED:
             err("effect", f"{where}: primitive {prim!r} is reserved and not implemented in this kernel")
+        if prim == "trigger_procedure":
+            proc = procs.get(e.get("procedure"))
+            if not proc:
+                err("reference", f"{where}: unknown procedure {e.get('procedure')!r}; procedures: {', '.join(procs)}")
+            else:
+                if "stat" in (proc.get("inputs") or []) and e.get("stat") not in stats:
+                    err("reference", f"{where}: {e.get('procedure')} needs a stat; unknown {e.get('stat')!r}")
+                spec = e.get("difficulty")
+                if "difficulty" in (proc.get("inputs") or []) and not spec:
+                    err("effect", f"{where}: {e.get('procedure')} needs a difficulty fixed by the pack "
+                                  "({derived: expr} or {ladder, rung})")
+                if isinstance(spec, dict) and "ladder" in spec:
+                    ladder = ladders.get(spec["ladder"])
+                    if not ladder or spec.get("rung") not in {r["id"] for r in ladder.get("rungs") or []}:
+                        err("reference", f"{where}: unknown ladder rung {spec.get('ladder')}/{spec.get('rung')}")
+                scale = scales.get(({k: v for s in proc.get("steps") or [] for k, v in s.items()}.get("interpret")
+                                    or {}).get("scale"), {}).get("ordered", [])
+                for outcome in (e.get("outcome_effects") or {}):
+                    if outcome not in scale:
+                        err("reference", f"{where}: outcome {outcome!r} is not on {e.get('procedure')}'s scale")
         missing = [p for p in PRIMITIVES[prim] if p not in e]
         if missing:
             err("effect", f"{where}: {prim} is missing {missing}")

@@ -17,12 +17,13 @@ Rewritten at the end of every work session, so the next session — any agent or
 - **T0.21** (D-032): watches and calendar (`kernel/timekeeping.py`), time passing between sessions, and clocks scheduled on in-world time.
 - **T0.12** (D-033): the hook sandbox (`kernel/hooks.py`), with fixture pack `lanternlight_hooked`. **One deviation from §2.7 is flagged below.**
 - **T0.22** (D-034): `core`'s default tactical profile, the one-control-one-role schema test, every-preset campaigns, and evaluator properties.
+- **T0.23** (D-035), from a second audit: the `trigger_procedure` primitive (no primitive is reserved now), a test that every primitive emits events and replays, the toggle test's mid-encounter case, seat-override schemas, and hook memory limits.
 
 ## Gate P0 evidence (T0.13, for the owner's sign-off)
 
-Refreshed 2026-10-26 after finishing Phase 0. Every item below was run on the development desktop:
+Refreshed 2026-10-26 after finishing Phase 0 and the second audit (T0.23). Every item below was run on the development desktop:
 
-- `tob check`: **GATE: PASS** in about 42 s (budget 60 s). It runs the noun lint, pack lint for 9 packs, verified smoke campaigns on the 6 playable packs, and pytest with **422 tests passed**.
+- `tob check`: **GATE: PASS** in about 40 s (budget 60 s). It runs the noun lint, pack lint for 9 packs, verified smoke campaigns on the 6 playable packs, and pytest with **455 tests passed**.
 - `tob pack lint`: 0 errors and 0 warnings on every pack, every pack strict-ready on every control. Hook counts: 2 in `lanternlight_hooked`, 0 elsewhere.
 
 "Both packs" means the two kernel test games from different families, `lanternlight` (roll-over) and `tidewrack` (banded) (BUILD_PLAN P0.6). The four derivatives are also run.
@@ -55,9 +56,10 @@ Refreshed 2026-10-26 after finishing Phase 0. Every item below was run on the de
 
 ## Open questions for the owner
 
-1. **Gate P0 item 8** rests on structural evidence (see the table).
-2. **Hook return shape (D-033):** §2.7 gives a hook's shape as `(state_view, params, rng) → [events]`. The sandbox has hooks return a small, point-specific result (`{total}`/`{outcome}` for `resolution.step`, a list of problems for `sheet.validate`), which the kernel validates and turns into events. Confirm this reading, or ask for an ARCHITECTURE note or a change.
-3. Before P4.0, the SRD source document. Before launch, the legal review in ARCHITECTURE §11.3.
+1. **Gate P0 item 8** rests on structural evidence (see the table). The owner has accepted it for now, to be re-audited when the P0 architecture is finalised.
+2. **Hook return shape (D-033):** accepted for now by the owner, to be re-audited with the P0 architecture. §2.7 gives a hook's shape as `(state_view, params, rng) → [events]`. The sandbox has hooks return a small, point-specific result (`{total}`/`{outcome}` for `resolution.step`, a list of problems for `sheet.validate`), which the kernel validates and turns into events. Confirm this reading, or ask for an ARCHITECTURE note or a change.
+3. **Draft ARCHITECTURE edits:** §5.7 (event list) and §2.3 (pack schema) are out of date. A draft is in `docs/dev/proposals/REV-ARCH-1.6.md` for review.
+4. Before P4.0, the SRD source document. Before launch, the legal review in ARCHITECTURE §11.3.
 
 ## Notes for the next session
 

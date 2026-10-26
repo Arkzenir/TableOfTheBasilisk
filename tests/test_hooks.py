@@ -179,7 +179,7 @@ def test_runaway_hooks_hit_the_step_limit_atomically(packs_dir, tmp_path):
     pack = with_hook(dst, '''
         def hook(view, params, rng):
             n = 0
-            for i in range(1000000000):
+            for i in range(50000):
                 n = n + 1
             return None
     ''')

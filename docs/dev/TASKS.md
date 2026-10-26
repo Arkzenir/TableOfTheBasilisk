@@ -162,6 +162,11 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** a default tactical profile in `core`; a test that flipping one control changes only the affected role's schema; harness runs of a 3-session campaign under all-strict, all-standard, and default settings, each with a mid-campaign change; evaluator property tests (termination, determinism, rounding per pack).
 - **Acceptance:** each BUILD_PLAN test line named above has a test.
 
+### T0.23 Last Phase 0 gaps from the second audit — `done`
+- **Plan:** P0.4, P0.5 · §2.6, §2.7, §2.13.3, Appendix C `hook_runtime_limits`
+- **Deliverables:** the `trigger_procedure` primitive (a pack effect that runs a procedure and applies its outcome's effects); a test that every primitive emits events and replays exactly; the toggle test's mid-encounter case; seat-override schema regeneration tested; the hook runtime's memory limit (`max_memory`).
+- **Acceptance:** BUILD_PLAN P0.4's primitive and toggle tests and P0.5's "only affected seats' schemas change" have tests; no primitive is reserved; a hook cannot exhaust memory.
+
 ### T0.13 Gate P0 sign-off — `human`
 - **Agent prepares:** evidence for every Gate P0 item in `HANDOFF.md`, as the commands run and their results.
 - **Owner signs off.**
