@@ -202,13 +202,17 @@ def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
     smoke = script["smoke"]
     seats = script["config"]["seats"]
     players = [s for s, r in seats.items() if r == "player"]
-    for p in players:
+    for n, p in enumerate(players):
         choices = {}
         for step in engine.pack.get("chargen.steps") or []:
             if step["kind"] == "choice":
                 taken = set(engine.state["chargen_taken"].get(step["id"], []))
                 opts = [o["id"] for o in step["options"] if o["id"] not in taken]
                 choices[step["id"]] = opts[0]
+            elif step["kind"] == "assign":  # each player rotates the array differently
+                values = list(step["values"])
+                shift = n % len(values)
+                choices[step["id"]] = dict(zip(step["targets"], values[shift:] + values[:shift]))
         engine.create_character(p, NAMES.get(p, p), choices)
     for npc_id, name in NPCS:
         engine.spawn_entity(npc_id, name)

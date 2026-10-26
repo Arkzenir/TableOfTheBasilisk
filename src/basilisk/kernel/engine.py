@@ -460,6 +460,17 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
                 tags += options[pick].get("tags") or []
                 if step.get("unique_per_table"):
                     unique[step["id"]] = pick
+            elif kind == "assign":  # place a fixed array of values onto stats (§1.5)
+                pick = choices.get(step["id"])
+                values, targets = list(step["values"]), list(step["targets"])
+                if not isinstance(pick, dict) or sorted(pick) != sorted(targets):
+                    raise EngineError(f"{step['id']}: assign each of {', '.join(targets)} one of the values "
+                                      f"{values}, as {{stat: value}}")
+                if sorted(pick.values()) != sorted(values):
+                    raise EngineError(f"{step['id']}: the values must be exactly {sorted(values)}, each used once; "
+                                      f"got {sorted(pick.values())}")
+                self._judge(agent_id, "chargen_assign", None, {t: pick[t] for t in targets}, values, start)
+                stats.update({t: int(pick[t]) for t in targets})
             elif kind == "table":
                 table = tables[step["table"]]
                 result, roll_seq = self._roll(table["roll"], {}, start, f"chargen:{step['id']}", actor="engine")

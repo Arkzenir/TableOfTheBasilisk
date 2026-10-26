@@ -283,8 +283,21 @@ def lint(pack: ResolvedPack) -> list[Finding]:
         elif kind == "table":
             if step.get("table") not in rtables:
                 err("chargen", f"step {step['id']}: unknown table {step.get('table')!r}")
+        elif kind == "assign":
+            targets, values = step.get("targets") or [], step.get("values") or []
+            for target in targets:
+                if target not in stats:
+                    err("chargen", f"step {step['id']}: unknown stat {target!r}")
+            if len(values) != len(targets) or not targets:
+                err("chargen", f"step {step['id']}: needs one value per target ({len(values)} values, "
+                               f"{len(targets)} targets)")
+            for value in values:
+                for target in targets:
+                    lo, hi = stats.get(target, {}).get("range", [value, value])
+                    if not lo <= value <= hi:
+                        err("chargen", f"step {step['id']}: value {value} is outside {target}'s range {lo}..{hi}")
         else:
-            err("chargen", f"step {step.get('id')}: kind must be roll, choice or table")
+            err("chargen", f"step {step.get('id')}: kind must be roll, choice, assign or table")
     for t in rtables.values():
         try:
             rng = dice.value_range(t.get("roll", ""))

@@ -75,6 +75,10 @@ def _choices(pack, rng, taken):
             out[step["id"]] = rng.choice(opts)
             if step.get("unique_per_table"):
                 taken.add(out[step["id"]])
+        elif step["kind"] == "assign":  # a random arrangement of the array
+            values = list(step["values"])
+            rng.shuffle(values)
+            out[step["id"]] = dict(zip(step["targets"], values))
     return out
 
 

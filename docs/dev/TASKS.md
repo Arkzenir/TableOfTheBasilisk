@@ -142,7 +142,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** die size from a variable (`1d{trait}`), enabled per pack as the `step` operator, with a pack-declared ladder of legal sizes; exact distributions and value ranges.
 - **Acceptance:** seeded rolls, exact distribution, and the 10k distribution test include step dice; an illegal size is refused.
 
-### T0.19 Chargen assign steps and sheet guarantees — `ready`
+### T0.19 Chargen assign steps and sheet guarantees — `done`
 - **Plan:** P0.8, P0.7 · §1.5, §2.10
 - **Deliverables:** an `assign` chargen step (place a pack-declared array of values onto stats, chosen by the agent and logged); 1,000 generated characters per pack all schema-valid; read views proven unable to mutate state.
 - **Acceptance:** BUILD_PLAN P0.8's test.

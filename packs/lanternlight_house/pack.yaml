@@ -1,5 +1,6 @@
 # House rules on Lanternlight, built as data only (BUILD_PLAN P0.7 derived-pack test).
-# Changes: tougher characters, a new Inspired condition from Rally, no Inspire action.
+# Changes: tougher characters, a standard stat array instead of rolled stats,
+# a new Inspired condition from Rally, no Inspire action.
 meta:
   id: lanternlight_house
   version: 0.1.0
@@ -14,6 +15,10 @@ entity_model:
     - {id: vigor, max: "10 + might * 2"}
   conditions:
     - {id: inspired, modifier: 1, duration: scene}
+
+chargen:
+  steps:
+    - {id: stats, kind: assign, targets: [might, grace, wits, heart], values: [2, 1, 0, -1]}
 
 actions:
   - id: rally
