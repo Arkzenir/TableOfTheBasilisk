@@ -165,7 +165,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 ### T0.13 Gate P0 sign-off — `human`
 - **Agent prepares:** evidence for every Gate P0 item in `HANDOFF.md`, as the commands run and their results.
 - **Owner signs off.**
-- **Prepared 2026-10-18:** the evidence table is in `HANDOFF.md`, and the gaps were closed by `tests/test_gate_p0.py`. Items 8 and 10 need the owner's judgement. Waiting on the owner.
+- **Prepared 2026-10-18, refreshed 2026-10-26** after T0.12 and T0.17 to T0.22 finished Phase 0. The evidence table is in `HANDOFF.md`. Item 8 and the hook return shape (D-033) need the owner's judgement. Waiting on the owner.
 
 ---
 
