@@ -113,7 +113,11 @@ class SheetCommands:
             fields.append(self._field("condition", cid, int(ent["conditions"][cid].get("level", 1)), False))
         for tag in ent["tags"]:
             fields.append(self._field("tag", tag, 1, True))
-        fields.append(self._field("inventory", "inventory", list(ent["inventory"]), True))
+        if self._inventory_model() == "weight":
+            fields.append(self._field("inventory", "inventory", list(ent["inventory"]), True,
+                                      carried=self.carried(ent), max=self.capacity(ent)))
+        else:
+            fields.append(self._field("inventory", "inventory", list(ent["inventory"]), True))
         fields.append(self._field("details", "details", list(ent.get("details") or []), True))
         return {"entity": entity_id, "name": ent["name"], "kind": ent["kind"], "controller": ent["controller"],
                 "fields": fields}
@@ -150,6 +154,13 @@ class SheetCommands:
             out.append("tags are not a sorted set")
         if not isinstance(ent["inventory"], list) or not all(isinstance(i, str) for i in ent["inventory"]):
             out.append("inventory is not a list of item ids")
+        elif self._inventory_model() == "weight":
+            unknown = [i for i in ent["inventory"] if i not in self.pack.by_id("entity_model.items")]
+            if unknown:
+                out.append(f"unknown items carried: {unknown}")
+            limit = self.capacity(ent)
+            if limit is not None and self.carried(ent) > limit:
+                out.append(f"carries {self.carried(ent)} of {limit}")
         try:
             self._derived(ent)
         except Exception as e:  # noqa: BLE001 - any failure is a problem to report

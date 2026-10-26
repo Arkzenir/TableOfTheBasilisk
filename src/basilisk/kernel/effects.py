@@ -11,7 +11,7 @@ from __future__ import annotations
 import copy
 from typing import Any
 
-from . import dice
+from . import dice, expr
 from .command import EngineError, _suggest, atomic
 from .determinism import STANDARD, STRICT
 
@@ -177,6 +177,7 @@ class EffectCommands:
             target_id = resolve_target()
             inv = list(self.state["entities"][target_id]["inventory"])
             if prim == "create_item":
+                self._check_carry(target_id, effect["item"])
                 inv.append(effect["item"])
             elif effect["item"] in inv:
                 inv.remove(effect["item"])
@@ -189,6 +190,7 @@ class EffectCommands:
             if effect["item"] not in inv_src:
                 raise EngineError(f"{src} has no {effect['item']!r}")
             inv_src.remove(effect["item"])
+            self._check_carry(dst, effect["item"])
             inv_dst = list(self.state["entities"][dst]["inventory"]) + [effect["item"]]
             changes += [{"path": ["entities", src, "inventory"], "value": inv_src},
                         {"path": ["entities", dst, "inventory"], "value": inv_dst}]
@@ -233,6 +235,36 @@ class EffectCommands:
                     self._apply_effect(e, {"actor": owner, "target": owner, "self": owner}, seq, variables)
             finally:
                 self._depth -= 1
+
+    def _inventory_model(self) -> str:
+        return str((self.pack.get("entity_model.inventory") or {}).get("model", "abstract"))
+
+    def carried(self, ent: dict) -> int:
+        """Total weight an entity carries (weight model; 0 otherwise)."""
+        items = self.pack.by_id("entity_model.items")
+        return sum(int(items.get(i, {}).get("weight", 0)) for i in ent["inventory"])
+
+    def capacity(self, ent: dict) -> int | None:
+        """The entity's carry limit from `inventory.limit_expr`, or None without one."""
+        spec = self.pack.get("entity_model.inventory") or {}
+        if self._inventory_model() != "weight" or not spec.get("limit_expr"):
+            return None
+        own = self._derived(ent)
+        return expr.evaluate(spec["limit_expr"], {**own, "actor": own}, self.rounding)
+
+    def _check_carry(self, holder: str, item: str) -> None:
+        """Weight inventory (§2.3): the item must be a known one, and the holder
+        must be able to carry it. Refusals are atomic."""
+        if self._inventory_model() != "weight":
+            return
+        items = self.pack.by_id("entity_model.items")
+        if item not in items:
+            raise EngineError(_suggest("item", item, items))
+        ent = self.state["entities"][holder]
+        limit = self.capacity(ent)
+        after = self.carried(ent) + int(items[item].get("weight", 0))
+        if limit is not None and after > limit:
+            raise EngineError(f"{holder} cannot carry {item}: that would be {after} of {limit}")
 
     def _triggered_procedure(self, effect: dict, ids: dict, cause: int | None) -> None:
         """`trigger_procedure` (§2.6): a rule that makes someone roll, then applies

@@ -177,7 +177,7 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** a pack-declared `stacking` rule per condition: `none` (held or not; the default) or `intensity` (re-applying raises a level, up to `max_level`, and modifiers scale with it). Effects and expiry respect it, expressions can read a condition's level, and lint checks the declarations. A `duration` mode was dropped (D-039): conditions end at scene or session boundaries, so there is no counted duration to refresh or extend.
 - **Acceptance:** each stacking rule behaves correctly under repeated application and removal, and replays exactly; conditions without a rule behave as now.
 
-### T0.26 Weight-based inventory — `ready`
+### T0.26 Weight-based inventory — `done`
 - **Plan:** P0.3 · §2.3 (`inventory: { model, limit_expr }`)
 - **Deliverables:** `inventory: { model: abstract | weight, limit_expr }`, with a pack item catalogue carrying weights; `create_item` and `transfer_item` refuse an item that would exceed the holder's limit; a carried-weight value readable in expressions (for an encumbrance tag). `slots` stays out of scope for now (owner, 2026-10-26).
 - **Acceptance:** weight limits are enforced atomically on every item primitive; the abstract model behaves as now; replay is exact.

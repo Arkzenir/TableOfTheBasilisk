@@ -419,6 +419,28 @@ def lint(pack: ResolvedPack) -> list[Finding]:
         err("sheet", problem)
     for problem in sheets.lint_harm(pack):
         err("harm", problem)
+
+    # inventory (§2.3) ---------------------------------------------------------
+    inv = pack.get("entity_model.inventory") or {}
+    model = inv.get("model", "abstract")
+    if model not in ("abstract", "weight"):
+        err("inventory", f"inventory model {model!r}: abstract or weight" + (" (slots is not built yet)" if model == "slots" else ""))
+    items = pack.catalogue("entity_model.items")
+    item_ids = [i.get("id") for i in items]
+    if len(item_ids) != len(set(item_ids)):
+        err("inventory", "duplicate item ids")
+    for item in items:
+        w = item.get("weight", 0)
+        if isinstance(w, bool) or not isinstance(w, int) or w < 0:
+            err("inventory", f"item {item.get('id')}: weight must be a non-negative integer")
+    if model == "weight":
+        if not items:
+            err("inventory", "the weight model needs entity_model.items with weights")
+        if inv.get("limit_expr"):
+            try:
+                expr.compile_expr(str(inv["limit_expr"]))
+            except expr.ExprError as e:
+                err("inventory", f"limit_expr: {e}")
     for problem in terms.lint_terms(pack):
         err("excluded-term", problem)
     for problem in timekeeping.lint_time(pack):

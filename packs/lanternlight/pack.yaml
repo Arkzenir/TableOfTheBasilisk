@@ -51,6 +51,13 @@ entity_model:
       boxes: 3
       on_fill:
         - {primitive: add_condition, target: self, condition: exhausted}
+  # Carrying is by weight: ten, plus twice Might.
+  inventory: {model: weight, limit_expr: "10 + might * 2"}
+  items:
+    - {id: lantern, label: Lantern, weight: 2}
+    - {id: rope, label: Rope, weight: 3}
+    - {id: crowbar, label: Crowbar, weight: 4}
+    - {id: ration, label: Ration, weight: 1}
   # What counts as harm (ARCHITECTURE §2.3): later systems read it; the rules
   # stay on Vigor and Fatigue themselves.
   harm: {targets: [vigor, fatigue]}

@@ -338,6 +338,9 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         out["conditions"] = expr.Lenient({c: int(v.get("level", 1)) for c, v in ent["conditions"].items()})
         out["tags"] = expr.Lenient({t: 1 for t in ent["tags"]})
         out["region"] = self._region_view(ent["id"], None)  # cover, terrain, elevation where it stands
+        if self._inventory_model() == "weight":  # an encumbrance tag can read these
+            out["carried"] = self.carried(ent)
+            out["capacity"] = self.capacity(ent) if self.capacity(ent) is not None else 0
         return out
 
     def _ctx(self, actor: dict | None, target: dict | None, extra: dict | None = None) -> dict:

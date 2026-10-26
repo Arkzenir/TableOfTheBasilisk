@@ -7,10 +7,10 @@ fixtures:
       seed: golden-seed
       sessions: 3
       scenes_per_session: 2
-  head: 1217a5ff6af5147d40a3ce0678ad9776d1618a883361f697464af8091fbdaed4
+  head: 6e2a4c5b6c5d92e809f7a4ed2c5533be9d7070df3aea74781ef020398ee01d59
   events: 450
 - name: lanternlight_demo
   script:
     scenario: scenarios/lanternlight_demo.yaml
-  head: 4083ff906a7a4deda698007d4e8629087ac02e972d8982a4afd8c5832c9feabe
+  head: 494a8fa32e2a4211529c6a4ead3a6d81bcba605f96589726003ffe2c7de98c96
   events: 94

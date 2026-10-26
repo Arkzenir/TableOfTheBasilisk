@@ -17,7 +17,7 @@ WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 CATALOGUES = (
     ("entity_model", "stats"), ("entity_model", "derived"), ("entity_model", "resources"),
     ("entity_model", "tracks"), ("entity_model", "conditions"), ("resolution", "situational_tags"),
-    ("gm", "meta_currencies"), (None, "actions"),
+    ("gm", "meta_currencies"), (None, "actions"), ("entity_model", "items"),
 )
 
 

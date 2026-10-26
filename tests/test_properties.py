@@ -184,6 +184,8 @@ def _random_effect(pack, rng, entity):
     for c in pack.catalogue("entity_model.conditions"):
         kinds.append({"primitive": rng.choice(["add_condition", "remove_condition"]), "target": entity,
                       "condition": c["id"]})
+    for item in pack.catalogue("entity_model.items"):  # weight limits must hold too
+        kinds.append({"primitive": "create_item", "target": entity, "item": item["id"]})
     for c in pack.catalogue("gm.meta_currencies"):
         kinds.append({"primitive": "earn_currency", "target": entity, "currency": c["id"], "amount": rng.choice([1, 99])})
     return rng.choice(kinds) if kinds else None
