@@ -28,7 +28,7 @@ advance carries its exact changes (D-003).
 from __future__ import annotations
 
 from . import expr
-from .command import EngineError, _suggest, atomic
+from .command import EngineError, _suggest, atomic, gm_call
 
 EVENT_TYPES = frozenset({"progress_awarded", "advance_taken"})
 MODELS = ("xp", "marks", "milestone", "use")
@@ -240,6 +240,7 @@ class ProgressionCommands:
         self._judge(by, "advance", None, option_id, options, seq)
 
     @atomic
+    @gm_call(lambda e, a: sorted(i for i, x in e.state["entities"].items() if x["kind"] == "pc"))
     def award_milestone(self, entity_id: str | None = None, by: str | None = None) -> None:
         """Milestone model: the GM awards one advance to a character, or to every PC."""
         by = by or self.gm_seat

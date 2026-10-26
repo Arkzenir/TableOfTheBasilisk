@@ -168,7 +168,7 @@ def test_supersede_is_append_only_with_history(lantern):
     assert "already superseded" in no_trace(eng, lambda: eng.supersede_canon("npc_varro_tithekeeper", rec("npc", "V")))
     assert f"depend on {new!r}" in no_trace(
         eng, lambda: eng.write_canon(rec("item", "Tithe ledger", depends_on=["npc_varro_tithekeeper"])))
-    types = [e["type"] for e in eng.store.read(eng.campaign_id)][-2:]
+    types = [e["type"] for e in eng.store.read(eng.campaign_id) if e["type"] != "judgement_input"][-2:]  # GM calls are logged (D-044)
     assert types == ["canon_written", "canon_superseded"]
 
 

@@ -30,7 +30,7 @@ from __future__ import annotations
 import copy
 
 from . import timekeeping
-from .command import EngineError, _suggest, atomic
+from .command import EngineError, _suggest, atomic, gm_call
 
 EVENT_TYPES = frozenset({"clock_stage_reached", "clock_paused"})
 
@@ -65,6 +65,7 @@ class ClockCommands:
         return self.state["clocks"][clock_id]
 
     @atomic
+    @gm_call()
     def create_clock(self, clock_id: str, label: str, total: int, visible: bool = True, by: str | None = None,
                      schedule: dict | None = None, stages: list[dict] | None = None) -> None:
         if clock_id in self.state["clocks"]:
@@ -113,6 +114,7 @@ class ClockCommands:
         return sorted(out, key=lambda s: s["at"])
 
     @atomic
+    @gm_call(lambda e, a: [1, 2, 3])
     def advance_clock(self, clock_id: str, amount: int, by: str | None = None) -> None:
         if amount not in (1, 2, 3):
             raise EngineError("clock advances are 1, 2 or 3")
@@ -120,6 +122,7 @@ class ClockCommands:
                            {"actor": None, "target": None, "self": None}, None, {})
 
     @atomic
+    @gm_call(lambda e, a: sorted(e.state["clocks"]))
     def pause_clock(self, clock_id: str, paused: bool = True, by: str | None = None) -> None:
         """Hold (or release) a scheduled clock: the party has interfered."""
         by = by or self.gm_seat

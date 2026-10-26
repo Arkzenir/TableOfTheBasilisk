@@ -50,7 +50,7 @@ Install the git hooks once per clone: `git config core.hooksPath tools/githooks`
 - New event type means: handle it in `apply_event`, add it to `EVENT_TYPES`, and document it in `docs/dev/EVENTS.md` (a test checks all three). If existing logs would fold differently, bump `KERNEL_VERSION`.
 
 **Determinism settings** — §2.13
-- Every mechanical input a model chooses is logged as `judgement_input`.
+- Every mechanical input a model chooses is logged as `judgement_input`, and so is every GM call: a new GM-callable command takes `@gm_call()` under `@atomic` (D-044; `tests/test_gm_calls.py` checks every GM tool).
 - Under strict settings, a tool argument with mechanical effect is an enum. `tools.free_values()` must stay empty for strict schemas.
 - Settings change only at scene boundaries. Open rulings keep their starting mode.
 

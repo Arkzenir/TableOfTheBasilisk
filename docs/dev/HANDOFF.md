@@ -10,6 +10,8 @@ Rewritten at the end of every work session, so the next session — any agent or
 
 ## What changed this session (owner decisions on the 1.6 draft, sign-off, audit)
 
+- **T0.30** (D-044): every GM call is logged as a `judgement_input` (`@gm_call`), with a test that every GM tool is covered. **D-045:** `KERNEL_VERSION` stays `0.1.0` until every Phase 0 audit returns complete.
+
 - **T0.29** (D-043): fixes from the audit after sign-off: rangeless stats no longer crash progression, advance lint, a private `progress` field on the own sheet, wider `sheet_problems`, UTF-8 CLI output on Windows, and cached, libyaml-backed pack parsing (gate about 30 s).
 
 - **Sign-off** (D-042): the owner ticked every Gate P0 item and approved the 1.6 draft. Gate P0 is ticked in BUILD_PLAN, ARCHITECTURE 1.6 is applied, and T0.13 is done.
@@ -26,7 +28,7 @@ Rewritten at the end of every work session, so the next session — any agent or
 
 Refreshed 2026-10-26 after T0.24 to T0.28. Every item below was run on the development desktop:
 
-- `tob check`: **GATE: PASS** in about 30 s (budget 60 s). It runs the noun lint, pack lint for 9 packs, verified smoke campaigns on the 6 playable packs, and pytest with **503 tests passed**.
+- `tob check`: **GATE: PASS** in about 30 s (budget 60 s). It runs the noun lint, pack lint for 9 packs, verified smoke campaigns on the 6 playable packs, and pytest with **508 tests passed**.
 - `tob pack lint`: 0 errors and 0 warnings on every pack, every pack strict-ready on every control. Hook counts: 2 in `lanternlight_hooked`, 0 elsewhere.
 
 "Both packs" means the two kernel test games from different families, `lanternlight` (roll-over) and `tidewrack` (banded) (BUILD_PLAN P0.6). The four derivatives are also run.
@@ -60,10 +62,9 @@ Refreshed 2026-10-26 after T0.24 to T0.28. Every item below was run on the devel
 ## Open questions for the owner
 
 1. **Re-audit when the P0 architecture is finalised:** Gate item 8 (structural evidence only) and the hook return shape (D-033: point-specific results rather than `[events]`).
-2. **Scope of `judgement_input` (from the audit).** §2.13 says every mechanical choice a model makes is logged. Today the resolution-side choices are (action, difficulty, tags, rulings, unmodelled outcomes, fudging, spend, hand-off, advances), but several GM tools with mechanical effect are not: `advance_clock` and `advance_time` amounts, `award_milestone`'s recipient, `draw_card`, `place_entity`, and `set_scene`'s placements and band ranges. Either log them too, or narrow §2.13 to resolution inputs. Waiting on the owner.
-3. **When `KERNEL_VERSION` moves (from the audit).** It has been `0.1.0` since the first commit, through every behaviour change in Phase 0. AGENTS.md asks for a bump only when existing logs would fold differently, but §2.9 pins the kernel version so that replay is meaningful, and a campaign continued under a newer kernel with the same version would mix behaviours. Options: bump to `0.2.0` now to mark the Phase 0 baseline (golden fixtures change), and from then on bump on any change to what a command emits. Waiting on the owner.
-4. Before T1.5's live tests, the Anthropic API key, set as an environment variable.
-5. Before P4.0, the SRD source document. Before launch, the legal review in ARCHITECTURE §11.3.
+2. **When `KERNEL_VERSION` moves:** decided to wait (D-045). It stays `0.1.0` until every Phase 0 audit returns complete; then the owner sets the bump and the policy.
+3. Before T1.5's live tests, the Anthropic API key, set as an environment variable.
+4. Before P4.0, the SRD source document. Before launch, the legal review in ARCHITECTURE §11.3.
 
 ## Notes for the next session
 

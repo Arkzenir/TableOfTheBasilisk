@@ -23,7 +23,7 @@ import difflib
 import re
 from typing import Any, Iterable
 
-from .command import EngineError, _suggest, atomic
+from .command import EngineError, _suggest, atomic, gm_call
 
 RECORD_TYPES = ("npc", "location", "faction", "item", "fact", "thread", "event")
 KNOWLEDGE = ("secret", "suspected", "revealed")
@@ -355,6 +355,7 @@ class CanonCommands:
     # ------------------------------------------------------------ commands
 
     @atomic
+    @gm_call()
     def write_canon(self, record: dict, by: str | None = None) -> dict:
         """GM tool `write_canon(record)` (§7.1): the engine assigns the id and
         validates. Returns `{"id", "flags"}`; flags list near-collisions."""
@@ -364,6 +365,7 @@ class CanonCommands:
         return {"id": rec["id"], "flags": flags}
 
     @atomic
+    @gm_call()
     def supersede_canon(self, old_id: str, record: dict, by: str | None = None) -> dict:
         """Append a correction (§1.3.2): write `record` as a new record and mark
         `old_id` superseded by it. The old record stays retrievable by id."""
@@ -383,6 +385,7 @@ class CanonCommands:
         return {"id": rec["id"], "flags": flags}
 
     @atomic
+    @gm_call()
     def reveal(self, fact_id: str, by: str | None = None) -> int:
         """GM tool `reveal(fact_id)` (§1.3.2): promote a record to `revealed`."""
         by = self._canon_author(by)

@@ -29,7 +29,7 @@ from typing import Any
 
 from . import expr
 from .canon import ID_RE
-from .command import EngineError, _suggest, atomic
+from .command import EngineError, _suggest, atomic, gm_call
 
 EVENT_TYPES = frozenset({"visibility_set"})
 PASSIVE_EVENTS = frozenset({"move_provoked"})  # recorded, never folded
@@ -517,6 +517,7 @@ class SpatialCommands:
         }, actor=actor)
 
     @atomic
+    @gm_call()
     def place_entity(self, entity_id: str, position: str, by: str | None = None) -> None:
         """GM placement: puts an entity at a position of the current scene without
         a move, for arrivals and scene setup. In a band scene this also adds a
@@ -531,6 +532,7 @@ class SpatialCommands:
         self._place(entity_id, position, by)
 
     @atomic
+    @gm_call()
     def set_visibility(self, entity_id: str, visible_to: list[str] | None, by: str | None = None) -> None:
         """Restrict which seats can see an entity in this scene; None makes it
         visible to every seat again. Resets at the next scene."""

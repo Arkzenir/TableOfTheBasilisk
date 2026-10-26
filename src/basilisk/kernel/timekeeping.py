@@ -19,7 +19,7 @@ Clocks may be scheduled on in-world time as well as on sessions: a schedule
 
 from __future__ import annotations
 
-from .command import EngineError, _suggest, atomic
+from .command import EngineError, _suggest, atomic, gm_call
 
 EVENT_TYPES = frozenset({"time_advanced"})
 MAX_ADVANCE = 1_000  # units per call; a kernel setting
@@ -98,6 +98,7 @@ class TimeCommands:
         return {"elapsed": self.elapsed(), "units": parts, "text": text}
 
     @atomic
+    @gm_call(lambda e, a: [u["id"] for u in units(e.pack)])
     def advance_time(self, unit: str, amount: int = 1, by: str | None = None) -> dict:
         """Let in-world time pass (GM): `amount` of `unit`, carrying into larger units."""
         by = by or self.gm_seat

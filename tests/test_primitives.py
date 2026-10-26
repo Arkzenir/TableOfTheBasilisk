@@ -176,7 +176,7 @@ def test_a_change_requested_mid_encounter_waits_for_the_scene_boundary(lantern):
     eng.commit_action(actor, "recall", gm={"difficulty": 13})  # still standard: a free value is allowed
     assert eng.state["determinism"]["pending"] is not None and eng.state.get("encounter")
     eng.set_scene("after", encounter=True)
-    kinds = [e["type"] for e in eng.store.read(eng.campaign_id)][-4:]
+    kinds = [e["type"] for e in eng.store.read(eng.campaign_id) if e["type"] != "judgement_input"][-4:]  # D-044
     assert "encounter_ended" in kinds and "determinism_changed" in kinds
     assert kinds.index("encounter_ended") < kinds.index("determinism_changed")  # the encounter finished first
     with pytest.raises(EngineError, match="rung"):

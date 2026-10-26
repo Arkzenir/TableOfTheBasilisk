@@ -187,6 +187,11 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** BUILD_PLAN P0.15.
 - **Acceptance:** BUILD_PLAN P0.15's test and its Gate P0 line.
 
+### T0.30 Log every GM call — `done`
+- **Plan:** P0.4 · §2.13, D-044 (owner answer to the audit's question 5)
+- **Deliverables:** `@gm_call` on every GM-callable command; a coverage test over the generated GM tools; EVENTS.md and AGENTS.md updated.
+- **Acceptance:** each GM call logs its arguments and options; engine, operator, player, and refused calls log nothing; every GM tool is covered; `tob check` passes.
+
 ### T0.29 Phase 0 audit fixes — `done`
 - **Plan:** P0.3, P0.8, P0.15, P0.12 · from the audit after sign-off (2026-10-27)
 - **Deliverables:** progression works with stats that have no `range`; lint refuses advances that change nothing or name tags the pack does not list; the own sheet shows progress (points, pending, advances taken, options); `sheet_problems` checks condition levels and progress; `progression_active()` replaces `advance_models()`; the CLI prints UTF-8 on a legacy Windows console; parsed pack YAML is cached by content and read with libyaml when installed.

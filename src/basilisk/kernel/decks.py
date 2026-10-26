@@ -27,7 +27,7 @@ from __future__ import annotations
 import copy
 
 from .canon import ID_RE
-from .command import EngineError, _suggest, atomic
+from .command import EngineError, _suggest, atomic, gm_call
 
 EVENT_TYPES = frozenset({"deck_shuffled", "card_drawn", "card_discarded"})
 RESHUFFLE_RULES = ("when_empty", "every_draw", "scene", "session", "manual")
@@ -115,6 +115,7 @@ class DeckCommands:
                 self._shuffle(deck["id"], boundary)
 
     @atomic
+    @gm_call(lambda e, a: sorted(d["id"] for d in e.pack.catalogue("randomizers.decks")))
     def draw_card(self, deck_id: str, by: str | None = None, to: str | None = None) -> str:
         """Draw the top card. With `to`, it goes to that holder's hand (a seat
         or entity id); otherwise it is turned face up onto the discards."""
@@ -145,6 +146,7 @@ class DeckCommands:
         return card
 
     @atomic
+    @gm_call(lambda e, a: sorted(d["id"] for d in e.pack.catalogue("randomizers.decks")))
     def reshuffle_deck(self, deck_id: str, by: str | None = None) -> None:
         """GM reshuffle: every card not in a hand goes back into the pile."""
         self._deck_def(deck_id)
@@ -154,6 +156,7 @@ class DeckCommands:
         self._shuffle(deck_id, "manual", by)
 
     @atomic
+    @gm_call(lambda e, a: sorted(d["id"] for d in e.pack.catalogue("randomizers.decks")))
     def discard_card(self, deck_id: str, card: str, holder: str, by: str | None = None) -> None:
         """Return a held card to the discards."""
         self._deck_def(deck_id)

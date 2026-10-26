@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import copy
 from . import dice
-from .command import EngineError, _suggest, atomic
+from .command import EngineError, _suggest, atomic, gm_call
 
 EVENT_TYPES = frozenset({"encounter_started", "round_started", "turn_started", "economy_spent", "encounter_ended"})
 ORDERS = ("spotlight", "initiative", "sides", "handoff", "fixed", "deck")
@@ -186,6 +186,7 @@ class TurnCommands:
                                     "budgets": budgets}, actor=actor, caused_by=cause)
 
     @atomic
+    @gm_call()
     def start_encounter(self, participants: list[str] | None = None, first: str | None = None,
                         by: str | None = None) -> dict:
         """Start encounter mode in the current encounter scene (§2.4). With no
@@ -225,6 +226,7 @@ class TurnCommands:
         return self.current_turn()
 
     @atomic
+    @gm_call()
     def end_turn(self, by: str | None = None, next: str | None = None) -> dict:
         """End the current turn and start the next (a new round when the order
         runs out). Under `handoff`, `next` names who goes next."""
@@ -268,6 +270,7 @@ class TurnCommands:
         return self.current_turn()
 
     @atomic
+    @gm_call()
     def next_round(self, by: str | None = None) -> dict:
         """Spotlight order: start a new round, refreshing every budget."""
         enc = self._enc()
@@ -282,6 +285,7 @@ class TurnCommands:
         return self.current_turn()
 
     @atomic
+    @gm_call()
     def end_encounter(self, by: str | None = None) -> None:
         by = by or self.gm_seat
         if self._role(by) != "gm":

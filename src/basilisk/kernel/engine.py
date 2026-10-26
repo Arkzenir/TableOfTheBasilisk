@@ -18,7 +18,7 @@ from .canon import CanonCommands
 from .canonical import hash_obj
 from .clocks import ClockCommands
 from .decks import DeckCommands
-from .command import EngineError, _suggest, atomic
+from .command import EngineError, _suggest, atomic, gm_call
 from .determinism import STANDARD, STRICT, apply_change, expand, setting_for, unsupported_strict
 from .effects import EffectCommands
 from .events import EventStore
@@ -403,6 +403,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         return self._emit("session_ended", {"number": self.state["session"]}, actor=by or self.gm_seat)
 
     @atomic
+    @gm_call()
     def set_scene(self, scene_id: str, flags: dict | None = None, encounter: bool = False, by: str | None = None,
                   regions: list[dict] | None = None, placements: dict[str, str] | None = None,
                   participants: list[str] | None = None, ranges: list[dict] | None = None) -> int:
@@ -546,6 +547,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         return entity_id
 
     @atomic
+    @gm_call()
     def spawn_entity(self, entity_id: str, name: str, stats: dict[str, int] | None = None,
                      zone: str | None = None, by: str | None = None) -> str:
         by = by or self.gm_seat
