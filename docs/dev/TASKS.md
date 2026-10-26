@@ -167,9 +167,30 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** the `trigger_procedure` primitive (a pack effect that runs a procedure and applies its outcome's effects); a test that every primitive emits events and replays exactly; the toggle test's mid-encounter case; seat-override schema regeneration tested; the hook runtime's memory limit (`max_memory`).
 - **Acceptance:** BUILD_PLAN P0.4's primitive and toggle tests and P0.5's "only affected seats' schemas change" have tests; no primitive is reserved; a hook cannot exhaust memory.
 
+### T0.24 `scene_closed` marker — `ready`
+- **Plan:** P0.1, P0.4 · §5.7
+- **Deliverables:** a `scene_closed` event emitted when a scene ends (at the next `set_scene` or at `end_session`), before the events that close it: condition expiry, `encounter_ended`, and scene reshuffles. It is a marker in the log, and is passive or folds to a closed flag, decided with the reducer's no-bump rule in mind.
+- **Acceptance:** every scene in a campaign is closed exactly once, in order; older logs fold unchanged; replay stays byte-identical.
+
+### T0.25 Condition stacking — `ready`
+- **Plan:** P0.3 · §2.3 (`conditions: stacking`), §2.4
+- **Deliverables:** a pack-declared `stacking` rule per condition: `none` (held or not; the default), `intensity` (re-applying raises a level, up to a cap, and modifiers scale with it), or `duration` (re-applying refreshes or extends it). Effects and expiry respect it, expressions can read a condition's level, and lint checks the declarations.
+- **Acceptance:** each stacking rule behaves correctly under repeated application and removal, and replays exactly; conditions without a rule behave as now.
+
+### T0.26 Weight-based inventory — `ready`
+- **Plan:** P0.3 · §2.3 (`inventory: { model, limit_expr }`)
+- **Deliverables:** `inventory: { model: abstract | weight, limit_expr }`, with a pack item catalogue carrying weights; `create_item` and `transfer_item` refuse an item that would exceed the holder's limit; a carried-weight value readable in expressions (for an encumbrance tag). `slots` stays out of scope for now (owner, 2026-10-26).
+- **Acceptance:** weight limits are enforced atomically on every item primitive; the abstract model behaves as now; replay is exact.
+
+### T0.27 Progression — `ready`
+- **Plan:** P0.15 · §2.3 (`progression`), §2.4, §1.5
+- **Deliverables:** BUILD_PLAN P0.15.
+- **Acceptance:** BUILD_PLAN P0.15's test and its Gate P0 line.
+
 ### T0.13 Gate P0 sign-off — `human`
 - **Agent prepares:** evidence for every Gate P0 item in `HANDOFF.md`, as the commands run and their results.
 - **Owner signs off.**
+- **Re-opened 2026-10-26:** T0.24 to T0.27 (owner decisions on the 1.6 draft) come first.
 - **Prepared 2026-10-18, refreshed 2026-10-26** after T0.12 and T0.17 to T0.22 finished Phase 0. The evidence table is in `HANDOFF.md`. Item 8 and the hook return shape (D-033) need the owner's judgement. Waiting on the owner.
 
 ---

@@ -346,3 +346,12 @@ Template:
   - **Hook memory** (Appendix C `max_memory`): memory is traced for each hook run, and over `MAX_MEMORY` (16 MB above the starting level) the run is refused. The check happens at every line and again at the end, so one line cannot slip past. Because a single step could still allocate without bound, `range` is capped at `MAX_ITEMS` (100,000) and every `*` is routed through a checked multiply that caps sequence repetition, `*=` included. Numbers multiply freely. The rewrite happens after the static check, so pack code cannot name the injected helper.
   - **Tests added:** every primitive emits events and replays (with a check that the list covers the whole closed set); a triggered "last stand" from pack data; the toggle test's mid-encounter case (the encounter ends at the scene boundary before the change applies); a seat override changing only that seat's schema; and memory-limit cases.
 - Known limitation: the step and memory limits use `sys.settrace` and `tracemalloc`, so running the suite under a coverage tool or debugger that installs its own tracer will interfere with hook step counting. Run coverage without the hook tests, or accept the slowdown.
+
+## D-036 Owner decisions on the ARCHITECTURE 1.6 draft
+- Date: 2026-10-26 · Status: accepted (owner), except harm, which is pending.
+- Decisions:
+  - **B1 `scene_closed`:** keep it as a marker. It will be built (T0.24).
+  - **C1 condition `stacking`:** keep it, since some systems stack conditions. It will be built (T0.25).
+  - **C2 inventory:** add the `weight` model, but no `slots` model for now (T0.26).
+  - **C3 `harm`:** the owner asked what it does. The answer and the proposal are in HANDOFF; this is pending.
+  - **C4 `progression`:** scheduled as a kernel mechanism in Phase 0, BUILD_PLAN P0.15 with its own Gate P0 line (BUILD_PLAN revision 1.5). Arc-boundary milestones are a line in P3.6 (T0.27). Reasoning: §2.4 lists progression as a kernel variation point, and Phase 0 covers all of §2. When milestones arrive belongs to the campaign layer, so the arc-boundary trigger waits for P3.

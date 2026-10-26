@@ -51,6 +51,9 @@ Refreshed 2026-10-26 after finishing Phase 0 and the second audit (T0.23). Every
 
 ## Next step
 
+- **Owner decisions on the 1.6 draft (D-036)** reopen Phase 0. Build T0.24 (`scene_closed` marker), T0.25 (condition stacking), T0.26 (weight inventory), and T0.27 (progression, the new BUILD_PLAN P0.15 with its own Gate P0 line). Then refresh the evidence and apply the 1.6 doc edits.
+- **Pending:** what to do with `harm` (C3). See the open questions.
+
 - **Owner:** review the evidence above and the two flagged points below, then sign off Gate P0 (tick it in BUILD_PLAN.md, an approved design-doc edit, and set T0.13 to `done`).
 - **Then Track 1** (D-014): T1.1 (schema validator), T1.3 (mock adapter) and T1.4 (recording transport), then T1.5 (the Anthropic adapter, D-013).
 
@@ -58,8 +61,9 @@ Refreshed 2026-10-26 after finishing Phase 0 and the second audit (T0.23). Every
 
 1. **Gate P0 item 8** rests on structural evidence (see the table). The owner has accepted it for now, to be re-audited when the P0 architecture is finalised.
 2. **Hook return shape (D-033):** accepted for now by the owner, to be re-audited with the P0 architecture. §2.7 gives a hook's shape as `(state_view, params, rng) → [events]`. The sandbox has hooks return a small, point-specific result (`{total}`/`{outcome}` for `resolution.step`, a list of problems for `sheet.validate`), which the kernel validates and turns into events. Confirm this reading, or ask for an ARCHITECTURE note or a change.
-3. **Draft ARCHITECTURE edits:** §5.7 (event list) and §2.3 (pack schema) are out of date. A draft is in `docs/dev/proposals/REV-ARCH-1.6.md` for review.
-4. Before P4.0, the SRD source document. Before launch, the legal review in ARCHITECTURE §11.3.
+3. **Harm (C3):** §2.3's `harm: { targets, on_zero, on_fill }` would declare which resources and tracks count as harm. The mechanics already live on those resources and tracks, so the open question is whether to keep it as a pointer for later consumers (lethality, metrics, overlay, fudging's "unearned death"). Waiting on the owner.
+4. **Draft ARCHITECTURE edits:** §5.7 (event list) and §2.3 (pack schema) are out of date. A draft is in `docs/dev/proposals/REV-ARCH-1.6.md` for review.
+5. Before P4.0, the SRD source document. Before launch, the legal review in ARCHITECTURE §11.3.
 
 ## Notes for the next session
 

@@ -22,6 +22,7 @@ Work is broken into agent-sized tasks in [`docs/dev/TASKS.md`](docs/dev/TASKS.md
 | P0.11 Clocks and time | ✅ | `kernel/clocks.py`, `kernel/timekeeping.py` | Create, advance, and pause clocks; off-air advancement on a per-clock schedule at each session start; prepped stages written as canon whenever a clock crosses them. In-world calendar from pack-declared units (watches, days, and so on), `advance_time`, time passing between sessions, and clocks scheduled on in-world time; rounds and turns are the turn controller's |
 | P0.12 Scripted harness | ✅ | `harness/scripted.py` | Pack-agnostic smoke campaigns with coverage sweep, YAML scenarios, verification, double-run determinism, soak runner |
 | P0.13 Sectioned rules text | ✅ | `kernel/rules.py` | Inline or sectioned rules text; deterministic section index; key-first `query_rules` (id, ref, alias, partial) with suggestions and a logged lookup; lint for digest budget, section cap, alias uniqueness, parents, refs, and coverage. The data-only fixture `lanternlight_sectioned` runs in every gate and matches its parent event for event |
+| P0.15 Progression | ⬜ | — | XP, milestones, mark-on-failure, use-based; advancement as an enumerated choice (T0.27) |
 | P0.14 Excluded terms | ✅ | `kernel/terms.py` | `meta.excluded_terms` inherited and merged by term; one whole-word, case-insensitive matcher on canon's normalisation; every canon write path refuses them; lint against the pack's own names; `excluded_in()` ready for the validation pass (P3.3). Fixture `tidewrack_excluded` uses invented terms |
 
 ## Later phases
@@ -41,6 +42,7 @@ Work is broken into agent-sized tasks in [`docs/dev/TASKS.md`](docs/dev/TASKS.md
 
 ## Suggested order from here
 
-1. Gate P0 sign-off (T0.13): the agent prepares the evidence, and the owner signs off.
-2. Then start P1 with the Anthropic adapter.
-3. The broadcast pack (SRD 5.1) waits until P4.0.
+1. Owner decisions on the 1.6 draft (D-036): `scene_closed` (T0.24), condition stacking (T0.25), weight inventory (T0.26), progression (T0.27, BUILD_PLAN P0.15); harm is pending.
+2. Gate P0 sign-off (T0.13): the agent refreshes the evidence, and the owner signs off.
+3. Then start P1 with the Anthropic adapter.
+4. The broadcast pack (SRD 5.1) waits until P4.0.

@@ -11,6 +11,8 @@
 
 **Revision notes (1.4):** The broadcast pack is the SRD 5.1 under CC-BY 4.0 (not the OGL 1.0a release) with sectioned rules text, which is now in v1 (§1.1, §2.11). Every phase through P3 develops against the kernel test packs, so no work is tuned to one ruleset. P0.13 builds sectioned rules text and proves it on a data-only fixture variant. P0.14 adds pack-declared excluded terms: names a licence does not cover, refused in canon and checked before TTS. The broadcast pack is written as late as possible, in P4.0, and gates Phase 4.
 
+**Revision notes (1.5):** P0.15 adds progression (XP thresholds, milestones, mark-on-failure, use-based) as a kernel mechanism with pack-declared rules; P3.6 awards milestones at arc boundaries. Owner decision, 2026-10-26.
+
 ---
 
 ## 0. How to use this document
@@ -201,6 +203,15 @@ Pack-agnostic: scripts drive the generated tool surface, and a generic smoke scr
 
 **Test:** a fixture pack declares excluded terms. Canon writes containing a term, an alias, or a differently cased form are refused atomically. Near-miss words that only contain a term are accepted. A colliding term fails lint. Results are byte-identical across runs.
 
+### P0.15 Progression
+
+- Pack-declared progression (§2.3 `progression`, §2.4): XP thresholds, milestones, mark-on-failure, and use-based models
+- Engine-only awards through logged events: XP from pack-named triggers (an outcome, a session's end), marks on a pack-chosen outcome, use counted per stat or action
+- Advancement as an enumerated choice, like chargen (§1.5): when an advance is due, the engine lists the legal options from the pack and the agent picks by ID; the pick is a `judgement_input`
+- Milestones awarded by the GM or, later, at arc boundaries (P3.6)
+
+**Test:** each model awards and advances correctly through a scripted campaign; no advance can be taken that the pack's rules do not offer; awards and advances replay byte-identically; a character's sheet stays valid after every advance.
+
 ### ✅ Gate P0
 
 - [ ] Full campaign replay is byte-identical from the event log, on both packs
@@ -221,6 +232,7 @@ Pack-agnostic: scripts drive the generated tool surface, and a generic smoke scr
 - [ ] Inline and sectioned rules text both pass conformance, and the sectioned variant runs with zero kernel code changes made for it
 - [ ] `query_rules` resolves 100% of section IDs, aliases, and catalogue refs in every shipped pack
 - [ ] Zero canon records containing an excluded term are accepted, across scripted campaigns on a pack that declares them
+- [ ] Every progression model awards and advances through a scripted campaign, only by options the pack offers, and replays byte-identically
 
 ---
 
@@ -501,6 +513,7 @@ One regeneration on flag; beat cut on second failure.
 ### P3.6 Arc detection and compression
 
 - Utility Model identifies closed arcs from the event log
+- Milestone progression awarded at arc boundaries, for packs whose progression model is `milestone` (P0.15)
 - Campaign-memory recompression at boundaries
 - Digest regeneration
 

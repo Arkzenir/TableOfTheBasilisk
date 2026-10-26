@@ -1,6 +1,7 @@
 # Draft revision: ARCHITECTURE 1.6 (§2.3 pack schema, §5.7 event schema)
 
 **Status:** draft for owner review. Nothing below has been applied to `docs/ARCHITECTURE.md`.
+**Owner answers (2026-10-26, D-036):** B1 keep `scene_closed` (T0.24); C1 keep `stacking` (T0.25); C2 add the `weight` inventory model, no `slots` (T0.26); C3 harm: pending; C4 progression: scheduled as BUILD_PLAN P0.15 (T0.27). Sections B and C below will be revised to match before they are applied.
 **Why:** Phase 0 is built (T0.2 to T0.23). Two design sections describe it as it was planned, not as it is: the abbreviated pack schema (§2.3) and the abbreviated event list (§5.7). D-009 deferred §5.7 to "the next design revision"; this is that revision. `docs/dev/EVENTS.md` stays the exact registry (a test enforces it). These sections stay summaries, but true ones.
 **Owner direction:** the flagged Gate P0 item 8 and the hook return shape (D-033) are accepted for now and will be re-audited when the P0 architecture is finalised. Point C3 below records the hook shape so the re-audit has it in writing.
 
