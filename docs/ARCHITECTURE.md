@@ -1,6 +1,6 @@
 # Table of The Basilisk — Architecture Specification
 
-**Version:** 1.6 (revised design freeze for v1)
+**Version:** 1.7 (revised design freeze for v1)
 **Status:** Design complete. Open items listed in §11.
 **Companion document:** `BUILD_PLAN.md` — phased implementation, gates, and tests.
 
@@ -32,6 +32,13 @@
 **Revision notes (1.6):**
 - §2.3 (pack schema) and §5.7 (event schema) now describe what Phase 0 built (T0.2 to T0.28), including the owner's decisions of 2026-10-26: the `scene_closed` marker, condition stacking by intensity, weight inventory, harm as a declaration of targets, and progression (BUILD_PLAN P0.15). `docs/dev/EVENTS.md` remains the exact event registry.
 - Mechanical state changes are logged as one `effect_applied` event that names its primitive (D-003), not as one event type per primitive.
+
+**Revision notes (1.7):**
+- §2.3 `gm` block, matching the build after the second Phase 0 audit (T0.31, T0.32, D-046, D-047):
+  - `gm_rolls: false` means no GM-side entity rolls;
+  - a `party` currency is one shared pool;
+  - a `gm` currency is one pool on the GM's side;
+  - `lethality_levers` is reserved for trait implementation (BUILD_PLAN P2.5).
 
 ---
 
@@ -383,10 +390,13 @@ system_pack:
     between_sessions: { unit, amount }
 
   gm:
-    gm_rolls: bool
+    gm_rolls: bool                    # false: no GM-side entity rolls, as actor or as an opposed side (§2.4)
     fudgeable_procedures: [procedure_id]
-    lethality_levers: [{ id, effect }]
-    meta_currencies: [{ id, holder: gm | party | each_player, start, max }]
+    lethality_levers: [{ id, effect }]   # reserved: read by the lethality trait (BUILD_PLAN P2.5), not by P0
+    meta_currencies: [{ id, holder: each_player | party | gm, start, max, visible }]
+                                      # each_player: one on every player character
+                                      # party: one pool every player character draws on
+                                      # gm: one pool every GM-side entity draws on; `target: gm` feeds it
     consequence_tables: [{ id, entries: [{ id, label, effects, weight, severity }] }]
 
   progression:                                               # §2.4, BUILD_PLAN P0.15

@@ -331,25 +331,39 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
 
     # ------------------------------------------------------------ currencies (§2.3, §2.4)
 
+    def _pool_of(self, ent: dict) -> str:
+        """The shared pool an entity draws on: `gm` for the GM's side, else `party`."""
+        return "gm" if self._role(ent["controller"]) == "gm" else "party"
+
+    def _pool_value(self, holder: str, currency_id: str) -> int:
+        """A shared pool's value: its `start` until the first change creates
+        `state.currencies.<holder>`."""
+        cdef = self.pack.by_id("gm.meta_currencies")[currency_id]
+        return (self.state.get("currencies") or {}).get(holder, {}).get(currency_id, int(cdef.get("start", 0)))
+
     def _currencies(self, ent: dict) -> dict[str, int]:
-        """What the entity holds or can spend: its own currencies and, for a
-        player character, the party's shared ones (`holder: party`). A shared
-        currency reads its `start` until the first change creates
-        `state.currencies.party`."""
+        """What the entity holds or can spend (§2.3 `holder`): its own currencies,
+        plus its side's shared pools: the party's for a player character, the
+        GM's for a GM-side entity."""
         out = dict(ent.get("currencies", {}))
-        if ent["kind"] == "pc":
-            pool = (self.state.get("currencies") or {}).get("party", {})
-            for c in self.pack.catalogue("gm.meta_currencies"):
-                if c.get("holder") == "party":
-                    out[c["id"]] = pool.get(c["id"], int(c.get("start", 0)))
+        pool = self._pool_of(ent)
+        if pool == "party" and ent["kind"] != "pc":
+            return out
+        for c in self.pack.catalogue("gm.meta_currencies"):
+            if c.get("holder") == pool:
+                out[c["id"]] = self._pool_value(pool, c["id"])
         return out
 
     def _currency_path(self, ent: dict, currency_id: str) -> list[str]:
         """Where a change to this entity's currency lands."""
-        if self.pack.by_id("gm.meta_currencies")[currency_id].get("holder") == "party":
-            if ent["kind"] != "pc":
-                raise EngineError(f"{currency_id} belongs to the party, and {ent['id']} is not a player character")
-            return ["currencies", "party", currency_id]
+        holder = self.pack.by_id("gm.meta_currencies")[currency_id].get("holder", "each_player")
+        if holder == "party" and (ent["kind"] != "pc" or self._pool_of(ent) != "party"):
+            raise EngineError(f"{currency_id} belongs to the party, and {ent['id']} is not a player character")
+        if holder == "gm" and self._pool_of(ent) != "gm":
+            raise EngineError(f"{currency_id} belongs to the GM's side, and {ent['id']} is not GM-controlled; "
+                              "an effect feeds it with target: gm")
+        if holder in ("party", "gm"):
+            return ["currencies", holder, currency_id]
         return ["entities", ent["id"], "currencies", currency_id]
 
     def currency(self, entity_id: str, currency_id: str) -> int:
@@ -504,8 +518,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         for t in self.pack.catalogue("entity_model.tracks"):
             ent["tracks"][t["id"]] = 0
         for c in self.pack.catalogue("gm.meta_currencies"):
-            holder = c.get("holder", "each_player")
-            if (holder == "each_player" and kind == "pc") or (holder == "gm" and kind == "npc"):
+            if c.get("holder", "each_player") == "each_player" and kind == "pc":  # pools are shared (§2.3)
                 ent["currencies"][c["id"]] = int(c.get("start", 0))
         return ent
 

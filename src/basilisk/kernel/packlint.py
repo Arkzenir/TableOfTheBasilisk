@@ -162,6 +162,11 @@ def lint(pack: ResolvedPack) -> list[Finding]:
     for c in currencies.values():  # who holds it (§2.3)
         if c.get("holder", "each_player") not in HOLDERS:
             err("reference", f"currency {c['id']}: " + _suggest("holder", c.get("holder"), HOLDERS))
+        if not isinstance(c.get("visible", True), bool):
+            err("currency", f"currency {c['id']}: visible must be true or false")
+    if pack.get("gm.lethality_levers"):
+        warn("reserved", "gm.lethality_levers is reserved for the lethality trait (BUILD_PLAN P2.5); "
+                         "nothing reads it yet")
     known = {"resource": resources, "track": tracks, "condition": conditions,
              "currency": currencies, "consequence_table": ctables}
 
@@ -272,7 +277,12 @@ def lint(pack: ResolvedPack) -> list[Finding]:
         if missing:
             err("effect", f"{where}: {prim} is missing {missing}")
         tgt = e.get("target")
-        if tgt is not None and tgt not in TARGET_SYMBOLS:
+        if tgt == "gm":  # the GM's pool (§2.3): only for a currency the GM's side holds
+            held = (currencies.get(e.get("currency")) or {}).get("holder", "each_player")
+            if prim not in ("earn_currency", "spend_currency") or held != "gm":
+                err("effect", f"{where}: target gm is only for earn_currency or spend_currency on a GM-held "
+                              f"currency (holder: gm)")
+        elif tgt is not None and tgt not in TARGET_SYMBOLS:
             warn("effect", f"{where}: target {tgt!r} is a literal entity id")
         for kind, ref in references(e).items():
             if kind in known and ref not in known[kind]:

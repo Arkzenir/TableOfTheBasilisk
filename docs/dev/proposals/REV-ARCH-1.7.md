@@ -1,6 +1,6 @@
 # Draft revision: ARCHITECTURE 1.7 (§2.3 pack schema: `gm` block)
 
-**Status:** draft for the owner's review (T0.31, the second Phase 0 audit). Nothing here is applied to `docs/ARCHITECTURE.md` yet.
+**Status:** approved by the owner as proposed (B as recommended, with the `visible` flag) and applied to `docs/ARCHITECTURE.md` on 2026-10-27; built as T0.32 (D-047). Kept as the record of the review.
 **Why:** ARCHITECTURE 1.6 says §2.3 describes the build. The second audit found three places in the `gm` block where it does not:
 - `gm_rolls: false` was read only by fudging. T0.31 now enforces it everywhere.
 - `holder: party` was not implemented. T0.31 builds it as a shared pool.

@@ -419,3 +419,11 @@ Template:
 - **Pins:** `verify` checks that the first event's `kernel_version` is the running kernel's, and that the latest snapshot was taken under the campaign's pinned pack hash and kernel version.
 - **Rules-text size (P0.6):** `tob pack lint` prints layer 2's rough size against its budget: inline text against 30,000 tokens, or a digest against 6,000. Lanternlight is about 167 tokens and Tidewrack about 103.
 - **Tests:** every lint class now has a defect test: outcome-scale, the seven chargen checks, rules-text budget, schema, tool-schema, and duplicate ids. Removing a condition that an inherited action uses fails with `reference: action strike [fail]: unknown condition 'shaken'`.
+
+## D-047 The GM's currency pool; ARCHITECTURE 1.7 applied (T0.32)
+- Date: 2026-10-27 · Status: accepted (owner approved `REV-ARCH-1.7.md` as proposed).
+- **GM pool:** a `holder: gm` currency is one pool at `state.currencies.gm.<id>`, like the party's (D-046). Every GM-side entity (controller in a GM seat) reads and spends it, so an NPC's action `cost` draws on it. It reads its `start` until the first change. GM-side entities no longer get a copy each at spawn; no shipped pack used `holder: gm`, so no log or fixture changed.
+- **`target: gm`:** valid only on `earn_currency` and `spend_currency` with a GM-held currency, so a player's outcome effect can feed the GM's pool. The `effect_applied` it logs has `target: null` and the pool's path in `changes`. Lint refuses `target: gm` anywhere else, and the engine refuses it on a currency the GM does not hold. A player character cannot hold the GM's pool, and a GM-side entity cannot hold the party's.
+- **`visible`:** an optional boolean on a currency, default true, for P4's overlay; nothing in P0 reads it. Lint checks the type.
+- **`lethality_levers`:** reserved for the lethality trait (P2.5); declaring any is a `reserved` lint warning so it is not mistaken for live.
+- **ARCHITECTURE 1.7:** version, revision note, and the §2.3 `gm` block, as in the proposal's sections A and C.

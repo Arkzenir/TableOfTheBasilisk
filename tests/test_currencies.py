@@ -1,4 +1,4 @@
-"""Meta-currency holders: each player, and the party's shared pool (T0.31;
+"""Meta-currency holders: each player, the party's pool, and the GM's pool (T0.31, T0.32;
 ARCHITECTURE §2.3 `gm.meta_currencies`, §2.4 meta-currency; BUILD_PLAN P0.4)."""
 
 import shutil
@@ -93,3 +93,94 @@ def test_an_unknown_holder_fails_lint(packs_dir, tmp_path):
                     lambda d: d["gm"]["meta_currencies"][0].__setitem__("holder", "everyone"))
     found = [f.message for f in errors(lint(pack))]
     assert any("No holder 'everyone'" in m and "each_player, gm, party" in m for m in found), found
+
+
+# ---------------------------------------------------------------- the GM's pool (T0.32, REV-ARCH-1.7)
+
+@pytest.fixture
+def doom(packs_dir, tmp_path):
+    """Lanternlight with a Doom pool on the GM's side: a player's gamble feeds
+    it, and any NPC spends it."""
+    def add(d):
+        d["gm"]["meta_currencies"].append({"id": "doom", "holder": "gm", "start": 0, "max": 3, "visible": True})
+        d["actions"] += [
+            {"id": "gamble", "trigger": "declared", "procedure": "automatic",
+             "outcome_effects": {"pass": [{"primitive": "earn_currency", "target": "gm", "currency": "doom",
+                                           "amount": 1}]}},
+            {"id": "loom", "trigger": "declared", "procedure": "automatic",
+             "cost": {"currency": "doom", "amount": 1}, "outcome_effects": {}}]
+        cards = d["presentation"]["rule_cards"]
+        cards["doom"] = {"title": "Doom", "summary": "The GM's pool.", "category": "currency", "icon_id": "skull"}
+        cards["gamble"] = {"title": "Gamble", "summary": "Push on; the GM gains 1 Doom.", "category": "action",
+                           "icon_id": "dice"}
+        cards["loom"] = {"title": "Loom", "summary": "An NPC spends 1 Doom.", "category": "action",
+                         "icon_id": "shadow"}
+    return _variant(packs_dir, tmp_path, add)
+
+
+def test_the_gm_pool_is_lint_clean(doom):
+    assert errors(lint(doom)) == []
+
+
+def test_players_feed_the_gm_pool_and_every_npc_draws_on_it(doom):
+    eng = table(doom)
+    eng.spawn_entity("foe2", "Second Foe")
+    assert "doom" not in eng.state["entities"]["foe"]["currencies"]  # no copy per NPC
+    assert eng.currency("foe", "doom") == eng.currency("foe2", "doom") == 0
+    assert "loom" not in eng.available_actions("foe")
+    eng.commit_action("ash", "gamble")
+    eng.commit_action("bram", "gamble")
+    fed = [e["payload"] for e in eng.store.read(eng.campaign_id)
+           if e["type"] == "effect_applied" and e["payload"]["primitive"] == "earn_currency"][-1]
+    assert fed["target"] is None and fed["changes"] == [{"path": ["currencies", "gm", "doom"], "value": 2}]
+    assert eng.currency("foe", "doom") == eng.currency("foe2", "doom") == 2
+    assert eng.currency("ash", "doom") == 0 and "loom" not in eng.available_actions("ash")
+    eng.commit_action("foe", "loom", by="gm")
+    eng.commit_action("foe2", "loom", by="gm")
+    with pytest.raises(EngineError, match="cannot afford"):
+        eng.commit_action("foe", "loom", by="gm")
+    assert eng.currency("foe2", "doom") == 0
+    assert hash_obj(fold(eng.store.read(eng.campaign_id))) == eng.state_hash()
+
+
+def test_the_gm_pool_caps_and_refuses_overspending(doom):
+    eng = table(doom)
+    for _ in range(5):
+        eng.commit_action("ash", "gamble")
+    assert eng.currency("foe", "doom") == 3
+    with pytest.raises(EngineError, match="the GM has only 3 doom"):
+        eng._apply_effect({"primitive": "spend_currency", "target": "gm", "currency": "doom", "amount": 4},
+                          IDS, None, {})
+
+
+def test_only_the_gm_side_holds_the_gm_pool(doom):
+    eng = table(doom)
+    with pytest.raises(EngineError, match="doom belongs to the GM's side, and ash is not GM-controlled"):
+        eng._apply_effect({"primitive": "earn_currency", "target": "actor", "currency": "doom", "amount": 1},
+                          IDS, None, {})
+    with pytest.raises(EngineError, match="target gm needs a GM-held currency; luck is held by each_player"):
+        eng._apply_effect({"primitive": "earn_currency", "target": "gm", "currency": "luck", "amount": 1},
+                          IDS, None, {})
+
+
+@pytest.mark.parametrize("edit, fragment", [
+    (lambda d: d["actions"][0]["outcome_effects"]["pass"].append(
+        {"primitive": "earn_currency", "target": "gm", "currency": "luck", "amount": 1}),
+     "target gm is only for earn_currency or spend_currency on a GM-held currency"),
+    (lambda d: d["actions"][0]["outcome_effects"]["pass"].append(
+        {"primitive": "add_tag", "target": "gm", "tag": "marked"}),
+     "target gm is only for earn_currency or spend_currency"),
+    (lambda d: d["gm"]["meta_currencies"][0].__setitem__("visible", "yes"), "visible must be true or false"),
+])
+def test_bad_gm_pool_declarations_fail_lint(packs_dir, tmp_path, edit, fragment):
+    found = [f.message for f in errors(lint(_variant(packs_dir, tmp_path, edit)))]
+    assert any(fragment in m for m in found), found
+
+
+def test_lethality_levers_are_reserved(packs_dir, tmp_path):
+    pack = _variant(packs_dir, tmp_path, lambda d: d["gm"].__setitem__("lethality_levers",
+                                                                         [{"id": "pull_punch", "effect": "x"}]))
+    found = lint(pack)
+    assert errors(found) == []
+    assert [f.message for f in found if f.code == "reserved"] == [
+        "gm.lethality_levers is reserved for the lethality trait (BUILD_PLAN P2.5); nothing reads it yet"]

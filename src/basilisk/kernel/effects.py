@@ -204,15 +204,23 @@ class EffectCommands:
             params.update({"amount": amt, "old": clock["filled"], "new": new})
             changes.append({"path": ["clocks", effect["clock"], "filled"], "value": new})
         elif prim in ("earn_currency", "spend_currency"):
-            target_id = resolve_target()
-            ent = self.state["entities"][target_id]
             cdef = self.pack.by_id("gm.meta_currencies")[effect["currency"]]
-            old = self._currencies(ent).get(effect["currency"], 0)
-            path = self._currency_path(ent, effect["currency"])
+            if effect.get("target") == "gm":  # the GM's pool, fed by anyone's effect (§2.3)
+                if cdef.get("holder") != "gm":
+                    raise EngineError(f"{prim}: target gm needs a GM-held currency; {effect['currency']} is held "
+                                      f"by {cdef.get('holder', 'each_player')}")
+                old, path = self._pool_value("gm", effect["currency"]), ["currencies", "gm", effect["currency"]]
+                holder = "the GM"
+            else:
+                target_id = resolve_target()
+                ent = self.state["entities"][target_id]
+                old = self._currencies(ent).get(effect["currency"], 0)
+                path = self._currency_path(ent, effect["currency"])
+                holder = target_id
             amt = self._amount(effect["amount"], variables, cause)
             if prim == "spend_currency":
                 if amt > old:
-                    raise EngineError(f"{target_id} has only {old} {effect['currency']}")
+                    raise EngineError(f"{holder} has only {old} {effect['currency']}")
                 new = old - amt
             else:
                 new = min(int(cdef.get("max", 10**6)), old + amt)
