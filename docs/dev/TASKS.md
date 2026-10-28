@@ -187,6 +187,11 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** BUILD_PLAN P0.15.
 - **Acceptance:** BUILD_PLAN P0.15's test and its Gate P0 line.
 
+### T0.33 Third audit: ids, leaks, reactions, errors, snapshots — `done`
+- **Plan:** P0.1, P0.3, P0.4, P0.10 · §5.2, §5.6, §7, P3 · from the third Phase 0 audit (2026-10-27), D-048
+- **Deliverables:** entity, clock, and scene ids checked (pattern, reserved names) and names non-empty, so state stays canonical; scene flags and spawned stats type-checked; errors from `commit_action` and `draw_card` name only what the caller can see, and point at `spawn_entity` (§5.2); `trigger: reaction` passes lint; reads name an unknown entity instead of raising `KeyError`; settings and canonical errors surface as `EngineError`; snapshots at every scene set, session start and end, and before every encounter; `Engine.load` checks the hash chain and resumes from the latest snapshot taken under the same pins.
+- **Acceptance:** `tests/test_robustness.py`; `tob check` passes.
+
 ### T0.32 The GM's currency pool; ARCHITECTURE 1.7 — `done`
 - **Plan:** P0.4 · §2.3 (`gm`), §2.4 meta-currency · `docs/dev/proposals/REV-ARCH-1.7.md` (owner-approved), D-047
 - **Deliverables:** `holder: gm` is one pool on the GM's side (`state.currencies.gm`), drawn on by every GM-side entity; the effect target `gm` feeds or spends it from anyone's effect; `visible` flag (lint: boolean); lint refuses `target: gm` outside a GM-held currency's earn or spend; `lethality_levers` declared by a pack is a `reserved` warning. ARCHITECTURE 1.7 applied (version, revision note, §2.3 `gm` block).

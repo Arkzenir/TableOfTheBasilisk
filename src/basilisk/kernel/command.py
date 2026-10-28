@@ -10,13 +10,41 @@ import copy
 import difflib
 import functools
 import inspect
+import re
 from typing import Any, Iterable
 
 from . import dice, expr
+from .canonical import CanonicalError
+from .determinism import SettingsError
 
 
 class EngineError(ValueError):
     pass
+
+
+ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,79}$")
+# Names the engine itself uses for sides and actors (§2.4 turn order, §5.7 actor):
+# an entity, clock, or scene with one of these ids would be ambiguous.
+RESERVED_IDS = frozenset({"players", "gm", "engine", "operator", "audience_service"})
+
+
+def check_id(kind: str, value: Any) -> str:
+    """An id the engine will key state by: lowercase letters, digits, and
+    underscores, starting with a letter, and not a reserved name. Refuses
+    anything else, so state stays canonical and replayable (§5.6)."""
+    if not isinstance(value, str) or not ID_PATTERN.match(value):
+        raise EngineError(f"{kind} id {value!r} must be lowercase letters, digits, and underscores, "
+                          "starting with a letter (at most 80 characters)")
+    if value in RESERVED_IDS:
+        raise EngineError(f"{kind} id {value!r} is reserved; avoid {', '.join(sorted(RESERVED_IDS))}")
+    return value
+
+
+def check_name(kind: str, value: Any) -> str:
+    """A display name or label: non-empty text."""
+    if not isinstance(value, str) or not value.strip():
+        raise EngineError(f"{kind} must be non-empty text")
+    return value
 
 
 def gm_call(options=None):
@@ -67,13 +95,16 @@ def atomic(fn):
             self._atomic_depth -= 1
             self.store.rollback()
             self.state = backup
+            self.__dict__.pop("_snapshot_due", None)
             # Indexes derived from state (e.g. canon) may describe the discarded state.
             self.__dict__.get("_derived_caches", {}).clear()
-            if isinstance(exc, (expr.ExprError, dice.DiceError, KeyError)):
+            if isinstance(exc, (expr.ExprError, dice.DiceError, KeyError, CanonicalError, SettingsError)):
                 raise EngineError(f"{type(exc).__name__}: {exc}") from exc
             raise
         self._atomic_depth -= 1
         self.store.commit()
+        if self.__dict__.pop("_snapshot_due", False):
+            self.snapshot()  # a §5.6 boundary: scene set, session start or end
         return result
 
     return wrapper

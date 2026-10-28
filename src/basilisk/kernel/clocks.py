@@ -30,7 +30,7 @@ from __future__ import annotations
 import copy
 
 from . import timekeeping
-from .command import EngineError, _suggest, atomic, gm_call
+from .command import EngineError, _suggest, atomic, check_id, check_name, gm_call
 
 EVENT_TYPES = frozenset({"clock_stage_reached", "clock_paused"})
 
@@ -68,6 +68,8 @@ class ClockCommands:
     @gm_call()
     def create_clock(self, clock_id: str, label: str, total: int, visible: bool = True, by: str | None = None,
                      schedule: dict | None = None, stages: list[dict] | None = None) -> None:
+        check_id("clock", clock_id)
+        check_name("a clock's label", label)
         if clock_id in self.state["clocks"]:
             raise EngineError(f"clock {clock_id!r} exists")
         if isinstance(total, bool) or not isinstance(total, int) or total < 1:

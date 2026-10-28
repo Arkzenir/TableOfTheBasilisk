@@ -194,6 +194,7 @@ class TurnCommands:
         without positions). `participants` gives the order for `fixed`;
         `first` picks the opener for `handoff`."""
         by = by or self.gm_seat
+        self.snapshot()  # §5.6: a snapshot before any encounter (rolled back if this is refused)
         if self._role(by) != "gm":
             raise EngineError("only the GM starts an encounter")
         if not self.state["scene"]["encounter"]:

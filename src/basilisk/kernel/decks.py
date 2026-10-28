@@ -123,8 +123,9 @@ class DeckCommands:
         by = by or self.gm_seat
         if self._role(by) != "gm" and not deck.get("players_draw"):
             raise EngineError(f"only the GM draws from {deck_id}")
-        if to is not None and to not in self.seats and to not in self.state["entities"]:
-            raise EngineError(_suggest("holder", to, list(self.seats) + list(self.state["entities"])))
+        if to is not None and to not in self.seats and (to not in self.state["entities"] or not self.visible(by, to)):
+            holders = list(self.seats) + [e for e in self.state["entities"] if self.visible(by, e)]
+            raise EngineError(_suggest("holder", to, holders))  # never names an entity the drawer cannot see
         rule = deck["reshuffle_rule"]
         state = self._deck_state(deck_id)
         if state is None:

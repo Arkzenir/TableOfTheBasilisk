@@ -237,8 +237,8 @@ def lint(pack: ResolvedPack) -> list[Finding]:
         cost = a.get("cost") or {}
         if cost and cost.get("currency") not in currencies:
             err("reference", f"action {a['id']}: unknown currency {cost.get('currency')!r}")
-        if a.get("trigger", "declared") not in ("declared", "fiction"):
-            err("action", f"action {a['id']}: trigger must be declared or fiction")
+        if a.get("trigger", "declared") not in ("declared", "fiction", "reaction"):
+            err("action", f"action {a['id']}: trigger must be declared, fiction or reaction")
 
     # effects --------------------------------------------------------------
     for where, e in _effects_in(pack):

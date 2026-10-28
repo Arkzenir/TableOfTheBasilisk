@@ -18,7 +18,7 @@ from .canon import CanonCommands
 from .canonical import hash_obj
 from .clocks import ClockCommands
 from .decks import DeckCommands
-from .command import EngineError, _suggest, atomic, gm_call
+from .command import ID_PATTERN, EngineError, _suggest, atomic, check_id, check_name, gm_call
 from .determinism import STANDARD, STRICT, apply_change, expand, setting_for, unsupported_strict
 from .effects import EffectCommands
 from .events import EventStore
@@ -205,9 +205,15 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         return eng
 
     @classmethod
-    def load(cls, pack: ResolvedPack, seed: str, store: EventStore, campaign_id: str, clock=None) -> "Engine":
+    def load(cls, pack: ResolvedPack, seed: str, store: EventStore, campaign_id: str, clock=None,
+             use_snapshot: bool = True) -> "Engine":
+        """Resume a campaign (§5.6): check the hash chain and the pins, then fold
+        from the latest snapshot taken under the same pins, or from the start."""
         eng = cls(pack, seed, store, campaign_id, clock)
-        events = list(store.read(campaign_id))
+        problems = store.verify_chain(campaign_id)
+        if problems:
+            raise EngineError(f"campaign {campaign_id!r} log is damaged: {problems[0]}")
+        events = list(store.read(campaign_id, upto=1))
         if not events:
             raise EngineError(f"no campaign {campaign_id!r}")
         first = events[0]["payload"]
@@ -217,7 +223,14 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
             raise EngineError(f"kernel mismatch: campaign pinned {first.get('kernel_version')}, running {KERNEL_VERSION}")
         if first.get("seed_commitment") != eng.rng.commitment():
             raise EngineError("seed does not match the campaign's seed commitment")
-        eng.state = fold(events)
+        snap = store.latest_snapshot(campaign_id) if use_snapshot else None
+        if snap is not None:
+            if (snap["pack_hash"], snap["kernel_version"]) != (pack.hash, KERNEL_VERSION):
+                raise EngineError(f"snapshot at seq {snap['seq']} was taken under another pack or kernel "
+                                  f"({str(snap['pack_hash'])[:12]}, {snap['kernel_version']}); refusing to resume")
+            eng.state = fold(store.read(campaign_id, after=snap["seq"]), state=snap["state"])
+        else:
+            eng.state = fold(store.read(campaign_id))
         return eng
 
     def state_hash(self) -> str:
@@ -266,10 +279,16 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
             "seat": seat, "control": control, "setting": setting, "choice": choice, "options": options,
         }, actor=seat, caused_by=cause)
 
-    def _entity(self, entity_id: str) -> dict:
+    def _entity(self, entity_id: str, observer: str | None = None) -> dict:
+        """The entity, or a named error. With `observer`, an entity that seat
+        cannot see is treated as absent, and the suggestions list only what it
+        can see, so an error never names a hidden entity (P3, §7)."""
         ents = self.state["entities"]
-        if entity_id not in ents:
-            raise EngineError(_suggest("entity", entity_id, ents))
+        if not isinstance(entity_id, str) or entity_id not in ents or                 (observer is not None and not self.visible(observer, entity_id)):
+            seen = [e for e in ents if observer is None or self.visible(observer, e)]
+            raise EngineError(_suggest("entity", entity_id, seen)
+                              + " Something only in the fiction is not in play yet: the GM creates it with "
+                                "spawn_entity before anyone acts on it (§5.2).")
         return ents[entity_id]
 
     def _draw(self) -> tuple[int, Callable[[int, int, int], int]]:
@@ -422,6 +441,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         self._boundary()
         seq = self._emit("session_started", {"number": self.state["session"] + 1}, actor=by or self.gm_seat)
         self._reshuffle_at("session")
+        self._snapshot_due = True
         return seq
 
     def _close_scene(self, by: str, reason: str) -> None:
@@ -441,6 +461,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         self._expire({"scene", "session"})
         self._close_scene(by or self.gm_seat, "session_ended")
         self._progress_on_session_end()
+        self._snapshot_due = True
         return self._emit("session_ended", {"number": self.state["session"]}, actor=by or self.gm_seat)
 
     @atomic
@@ -453,6 +474,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         and `ranges` sets bands between pairs (§1.4)."""
         if not self.state["session"]:
             raise EngineError("start a session before setting a scene")
+        check_id("scene", scene_id)
         self._require_settled()
         if placements and regions is None:
             raise EngineError("placements need regions: a scene without regions has no positions")
@@ -464,6 +486,10 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         self._close_encounter(by)
         self._expire({"scene"})
         self._close_scene(by, "next_scene")
+        for k, v in (flags or {}).items():
+            if not isinstance(k, str) or not ID_PATTERN.match(k) or isinstance(v, bool) or not isinstance(v, int):
+                raise EngineError(f"scene flag {k!r}: flags are {{id: integer}}, ids in lowercase letters, digits, "
+                                  "and underscores")
         flags = {k: int(v) for k, v in (flags or {}).items()}
         index = self.state["scene"]["index"] + 1
         payload = {"scene_id": scene_id, "index": index, "flags": flags, "encounter": bool(encounter)}
@@ -474,6 +500,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         for eid, region in self._placement_effects(placements):
             self._place(eid, region, by)
         self._boundary()
+        self._snapshot_due = True
         return index
 
     # ------------------------------------------------------------ settings changes (§2.13.3)
@@ -527,7 +554,8 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
                          entity_id: str | None = None) -> str:
         if self.seats.get(agent_id) != "player":
             raise EngineError(f"{agent_id!r} is not a player seat")
-        entity_id = entity_id or agent_id
+        entity_id = check_id("entity", entity_id or agent_id)
+        check_name("a character's name", name)
         if entity_id in self.state["entities"]:
             raise EngineError(f"entity {entity_id!r} already exists")
         choices = dict(choices or {})
@@ -593,6 +621,11 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         by = by or self.gm_seat
         if self._role(by) != "gm":
             raise EngineError("only the GM can spawn entities")
+        check_id("entity", entity_id)
+        check_name("an entity's name", name)
+        for sid, value in (stats or {}).items():
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise EngineError(f"stat {sid!r} must be an integer, not {value!r}")
         if entity_id in self.state["entities"]:
             raise EngineError(f"entity {entity_id!r} already exists")
         if zone is not None:
@@ -667,10 +700,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         if target_kind == "entity":
             if not target:
                 raise EngineError(f"{action_id} needs a target entity")
-            target_ent = self._entity(target)
-            if not self.visible(by, target):
-                seen = [e for e in self.state["entities"] if e != entity_id and self.visible(by, e)]
-                raise EngineError(_suggest("entity", target, seen))
+            target_ent = self._entity(target, observer=by)
         elif target_kind == "zone":
             if not target:
                 raise EngineError(f"{action_id} needs a target zone")

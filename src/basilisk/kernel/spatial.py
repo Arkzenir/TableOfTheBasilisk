@@ -570,6 +570,7 @@ class SpatialCommands:
     def reachable(self, entity_id: str, at: str | None = None) -> list[str]:
         """Positions one move away from the entity (from `at` if given), in a
         stable order. Only entities its seat can see are measured from."""
+        self._entity(entity_id)
         spatial = self._spatial()
         if spatial is None or not self._in_scene(entity_id):
             return []
@@ -578,6 +579,7 @@ class SpatialCommands:
                                             reach=self._reach())
 
     def position_of(self, entity_id: str) -> str | None:
+        self._entity(entity_id)
         spatial = self._spatial()
         if spatial is None:
             return None
@@ -586,6 +588,7 @@ class SpatialCommands:
     def steps_from(self, entity_id: str, at: str | None = None) -> dict[str, int]:
         """Steps from the entity to every other entity in the scene (regions
         crossed, or bands out). Callers filter by what a seat can see."""
+        self._entity(entity_id)
         spatial = self._spatial()
         if spatial is None or not self._in_scene(entity_id):
             return {}
