@@ -15,6 +15,8 @@
 
 **Revision notes (1.6):** Gate P0 is signed off (2026-10-26, owner). Phase 0 is closed; Track 1 begins.
 
+**Revision notes (1.7):** P0.12 describes the harness as built: it drives the engine's commands, which the tool dispatcher (P1.2) maps the generated tools onto. Three post-sign-off audits of Phase 0 (T0.29 to T0.36) changed no gate item.
+
 ---
 
 ## 0. How to use this document
@@ -180,7 +182,7 @@ Through Phase 3, "the playable pack" means `lanternlight` and "the second pack" 
 
 ### P0.12 Scripted-actor harness
 
-A test driver that plays the game via the tool API using **hardcoded scripts, not models**. This is the instrument that makes P0 verifiable and remains useful through every later phase.
+A test driver that plays the game through the engine's commands — the ones the tool dispatcher (P1.2) maps the generated tools onto — using **hardcoded scripts, not models**. This is the instrument that makes P0 verifiable and remains useful through every later phase.
 
 Pack-agnostic: scripts drive the generated tool surface, and a generic smoke script takes every enumerated action at least once.
 

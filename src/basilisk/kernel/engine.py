@@ -10,7 +10,6 @@ any rules.
 from __future__ import annotations
 
 import copy
-from datetime import datetime, timezone
 from typing import Any, Callable, Iterable
 
 from . import KERNEL_VERSION, canon, clocks, decks, dice, expr, fudging, hooks, progression, rules, spatial, timekeeping, turns
@@ -166,7 +165,9 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         self.rng = Randomizer(seed)
         self.store = store or EventStore(":memory:")
         self.campaign_id = campaign_id
-        self.clock = clock or (lambda: datetime.now(timezone.utc).isoformat(timespec="seconds"))
+        # The event timestamp (§5.7) comes from the host: the kernel reads no wall clock.
+        # Without one, timestamps are null; the orchestrator injects a UTC clock (P1).
+        self.clock = clock or (lambda: None)
         self.state = empty_state()
         self.readiness = readiness(pack)
         self.rounding = pack.get("presentation.rounding", "floor")

@@ -152,3 +152,11 @@ def test_resume_folds_from_the_snapshot_and_refuses_damage(packs_dir, lantern):
                      "SELECT seq FROM events WHERE campaign_id=? AND body LIKE '%session_started%' LIMIT 1)", (cid,))
     with pytest.raises(EngineError, match="log is damaged"):
         Engine.load(lantern, script["seed"], store, cid)
+
+
+def test_the_kernel_reads_no_wall_clock(lantern):
+    """Event timestamps come from the host (§5.7); without a clock they are null (T0.36)."""
+    eng = Engine.start_campaign(lantern, "clockless", {"seats": {"gm": "gm"}})
+    assert {e["ts"] for e in eng.store.read(eng.campaign_id)} == {None}
+    stamped = Engine.start_campaign(lantern, "stamped", {"seats": {"gm": "gm"}}, clock=lambda: "2026-10-28T00:00:00Z")
+    assert {e["ts"] for e in stamped.store.read(stamped.campaign_id)} == {"2026-10-28T00:00:00Z"}

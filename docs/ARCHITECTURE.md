@@ -1,6 +1,6 @@
 # Table of The Basilisk — Architecture Specification
 
-**Version:** 1.7 (revised design freeze for v1)
+**Version:** 1.8 (revised design freeze for v1)
 **Status:** Design complete. Open items listed in §11.
 **Companion document:** `BUILD_PLAN.md` — phased implementation, gates, and tests.
 
@@ -39,6 +39,12 @@
   - a `party` currency is one shared pool;
   - a `gm` currency is one pool on the GM's side;
   - `lethality_levers` is reserved for trait implementation (BUILD_PLAN P2.5).
+
+**Revision notes (1.8):** after the third Phase 0 audit (T0.33 to T0.36, D-048 to D-050):
+- §2.3: chargen choices may grant starting `items` and each-player `currencies` (§1.5).
+- §2.5: the example procedures use the modifier sources and interpret keys the kernel implements (`stat`, `conditions`, `tags`; `margins` for degrees of success).
+- §2.8: `core.pool` is a later baseline; v1 ships `core.roll_over` and `core.banded`, and the pool shape runs on `core`.
+- §7.1: the GM's ruling on a player's action, including substituting a fiction-triggered move (§2.13.1).
 
 ---
 
@@ -407,6 +413,7 @@ system_pack:
     advances:   [{ id, label, stats: { stat: delta }, tags, requires, once }]
   chargen:      { steps: [{ id, kind: roll | choice | assign | table,
                             targets, roll, options, values, table, unique_per_table }] }
+                # options: [{ id, label, stats, tags, items, currencies }]   # starting kit (§1.5)
 
   spatial:
     backends: [zone_graph | range_bands | square_grid] | none
@@ -460,7 +467,7 @@ Every check in every system runs the same four steps — gather modifiers, gener
 procedure: check
   inputs: [actor, stat, difficulty]               # difficulty: ladder rung or derived
   steps:
-    - modifiers: from [stat, conditions, items, situational_tags]
+    - modifiers: from [stat, conditions, tags]
     - roll:      "1d20 + {mod}"
     - interpret: { scale: pass_fail, compare: ">=", against: difficulty }
 
@@ -468,7 +475,7 @@ procedure: check
 procedure: move
   inputs: [actor, stat]
   steps:
-    - modifiers: from [stat, forward, ongoing]
+    - modifiers: from [stat, conditions, tags]       # forward/ongoing bonuses are conditions
     - roll:      "2d6 + {mod}"
     - interpret: { scale: miss_partial_full, bands: [[min,6],[7,9],[10,max]] }
 
@@ -477,7 +484,8 @@ procedure: pool
   inputs: [actor, attr, skill, difficulty]
   steps:
     - roll:      "({attr}+{skill})d10 count>=8"
-    - interpret: { scale: degrees, compare: successes, against: difficulty, by: margin }
+    - interpret: { scale: degrees, compare: successes, against: difficulty,
+                   margins: [[min,-1],[0,0],[1,2],[3,max]] }     # degrees by margin
 ```
 
 Same runner, same events, three different games. Advantage, bonus dice, and similar mechanics are expressed in the dice grammar (`2d20kh1`), not as special cases in the runner.
@@ -542,7 +550,7 @@ New systems are built by extending, not copying.
 core                      abstract; not playable on its own
  ├── core.roll_over       roll-over vs. target family
  ├── core.banded          banded-outcome family
- └── core.pool            success-counting pool family
+ └── core.pool            success-counting pool family (later: the pool shape runs on core in v1)
        └── <playable packs>  └── <house-rule packs>
 ```
 
@@ -1390,6 +1398,8 @@ set_scene(spec)                    → transition; triggers pre-fetch + snapshot
 resolve(action, ruling)            → map an unmodelled action onto a pack procedure
                                      (procedure, difficulty rung, tags — all by ID);
                                      select a ruling-slot entry (when `ruling_slots` is standard)
+rule_on_action(ruling)             → a player's action: difficulty rung and tags by ID; for a
+                                     fiction-triggered move, a substitute move (§2.13.1)
 advance_clock(clock_id, amount)
 ```
 

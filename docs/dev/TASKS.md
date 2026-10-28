@@ -187,6 +187,11 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** BUILD_PLAN P0.15.
 - **Acceptance:** BUILD_PLAN P0.15's test and its Gate P0 line.
 
+### T0.36 ARCHITECTURE 1.8 and BUILD_PLAN 1.7 — `done`
+- **Plan:** item 12 of the third audit · D-051
+- **Deliverables:** §2.3 chargen options, §2.5 example procedures as implemented, §2.8 `core.pool` marked later, §7.1 `rule_on_action`; BUILD_PLAN P0.12 describes the harness as built; revision notes in both. The kernel no longer reads the wall clock by default (timestamps come from the host).
+- **Acceptance:** the docs match the build; `tob check` passes.
+
 ### T0.35 Starting equipment; the GM substitutes a move — `done`
 - **Plan:** P0.4, P0.8 · §1.5, §2.13.1 · D-050
 - **Deliverables:** chargen choice options may grant `items` and `currencies` (each-player ones), checked by lint and against the carry limit; `commit_action(gm={"substitute": move})` lets the GM rule that the fiction triggered another fiction move (any legal one under standard, an eligible one under strict), logged as `action_committed.declared` and a GM `judgement_input` (`fiction_triggers`); `rule_on_action.substitute` is an enum of the pack's fiction moves.

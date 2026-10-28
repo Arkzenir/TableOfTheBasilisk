@@ -2,14 +2,24 @@
 
 Rewritten at the end of every work session, so the next session — any agent or human — can start cold.
 
-## Current state (2026-10-27)
+## Current state (2026-10-28)
 
-- **Phase 0 is closed. Gate P0 was signed off by the owner on 2026-10-26** (T0.13, D-042). Every build step P0.1 to P0.15 is done, and every gate item is ticked here and in BUILD_PLAN. A second audit of Phase 0 (2026-10-27) found gaps: T0.31 fixed them, and T0.32 built the owner-approved GM pool and applied ARCHITECTURE 1.7. **Track 1 is next.** See `ROADMAP.md`.
-- **Design:** ARCHITECTURE 1.7 (§2.3 and §5.7 as built; 1.7 corrected the `gm` block) and BUILD_PLAN 1.6 (Gate P0 signed off). The broadcast pack is the SRD 5.1 under CC-BY 4.0, written last (P4.0). Track 0 is finished before Track 1. Anthropic is the first provider. See D-012 to D-015.
+- **Phase 0 is closed. Gate P0 was signed off by the owner on 2026-10-26** (T0.13, D-042). Every build step P0.1 to P0.15 is done, and every gate item is ticked here and in BUILD_PLAN. Three audits after sign-off found gaps, all now fixed: T0.29, T0.31 and T0.32, and T0.33 to T0.36 (the third, a from-scratch audit on 2026-10-27). No gate item changed. **Track 1 is next.** See `ROADMAP.md`.
+- **Design:** ARCHITECTURE 1.8 (§2.3 and §5.7 as built; 1.7 corrected the `gm` block, 1.8 the chargen kit, §2.5 examples, §2.8 baselines, and §7.1's GM ruling) and BUILD_PLAN 1.7 (Gate P0 signed off; P0.12 as built). The broadcast pack is the SRD 5.1 under CC-BY 4.0, written last (P4.0). Track 0 is finished before Track 1. Anthropic is the first provider. See D-012 to D-015.
 - **Git:** `main` tracks `origin/main` (github.com/Arkzenir/TableOfTheBasilisk). Hooks are installed: pre-commit runs `tob check --quick`, pre-push runs the full gate.
 
-## What changed this session (owner decisions on the 1.6 draft, sign-off, two audits)
+## What changed this session (owner decisions on the 1.6 draft, sign-off, three audits)
 
+- **Third audit** (from scratch, 2026-10-27), fixed in four tasks at the owner's request ("fix all"):
+  - **T0.33** (D-048):
+    - Entity, clock and scene ids are validated, so `spawn_entity(7, …)` can no longer write unhashable state.
+    - Errors never name entities the caller cannot see, and they point at `spawn_entity` (§5.2).
+    - Lint accepts `trigger: reaction`.
+    - Reads name an unknown entity instead of raising `KeyError`.
+    - Snapshots are taken at scene, session and encounter boundaries; `Engine.load` checks the hash chain and resumes from a snapshot.
+  - **T0.34** (D-049): `kernel/packschema.py` refuses misspelt keys, expression names that would not exist at run time, and contradictory values. Expressions read an unheld currency as 0.
+  - **T0.35** (D-050): chargen choices grant starting items and currencies; the GM can substitute a fiction-triggered move (`rule_on_action.substitute`).
+  - **T0.36** (D-051): ARCHITECTURE 1.8 and BUILD_PLAN 1.7 text.
 - **T0.32** (D-047): `holder: gm` is one pool on the GM's side, fed from anyone's effect with `target: gm`; currencies take a `visible` flag; `lethality_levers` is a reserved warning. ARCHITECTURE 1.7 applied (REV-ARCH-1.7 approved as proposed).
 - **T0.31** (D-046), from the second audit:
   - `gm_rolls: false` is enforced: no GM-side entity rolls (Tidewrack's NPCs could).
@@ -37,7 +47,7 @@ Rewritten at the end of every work session, so the next session — any agent or
 
 Refreshed 2026-10-26 after T0.24 to T0.28. Every item below was run on the development desktop:
 
-- `tob check`: **GATE: PASS** in about 30 s (budget 60 s). It runs the noun lint, pack lint for 9 packs, verified smoke campaigns on the 6 playable packs, and pytest with **542 tests passed** (after T0.32).
+- `tob check`: **GATE: PASS** in about 30 s (budget 60 s). It runs the noun lint, pack lint for 9 packs, verified smoke campaigns on the 6 playable packs, and pytest with **600 tests passed** (after T0.36; the gate took 60 to 70 s on a loaded machine where it had taken 30 s, and the pre-T0.33 code measured 56 s in the same conditions).
 - `tob pack lint`: 0 errors and 0 warnings on every pack, every pack strict-ready on every control. Hook counts: 2 in `lanternlight_hooked`, 0 elsewhere. Rules text (P0.6): Lanternlight inline ~167 of 30,000 tokens, Tidewrack ~103, the sectioned variant's digest ~69 of 6,000 with 12 sections.
 
 "Both packs" means the two kernel test games from different families, `lanternlight` (roll-over) and `tidewrack` (banded) (BUILD_PLAN P0.6). The four derivatives are also run.
