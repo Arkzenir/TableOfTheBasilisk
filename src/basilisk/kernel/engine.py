@@ -565,6 +565,8 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         tags: list[str] = []
         details: list[str] = []
         unique: dict[str, str] = {}
+        items: list[str] = []  # starting equipment and currencies from choices (§1.5)
+        grants: dict[str, int] = {}
         tables = self.pack.by_id("randomizers.tables")
         for step in self.pack.get("chargen.steps") or []:
             kind = step["kind"]
@@ -584,6 +586,9 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
                 self._judge(agent_id, "chargen_choice", None, pick, available, start)
                 stats.update(options[pick].get("stats") or {})
                 tags += options[pick].get("tags") or []
+                items += options[pick].get("items") or []
+                for cid, amount in (options[pick].get("currencies") or {}).items():
+                    grants[cid] = grants.get(cid, 0) + int(amount)
                 if step.get("unique_per_table"):
                     unique[step["id"]] = pick
             elif kind == "assign":  # place a fixed array of values onto stats (§1.5)
@@ -607,6 +612,14 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         ent = self._new_entity(entity_id, name, "pc", agent_id, stats)
         ent["tags"] = sorted(set(tags))
         ent["details"] = details
+        ent["inventory"] = list(items)
+        currencies = self.pack.by_id("gm.meta_currencies")
+        for cid, amount in sorted(grants.items()):
+            ent["currencies"][cid] = min(int(currencies[cid].get("max", 10**6)), ent["currencies"].get(cid, 0) + amount)
+        limit = self.capacity(ent)
+        if limit is not None and self.carried(ent) > limit:
+            raise EngineError(f"{entity_id} would start carrying {self.carried(ent)} of {limit}: "
+                              "these choices give more equipment than the character can carry")
         for hook in self._hooks_at("sheet.validate"):  # cross-field constraints (§2.7)
             problems = self._call_hook(hook["name"], "sheet.validate", self._sheet_view(ent), {}, start, rolls=False)
             if problems:
@@ -691,28 +704,33 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         if by != ent["controller"] and self._role(by) != "gm":
             raise EngineError(f"{by!r} does not control {entity_id!r}")
         actions = self.pack.by_id("actions")
-        if action_id not in actions:
-            raise EngineError(_suggest("action", action_id, actions))
-        action = actions[action_id]
-        if not self._mode_ok(action):
-            raise EngineError(f"{action_id} is not available in this mode")
-        target_ent = None
-        target_kind = action.get("target", "none")
-        if target_kind == "entity":
-            if not target:
-                raise EngineError(f"{action_id} needs a target entity")
-            target_ent = self._entity(target, observer=by)
-        elif target_kind == "zone":
-            if not target:
-                raise EngineError(f"{action_id} needs a target zone")
-            self._check_position(target, observer=by)
-        elif target:
-            raise EngineError(f"{action_id} takes no target")
-        if not self._requires_ok(action, ent, target_ent):
-            raise EngineError(f"{action_id}: requirements not met for {entity_id}")
-        problem = self._turn_problem(entity_id, action)
-        if problem:
-            raise EngineError(problem)
+
+        def legal(aid: str) -> tuple[dict, dict | None, str]:
+            """The action, its target entity, and target kind, if it can be taken now."""
+            if aid not in actions:
+                raise EngineError(_suggest("action", aid, actions))
+            act = actions[aid]
+            if not self._mode_ok(act):
+                raise EngineError(f"{aid} is not available in this mode")
+            tgt, kind = None, act.get("target", "none")
+            if kind == "entity":
+                if not target:
+                    raise EngineError(f"{aid} needs a target entity")
+                tgt = self._entity(target, observer=by)
+            elif kind == "zone":
+                if not target:
+                    raise EngineError(f"{aid} needs a target zone")
+                self._check_position(target, observer=by)
+            elif target:
+                raise EngineError(f"{aid} takes no target")
+            if not self._requires_ok(act, ent, tgt):
+                raise EngineError(f"{aid}: requirements not met for {entity_id}")
+            problem = self._turn_problem(entity_id, act)
+            if problem:
+                raise EngineError(problem)
+            return act, tgt, kind
+
+        action, target_ent, target_kind = legal(action_id)
         options = self.available_actions(entity_id, target if target_kind == "entity" else None)
         eligible = self._eligible(action, ent, target_ent)
         trigger_mode = None
@@ -720,6 +738,24 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
             trigger_mode = self.mode("fiction_triggers", by)
             if trigger_mode == STRICT and not eligible:
                 raise EngineError(f"{action_id} is not among the eligible moves: {', '.join(options) or 'none'}")
+        declared = action_id
+        substitute = (gm or {}).get("substitute")
+        if substitute is not None:  # the GM rules the fiction triggered another move (§2.13.1)
+            if action.get("trigger") != "fiction":
+                raise EngineError(f"only a fiction-triggered move can be substituted; {action_id} is "
+                                  f"{action.get('trigger', 'declared')}")
+            if substitute == action_id or substitute not in actions or actions[substitute].get("trigger") != "fiction":
+                moves = [a for a in actions if actions[a].get("trigger") == "fiction" and a != action_id]
+                raise EngineError(_suggest("fiction-triggered move to substitute", substitute, moves))
+            sub_mode = self.mode("fiction_triggers", self.gm_seat)
+            action, target_ent, target_kind = legal(substitute)
+            moves = [a for a in self.available_actions(entity_id, target if target_kind == "entity" else None)
+                     if actions[a].get("trigger") == "fiction" and a != declared]
+            eligible = self._eligible(action, ent, target_ent)
+            if sub_mode == STRICT and not eligible:
+                raise EngineError(f"under strict settings the GM substitutes an eligible move: "
+                                  f"{', '.join(m for m in moves if self._eligible(actions[m], ent, target_ent)) or 'none'}")
+            action_id = substitute
 
         cost = action.get("cost") or {}
         amount = None
@@ -740,11 +776,15 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
             if self._currencies(ent).get(cost["currency"], 0) < amount:
                 raise EngineError(f"{entity_id} cannot afford {amount} {cost['currency']}")
 
-        seq = self._emit("action_committed", {
-            "entity": entity_id, "by": by, "action": action_id, "target": target, "spend": amount,
-            "trigger": action.get("trigger", "declared"), "eligible": eligible,
-        }, actor=by)
-        self._judge(by, "action_selection", trigger_mode, action_id, options, seq)
+        payload = {"entity": entity_id, "by": by, "action": action_id, "target": target, "spend": amount,
+                   "trigger": action.get("trigger", "declared"), "eligible": eligible}
+        if declared != action_id:
+            payload["declared"] = declared  # the move the GM substituted (§2.13.1)
+        seq = self._emit("action_committed", payload, actor=by)
+        self._judge(by, "action_selection", trigger_mode, declared, options, seq)
+        if declared != action_id:
+            self._judge(self.gm_seat, "fiction_triggers", sub_mode, {"declared": declared, "substitute": action_id},
+                        moves, seq)
         self._spend_turn_economy(entity_id, action, seq)
         if spend_mode:
             self._judge(by, "spend_amounts", spend_mode, amount, cost.get("amounts") or cost.get("range"), seq)

@@ -337,10 +337,25 @@ def lint(pack: ResolvedPack) -> list[Finding]:
                 if target not in stats:
                     err("chargen", f"step {step['id']}: unknown stat {target!r}")
         elif kind == "choice":
+            item_ids = set(pack.by_id("entity_model.items"))
+            weighted = (pack.get("entity_model.inventory") or {}).get("model") == "weight"
             for opt in step.get("options") or []:
+                where = f"step {step['id']}.{opt.get('id')}"
                 for sid in (opt.get("stats") or {}):
                     if sid not in stats:
-                        err("chargen", f"step {step['id']}.{opt.get('id')}: unknown stat {sid!r}")
+                        err("chargen", f"{where}: unknown stat {sid!r}")
+                for item in opt.get("items") or []:  # starting equipment (§1.5)
+                    if weighted and item not in item_ids:
+                        err("chargen", f"{where}: " + _suggest("item", item, item_ids))
+                    elif not isinstance(item, str) or not spatial.ID_RE.match(item):
+                        err("chargen", f"{where}: item {item!r} must be an id")
+                for cid, amount in (opt.get("currencies") or {}).items():
+                    held = (currencies.get(cid) or {}).get("holder", "each_player")
+                    if cid not in currencies or held != "each_player":
+                        err("chargen", f"{where}: a starting currency must be one each player holds; {cid!r} is "
+                                       + ("unknown" if cid not in currencies else f"held by {held}"))
+                    elif isinstance(amount, bool) or not isinstance(amount, int) or amount < 1:
+                        err("chargen", f"{where}: currency {cid} amount must be a positive integer")
         elif kind == "table":
             if step.get("table") not in rtables:
                 err("chargen", f"step {step['id']}: unknown table {step.get('table')!r}")

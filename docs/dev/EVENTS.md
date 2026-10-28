@@ -19,7 +19,7 @@ The code-level list of event types (`EVENT_TYPES` in `src/basilisk/kernel/engine
 | `character_created` | folds | `create_character` | `entity, unique_choices, choices` |
 | `entity_spawned` | folds | `spawn_entity` | `entity` |
 | `clock_created` | folds | `create_clock` | `clock_id, label, total, visible`, plus `schedule{every, amount, unit?}, stages[{at, record}], created_session` only when the clock has a schedule or stages, and `created_elapsed` when the schedule runs on in-world time |
-| `action_committed` | folds | `commit_action` | `entity, by, action, target, spend, trigger, eligible` |
+| `action_committed` | folds | `commit_action` | `entity, by, action, target, spend, trigger, eligible`, plus `declared` (the move the player declared) only when the GM substituted another fiction-triggered move (`gm.substitute`, followed by a GM `judgement_input` with control `fiction_triggers`) |
 | `gm_ruling_requested` | folds | `request_gm_ruling` effect | `slot, table, mode, ids, entries` |
 | `gm_ruling_filled` | folds | engine draw or `fill_ruling` | `slot, entry, by` |
 | `canon_written` | folds | `write_canon`, `supersede_canon` | `record` (full, engine-assigned `id`; the reducer sets `created_at` to the event's seq), `flags[{name, near, record}]` (near-collisions), `supersedes` (only from `supersede_canon`) |

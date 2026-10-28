@@ -122,6 +122,9 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
         fudge = fudging.fudging_available(pack, mode("fudging"))
         if fudge:
             rule["peek"] = {"type": "boolean"}  # see the roll before it goes public (§5.5)
+        fiction = [a["id"] for a in pack.catalogue("actions") if a.get("trigger") == "fiction"]
+        if len(fiction) > 1:  # rule that the fiction triggered another move (§2.13.1); strict: an eligible one
+            rule["substitute"] = _enum(fiction)
         tools["rule_on_action"] = rule
 
         entries = [e["id"] for t in pack.catalogue("gm.consequence_tables") for e in t.get("entries", [])]

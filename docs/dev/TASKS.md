@@ -187,6 +187,11 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** BUILD_PLAN P0.15.
 - **Acceptance:** BUILD_PLAN P0.15's test and its Gate P0 line.
 
+### T0.35 Starting equipment; the GM substitutes a move — `done`
+- **Plan:** P0.4, P0.8 · §1.5, §2.13.1 · D-050
+- **Deliverables:** chargen choice options may grant `items` and `currencies` (each-player ones), checked by lint and against the carry limit; `commit_action(gm={"substitute": move})` lets the GM rule that the fiction triggered another fiction move (any legal one under standard, an eligible one under strict), logged as `action_committed.declared` and a GM `judgement_input` (`fiction_triggers`); `rule_on_action.substitute` is an enum of the pack's fiction moves.
+- **Acceptance:** `tests/test_grants_and_substitution.py`; `tob check` passes.
+
 ### T0.34 Third audit: misspelt keys, expression names, contradictions — `done`
 - **Plan:** P0.5, P0.7 · §2.3, §2.10 · D-049
 - **Deliverables:** `kernel/packschema.py`: unknown keys refused for every mapping §2.3 defines (and rule cards and vocabulary entries); every name an expression reads resolved where it is evaluated (an entity's own formulas, rules in play, tactical rules); presentation rounding, assertion terms, vocabulary ids, fudgeable procedures, stat defaults, currency starts, spend amounts, action modes and targets checked. Expressions read a currency the entity does not hold as 0.
