@@ -182,3 +182,67 @@ def test_removing_a_condition_an_inherited_action_uses_names_it(packs_dir, tmp_p
           lambda d: d.setdefault("remove", {}).__setitem__("entity_model.conditions", ["shaken"]))
     found = [(f.code, f.message) for f in errors(lint(resolve("lanternlight_house", pd)))]
     assert ("reference", "action strike [fail]: unknown condition 'shaken'") in found, found
+
+
+# ---------------------------------------------------------------- keys, names, consistency (T0.34)
+
+SCHEMA_DEFECTS = [
+    ("schema", lambda d: d["actions"][0].__setitem__("outcome_efects", d["actions"][0].pop("outcome_effects")),
+     "actions[strike]: unknown key 'outcome_efects'"),
+    ("schema", lambda d: d.__setitem__("actoins", []), "pack: unknown key 'actoins'"),
+    ("schema", lambda d: d["entity_model"]["stats"][0].__setitem__("rnage", [0, 3]),
+     "entity_model.stats[might]: unknown key 'rnage'"),
+    ("schema", lambda d: d["presentation"]["rule_cards"]["strike"].__setitem__("icon", "x"),
+     "rule card strike: unknown key 'icon'"),
+    ("schema", lambda d: d["vocabulary"].__setitem__("might", {"lable": "Might"}), "vocabulary.might: entries are"),
+    ("expression", lambda d: d["entity_model"].setdefault("derived", []).append({"id": "dodge", "expr": "mana * 2"}),
+     "derived dodge: unknown name 'mana'"),
+    ("expression", lambda d: d["actions"][0].__setitem__("requires", "actor.mana > 1"),
+     "action strike requires: unknown name 'actor.mana'"),
+    ("expression", lambda d: d["actions"][0].__setitem__("eligibility", "actor.conditions.shaken + mood"),
+     "action strike eligibility: unknown name 'mood'"),
+    ("expression", lambda d: d["progression"]["advances"][0].__setitem__("requires", "target.wit >= 1"),
+     "requires: unknown name 'target.wit'"),
+    ("expression", lambda d: d["entity_model"]["resources"][0].__setitem__("max", "10 + actor.mana"),
+     "resource vigor max: unknown name 'actor.mana'"),
+    ("consistency", lambda d: d["presentation"].__setitem__("rounding", "round"),
+     "presentation.rounding 'round' is not one of ceil, floor, half_up"),
+    ("consistency", lambda d: d["presentation"].__setitem__("assertion_terms", {"mana points": "mana"}),
+     "assertion term 'mana points' names 'mana'"),
+    ("consistency", lambda d: d["vocabulary"].__setitem__("mana", {"label": "Mana"}),
+     "vocabulary 'mana' names nothing the pack declares"),
+    ("consistency", lambda d: d["gm"].__setitem__("fudgeable_procedures", ["nope"]),
+     "gm.fudgeable_procedures: unknown procedure 'nope'"),
+    ("consistency", lambda d: d["entity_model"]["stats"][0].__setitem__("default", 99),
+     "stat might: default 99 is outside its range"),
+    ("consistency", lambda d: d["gm"]["meta_currencies"][0].update({"start": 9, "max": 3}),
+     "currency luck: start 9 must be an integer from 0 to its max 3"),
+    ("consistency", lambda d: d["actions"][-1]["cost"].update({"amounts": [1, 5], "range": [1, 2]}),
+     "spend amounts [5] are outside its range 1..2"),
+    ("consistency", lambda d: d["actions"][0].__setitem__("modes", ["combat"]), "modes are a list of free and encounter"),
+    ("consistency", lambda d: d["actions"][0].__setitem__("target", "everyone"), "target must be none, entity or zone"),
+]
+
+
+@pytest.mark.parametrize("code, defect, fragment", SCHEMA_DEFECTS, ids=[m[2][:40] for m in SCHEMA_DEFECTS])
+def test_misspelt_keys_unknown_names_and_contradictions_fail_lint(packs_dir, tmp_path, code, defect, fragment):
+    pd = _copy(packs_dir, tmp_path)
+    _edit(pd / "lanternlight" / "pack.yaml", defect)
+    found = [(f.code, f.message) for f in errors(lint(resolve("lanternlight", pd)))]
+    assert any(c == code and fragment in m for c, m in found), found
+
+
+def test_tactical_and_scene_names_are_known(packs_dir, tmp_path):
+    """Tactical rules may read their features; scene flags are open (the GM sets them)."""
+    pd = _copy(packs_dir, tmp_path)
+    _edit(pd / "lanternlight" / "pack.yaml", lambda d: d["actions"][0].__setitem__(
+        "requires", "scene.anything + actor.tags.marked + actor.region.cover.light + target.conditions.shaken"))
+    assert errors(lint(resolve("lanternlight", pd))) == []
+
+
+def test_a_currency_an_entity_does_not_hold_reads_zero(lantern):
+    """NPCs hold no personal currencies; a rule reading one sees 0, not an error."""
+    from conftest import new_campaign
+    eng = new_campaign(lantern)
+    eng.spawn_entity("foe", "Foe")
+    assert eng.view(eng.state["entities"]["foe"])["luck"] == 0

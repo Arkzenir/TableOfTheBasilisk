@@ -397,6 +397,7 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         out = self._derived(ent)
         out.update(ent["resources"])
         out.update(ent["tracks"])
+        out.update({c["id"]: 0 for c in self.pack.catalogue("gm.meta_currencies")})  # one not held reads 0
         out.update(self._currencies(ent))
         out["conditions"] = expr.Lenient({c: int(v.get("level", 1)) for c, v in ent["conditions"].items()})
         out["tags"] = expr.Lenient({t: 1 for t in ent["tags"]})

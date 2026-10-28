@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from . import decks, dice, expr, progression, rules, sheets, spatial, tactics, terms, timekeeping, turns
+from . import decks, dice, expr, packschema, progression, rules, sheets, spatial, tactics, terms, timekeeping, turns
 from .command import _suggest
 from .determinism import CONTROLS, ROLES, STRICT, expand
 from .effects import PRIMITIVES, RESERVED, TARGET_SYMBOLS, references
@@ -463,6 +463,12 @@ def lint(pack: ResolvedPack) -> list[Finding]:
                 expr.compile_expr(str(inv["limit_expr"]))
             except expr.ExprError as e:
                 err("inventory", f"limit_expr: {e}")
+    for problem in packschema.unknown_keys(pack):  # §2.3: a misspelt key is an error, not a missing rule
+        err("schema", problem)
+    for problem in packschema.name_problems(pack):
+        err("expression", problem)
+    for problem in packschema.consistency_problems(pack):
+        err("consistency", problem)
     for problem in terms.lint_terms(pack):
         err("excluded-term", problem)
     for problem in timekeeping.lint_time(pack):

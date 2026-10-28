@@ -187,6 +187,11 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** BUILD_PLAN P0.15.
 - **Acceptance:** BUILD_PLAN P0.15's test and its Gate P0 line.
 
+### T0.34 Third audit: misspelt keys, expression names, contradictions — `done`
+- **Plan:** P0.5, P0.7 · §2.3, §2.10 · D-049
+- **Deliverables:** `kernel/packschema.py`: unknown keys refused for every mapping §2.3 defines (and rule cards and vocabulary entries); every name an expression reads resolved where it is evaluated (an entity's own formulas, rules in play, tactical rules); presentation rounding, assertion terms, vocabulary ids, fudgeable procedures, stat defaults, currency starts, spend amounts, action modes and targets checked. Expressions read a currency the entity does not hold as 0.
+- **Acceptance:** a defect test for each in `tests/test_packs.py`; every shipped pack lint-clean; `tob check` passes.
+
 ### T0.33 Third audit: ids, leaks, reactions, errors, snapshots — `done`
 - **Plan:** P0.1, P0.3, P0.4, P0.10 · §5.2, §5.6, §7, P3 · from the third Phase 0 audit (2026-10-27), D-048
 - **Deliverables:** entity, clock, and scene ids checked (pattern, reserved names) and names non-empty, so state stays canonical; scene flags and spawned stats type-checked; errors from `commit_action` and `draw_card` name only what the caller can see, and point at `spawn_entity` (§5.2); `trigger: reaction` passes lint; reads name an unknown entity instead of raising `KeyError`; settings and canonical errors surface as `EngineError`; snapshots at every scene set, session start and end, and before every encounter; `Engine.load` checks the hash chain and resumes from the latest snapshot taken under the same pins.
