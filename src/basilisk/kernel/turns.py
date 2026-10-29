@@ -240,7 +240,8 @@ class TurnCommands:
         current = enc["current"]
         allowed = {self.state["entities"][e]["controller"] for e in self._members(current)}
         if self._role(by) != "gm" and by not in allowed:
-            raise EngineError(f"it is {current}'s turn; only its controller or the GM can end it")
+            raise EngineError(f"it is {self._shown(by, current) or 'someone else'}'s turn; "
+                              "only its controller or the GM can end it")
         if enc["order"] == "handoff":
             return self._handoff(current, by, next)
         if next is not None:
@@ -251,7 +252,7 @@ class TurnCommands:
             cause = self._start_round(enc["round"] + 1, None, by)
             index = 0
         self._start_turn(index, self._enc()["sequence"][index], by, cause)
-        return self.current_turn()
+        return self.current_turn(by)
 
     def _handoff(self, current: str, by: str, nxt: str | None) -> dict:
         enc = self._enc()
@@ -260,6 +261,10 @@ class TurnCommands:
         options = [e for e in enc["participants"] if e != current] if new_round else waiting
         if not options:  # a lone participant goes again
             options = [current]
+        if self._role(by) != "gm":  # a player hands off only to someone they can see (P3)
+            options = [e for e in options if self._shown(by, e)]
+            if not options:
+                raise EngineError("handoff: nobody you can see is waiting; the GM passes the turn")
         if nxt is None:
             raise EngineError(f"handoff: name who goes next: {', '.join(options)}")
         if nxt not in options:
@@ -268,7 +273,7 @@ class TurnCommands:
         cause = self._start_round(enc["round"] + 1, None, by) if new_round else None
         self._judge(mover, "turn_handoff", None, nxt, options, cause)
         self._start_turn(len(self._enc()["acted"]), nxt, by, cause)
-        return self.current_turn()
+        return self.current_turn(by)
 
     @atomic
     @gm_call()
@@ -283,7 +288,7 @@ class TurnCommands:
         if enc["order"] != "spotlight":
             raise EngineError(f"{enc['order']} order advances with end_turn")
         self._start_round(enc["round"] + 1, None, by)
-        return self.current_turn()
+        return self.current_turn(by)
 
     @atomic
     @gm_call()
@@ -295,10 +300,18 @@ class TurnCommands:
             raise EngineError("no encounter is running")
         self._emit("encounter_ended", {"round": self._enc()["round"]}, actor=by)
 
-    def current_turn(self) -> dict | None:
+    def _shown(self, seat: str | None, eid: str | None) -> str | None:
+        """The id as `seat` may see it: a side, or an entity it can see; else None."""
+        if eid is None or seat is None or eid in SIDES or self._role(seat) == "gm" or self.visible(seat, eid):
+            return eid
+        return None
+
+    def current_turn(self, seat: str | None = None) -> dict | None:
         """Whose turn it is, for the scheduler's Stage 1 bid (§4.1): the order,
         the round, the entity or side in play, the seats that may act, and the
-        budgets left. None outside an encounter."""
+        budgets left. None outside an encounter. With `seat`, entities that seat
+        cannot see are not named: the actor and up-next read as null (kind
+        `unseen`) and their budgets are left out (P3)."""
         enc = self._enc()
         if enc is None:
             return None
@@ -312,10 +325,14 @@ class TurnCommands:
                 up_next = enc["sequence"][nxt]
             elif not self._reorders_each_round():  # the next round opens in the same order
                 up_next = enc["sequence"][0]
-        return {"order": enc["order"], "economy": enc["economy"], "round": enc["round"], "actor": current,
-                "kind": None if current is None else ("side" if current in SIDES else "entity"),
-                "seats": seats, "up_next": up_next,
-                "budgets": {e: dict(enc["budgets"].get(e, {})) for e in (members or enc["participants"])}}
+        kind = None if current is None else ("side" if current in SIDES else "entity")
+        if current is not None and self._shown(seat, current) is None:
+            kind = "unseen"
+        return {"order": enc["order"], "economy": enc["economy"], "round": enc["round"],
+                "actor": self._shown(seat, current), "kind": kind, "seats": seats,
+                "up_next": self._shown(seat, up_next),
+                "budgets": {e: dict(enc["budgets"].get(e, {})) for e in (members or enc["participants"])
+                            if self._shown(seat, e)}}
 
     def _reorders_each_round(self) -> bool:
         ts = structure(self.pack)
@@ -341,7 +358,8 @@ class TurnCommands:
             return f"{entity_id} is not taking part in this encounter"
         if enc["order"] != "spotlight" and action.get("trigger") != "reaction" \
                 and entity_id not in self._members(enc["current"]):
-            return f"it is {enc['current']}'s turn, not {entity_id}'s; only reactions are allowed out of turn"
+            whose = self._shown(self.state["entities"][entity_id]["controller"], enc["current"]) or "someone else"
+            return f"it is {whose}'s turn, not {entity_id}'s; only reactions are allowed out of turn"
         cost = self._economy_cost(action)
         if cost is not None:
             key, amount = cost

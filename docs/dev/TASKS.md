@@ -187,6 +187,11 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** BUILD_PLAN P0.15.
 - **Acceptance:** BUILD_PLAN P0.15's test and its Gate P0 line.
 
+### T0.37 Leak sweep, effect parameters, formula maxima, canon speed — `done`
+- **Plan:** P0.4, P0.7, P0.9 · P3, §2.6, §2.10, §6.5 · D-052
+- **Deliverables:** every player-reachable command and read swept for hidden-entity names: `current_turn(seat)` and the results of `end_turn` and `next_round` hide unseen entities, out-of-turn and turn-ending errors say "someone else", a player hands off only to someone they can see; effect parameters closed per primitive (`OPTIONAL_PARAMS`); a resource `min` checked against a formula `max` at the stats' defaults and extremes; the dead post-merge duplicate-id checks removed; canon writes no longer rebuild the index (it extends in place) and near-collision checks only compare names whose length could match; command backups use a JSON-shaped copy instead of `deepcopy`; the session-open scan is incremental.
+- **Acceptance:** tests in `tests/test_robustness.py`; event streams and golden fixtures unchanged; `tob check` passes.
+
 ### T0.36 ARCHITECTURE 1.8 and BUILD_PLAN 1.7 — `done`
 - **Plan:** item 12 of the third audit · D-051
 - **Deliverables:** §2.3 chargen options, §2.5 example procedures as implemented, §2.8 `core.pool` marked later, §7.1 `rule_on_action`; BUILD_PLAN P0.12 describes the harness as built; revision notes in both. The kernel no longer reads the wall clock by default (timestamps come from the host).

@@ -160,3 +160,106 @@ def test_the_kernel_reads_no_wall_clock(lantern):
     assert {e["ts"] for e in eng.store.read(eng.campaign_id)} == {None}
     stamped = Engine.start_campaign(lantern, "stamped", {"seats": {"gm": "gm"}}, clock=lambda: "2026-10-28T00:00:00Z")
     assert {e["ts"] for e in stamped.store.read(stamped.campaign_id)} == {"2026-10-28T00:00:00Z"}
+
+
+# ---------------------------------------------------------------- T0.37: turns never name the unseen (P3)
+
+def _hidden_encounter(pack, order=None):
+    eng = Engine.start_campaign(pack, "unseen", {"seats": {"gm": "gm", "ash": "player", "bram": "player"}},
+                                clock=lambda: None)
+    eng.create_character("ash", "Ash", {"background": "soldier"})
+    eng.create_character("bram", "Bram", {"background": "scholar"})
+    eng.spawn_entity("lurker", "Lurker")
+    eng.start_session()
+    eng.set_scene("hall", encounter=True, regions=[{"id": "a"}], placements={"ash": "a", "bram": "a", "lurker": "a"})
+    eng.set_visibility("lurker", ["bram"])
+    if order == "fixed":
+        eng.start_encounter(["ash", "lurker", "bram"])
+    else:
+        eng.start_encounter(first="ash")
+    return eng
+
+
+def test_the_turn_view_hides_unseen_entities(packs_dir, tmp_path):
+    pack = _variant(packs_dir, tmp_path, "lanternlight", lambda d: d["turn_structure"]["encounter"].update(
+        {"order": "fixed"}))
+    eng = _hidden_encounter(pack, "fixed")
+    assert eng.current_turn("ash")["up_next"] is None and eng.current_turn("bram")["up_next"] == "lurker"
+    assert eng.current_turn()["up_next"] == "lurker"  # the scheduler's unscoped view
+    seen = eng.end_turn(by="ash")
+    assert seen["actor"] is None and seen["kind"] == "unseen" and "lurker" not in seen["budgets"]
+    with pytest.raises(EngineError) as err:
+        eng.commit_action("ash", "recall", gm={"difficulty": "easy"})
+    assert "someone else's turn" in str(err.value) and "lurker" not in str(err.value)
+    assert eng.current_turn("gm")["actor"] == "lurker"
+
+
+def test_a_player_hands_off_only_to_someone_they_see(packs_dir, tmp_path):
+    pack = _variant(packs_dir, tmp_path, "lanternlight", lambda d: d["turn_structure"]["encounter"].update(
+        {"order": "handoff", "economy": "none"}))
+    eng = _hidden_encounter(pack, "handoff")
+    assert eng.current_turn("ash")["actor"] == "ash"
+    with pytest.raises(EngineError) as err:
+        eng.end_turn(by="ash")
+    assert "lurker" not in str(err.value) and "bram" in str(err.value)
+    with pytest.raises(EngineError, match="No next participant 'lurker'"):
+        eng.end_turn(by="ash", next="lurker")
+    assert eng.end_turn(by="ash", next="bram")["actor"] == "bram"
+
+
+# ---------------------------------------------------------------- T0.37: lint and speed
+
+@pytest.mark.parametrize("edit, fragment", [
+    (lambda d: d["actions"][0]["outcome_effects"]["pass"][0].__setitem__("amont", 1),
+     "has no parameter 'amont'"),
+    (lambda d: d["entity_model"]["resources"][0].update({"min": 30}), "below its min 30"),
+])
+def test_misspelt_effect_parameters_and_impossible_maxima_fail_lint(packs_dir, tmp_path, edit, fragment):
+    found = [f.message for f in errors(lint(_variant(packs_dir, tmp_path, "lanternlight", edit)))]
+    assert any(fragment in m for m in found), found
+
+
+def test_the_incremental_canon_index_equals_a_fresh_build(lantern):
+    from basilisk.kernel.canon import CanonIndex
+    eng = lantern_table(lantern)
+    for n in range(60):
+        rec = {"id": f"f{n}", "type": "fact", "name": f"Rumour {n} of the {['north', 'mill', 'quay'][n % 3]}",
+               "body": "x", "origin": "prepped", "knowledge": "secret" if n % 4 == 3 else "revealed",
+               "depends_on": [f"f{n - 2}"] if n >= 2 else []}
+        if rec["knowledge"] == "secret":
+            rec["discovery_paths"] = ["ash"]
+        eng.write_canon(rec)
+        if n % 10 == 9:
+            eng.query_canon("players", "mill")
+    for scope in ("gm", "players"):
+        inc, fresh = eng._canon_index(scope), CanonIndex(eng.state["canon"], scope)
+        for field in ("records", "current", "aliases", "tokens", "graph", "predecessor"):
+            assert getattr(inc, field) == getattr(fresh, field), (scope, field)
+
+
+def test_near_collision_candidates_change_no_result():
+    import difflib
+    import random
+    from basilisk.kernel.canon import CanonIndex
+    rng = random.Random(7)
+    syllables = ["var", "ro", "the", "ka", "mir", "sel", "dun", "tor", "ash", "bel"]
+    records = {}
+    for n in range(300):
+        name = " ".join("".join(rng.choice(syllables) for _ in range(rng.randint(1, 4))) for _ in range(rng.randint(1, 2)))
+        records[f"r{n}"] = {"id": f"r{n}", "type": "npc", "name": name, "aliases": [], "body": "", "knowledge": "revealed",
+                            "depends_on": [], "discovery_paths": [], "origin": "prepped", "superseded_by": None}
+    index = CanonIndex(records, "gm")
+    for _ in range(200):
+        key = "".join(rng.choice(syllables) for _ in range(rng.randint(1, 5)))
+        everything = sorted(index.aliases)
+        assert difflib.get_close_matches(key, index.near_candidates(key, 0.85, None), n=3, cutoff=0.85) == \
+            difflib.get_close_matches(key, everything, n=3, cutoff=0.85)
+
+
+def test_plain_copy_is_a_deep_copy(lantern):
+    from basilisk.kernel.command import plain_copy
+    eng = lantern_table(lantern)
+    copied = plain_copy(eng.state)
+    assert copied == eng.state and hash_obj(copied) == eng.state_hash()
+    copied["entities"]["ash"]["stats"]["might"] = 99
+    assert eng.state["entities"]["ash"]["stats"]["might"] != 99

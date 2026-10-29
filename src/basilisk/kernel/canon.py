@@ -132,6 +132,51 @@ class CanonIndex:
                     graph[other].add(rid)
         self.graph = {rid: sorted(n) for rid, n in graph.items()}
         self._sorted_keys: tuple[list[str], list[str]] | None = None
+        self._lengths: dict[int, list[str]] | None = None
+
+    def near_candidates(self, key: str, cutoff: float, exclude: str | None) -> list[str]:
+        """Alias keys that could be within `cutoff` similarity of `key`, sorted:
+        those whose length passes difflib's own first test (`real_quick_ratio`),
+        so `get_close_matches` over them returns exactly what it would over
+        every key, in a fraction of the time."""
+        if self._lengths is None:
+            self._lengths = {}
+            for k in self.aliases:
+                self._lengths.setdefault(len(k), []).append(k)
+        la, out = len(key), []
+        for lb, keys in self._lengths.items():
+            if 2.0 * min(la, lb) / (la + lb) >= cutoff:
+                out += [k for k in keys if any(o != exclude for o in self.aliases[k])]
+        return sorted(out)
+
+    def extend(self, records: dict[str, dict], new_ids: list[str]) -> None:
+        """Add newly written records in place, when no stored record changed.
+        A new record is current, supersedes nothing, and depends only on older
+        records, so nothing already indexed is presented differently. The
+        result equals a fresh build (tested)."""
+        visible = {rid: r for rid, r in records.items() if self.scope == "gm" or r["knowledge"] != "secret"}
+        for rid in new_ids:
+            if rid not in visible:
+                continue
+            rec = self.records[rid] = self._present(records[rid], records, visible, self.scope)
+            self.current.append(rid)
+            for name in _names(rec):
+                for key in sorted(name_keys(name)):
+                    if key not in self.aliases and self._lengths is not None:
+                        self._lengths.setdefault(len(key), []).append(key)
+                    if rid not in self.aliases.setdefault(key, []):
+                        self.aliases[key].append(rid)
+                for word in tokens(name):
+                    if word not in FILLER:
+                        self.tokens.setdefault(word, set()).add(rid)
+            links = set()
+            for other in [*rec["depends_on"], *rec.get("discovery_paths", [])]:
+                other = self.successor(other)
+                if other in self.graph and other != rid:
+                    links.add(other)
+                    self.graph[other] = sorted(set(self.graph[other]) | {rid})
+            self.graph[rid] = sorted(links)
+        self._sorted_keys = None
 
     @staticmethod
     def _present(rec: dict, records: dict, visible: dict, scope: str) -> dict:
@@ -226,6 +271,10 @@ class CanonCommands:
         key = _fingerprint(records)
         cache = self.__dict__.setdefault("_derived_caches", {})
         hit = cache.get(("canon", scope))
+        if hit is not None and hit[0] != key and key[:len(hit[0])] == hit[0]:
+            hit[1].extend(records, [rid for rid, _, _ in key[len(hit[0]):]])  # only appended records
+            hit = (key, hit[1])
+            cache[("canon", scope)] = hit
         if hit is None or hit[0] != key:
             hit = (key, CanonIndex(records, scope))
             cache[("canon", scope)] = hit
@@ -247,13 +296,18 @@ class CanonCommands:
 
     def _session_open(self) -> bool:
         """True between `session_started` and `session_ended`. Read from the log
-        rather than folded state, so existing logs keep their state hash (D-011)."""
-        open_ = False
-        for ev in self.store.read(self.campaign_id):
+        rather than folded state, so existing logs keep their state hash (D-011).
+        Incremental: only events after the last scan are read (the cache is
+        dropped whenever a command rolls back)."""
+        cache = self.__dict__.setdefault("_derived_caches", {})
+        seq, open_ = cache.get("session_scan", (0, False))
+        for ev in self.store.read(self.campaign_id, after=seq):
             if ev["type"] == "session_started":
                 open_ = True
             elif ev["type"] == "session_ended":
                 open_ = False
+            seq = ev["seq"]
+        cache["session_scan"] = (seq, open_)
         return open_
 
     # ------------------------------------------------------------ validation
@@ -329,8 +383,8 @@ class CanonCommands:
             if owners:
                 raise EngineError(f"name {new_keys[key]!r} collides with canon record {owners[0]!r}; "
                                   "names are unique — reference that record by id, or choose a distinct name")
-        others = sorted(k for k, owners in gm.aliases.items() if any(o != replacing for o in owners))
         for key in sorted(new_keys):
+            others = gm.near_candidates(key, NEAR_CUTOFF / 100, replacing)
             for close in difflib.get_close_matches(key, others, n=3, cutoff=NEAR_CUTOFF / 100):
                 for owner in gm.aliases[close]:
                     if owner != replacing:

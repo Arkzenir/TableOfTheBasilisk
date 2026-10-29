@@ -20,6 +20,12 @@ Rewritten at the end of every work session, so the next session — any agent or
   - **T0.34** (D-049): `kernel/packschema.py` refuses misspelt keys, expression names that would not exist at run time, and contradictory values. Expressions read an unheld currency as 0.
   - **T0.35** (D-050): chargen choices grant starting items and currencies; the GM can substitute a fiction-triggered move (`rule_on_action.substitute`).
   - **T0.36** (D-051): ARCHITECTURE 1.8 and BUILD_PLAN 1.7 text.
+  - **T0.37** (D-052):
+    - A full leak sweep; the turn order no longer names unseen entities.
+    - Effect parameters are closed per primitive.
+    - A resource `min` is checked against a formula `max`.
+    - Dead duplicate checks are removed.
+    - Canon writes are fast at scale (incremental index, length-filtered near-collision check), and command backups use a faster copy.
 - **T0.32** (D-047): `holder: gm` is one pool on the GM's side, fed from anyone's effect with `target: gm`; currencies take a `visible` flag; `lethality_levers` is a reserved warning. ARCHITECTURE 1.7 applied (REV-ARCH-1.7 approved as proposed).
 - **T0.31** (D-046), from the second audit:
   - `gm_rolls: false` is enforced: no GM-side entity rolls (Tidewrack's NPCs could).
@@ -47,7 +53,7 @@ Rewritten at the end of every work session, so the next session — any agent or
 
 Refreshed 2026-10-26 after T0.24 to T0.28. Every item below was run on the development desktop:
 
-- `tob check`: **GATE: PASS** in about 30 s (budget 60 s). It runs the noun lint, pack lint for 9 packs, verified smoke campaigns on the 6 playable packs, and pytest with **600 tests passed** (after T0.36; the gate took 60 to 70 s on a loaded machine where it had taken 30 s, and the pre-T0.33 code measured 56 s in the same conditions).
+- `tob check`: **GATE: PASS** in about 30 s (budget 60 s). It runs the noun lint, pack lint for 9 packs, verified smoke campaigns on the 6 playable packs, and pytest with **607 tests passed** (after T0.37). On 2026-10-29 the machine was loaded: the gate took 69 s against its 60 s budget, but the pre-T0.33 code took 57 s for 542 tests in the same conditions (30 s when idle), so time per test is unchanged.
 - `tob pack lint`: 0 errors and 0 warnings on every pack, every pack strict-ready on every control. Hook counts: 2 in `lanternlight_hooked`, 0 elsewhere. Rules text (P0.6): Lanternlight inline ~167 of 30,000 tokens, Tidewrack ~103, the sectioned variant's digest ~69 of 6,000 with 12 sections.
 
 "Both packs" means the two kernel test games from different families, `lanternlight` (roll-over) and `tidewrack` (banded) (BUILD_PLAN P0.6). The four derivatives are also run.

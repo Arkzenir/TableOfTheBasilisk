@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from . import decks, dice, expr, packschema, progression, rules, sheets, spatial, tactics, terms, timekeeping, turns
 from .command import _suggest
 from .determinism import CONTROLS, ROLES, STRICT, expand
-from .effects import PRIMITIVES, RESERVED, TARGET_SYMBOLS, references
+from .effects import OPTIONAL_PARAMS, PRIMITIVES, RESERVED, TARGET_SYMBOLS, references
 from .packs import ResolvedPack
 from .tools import generate
 
@@ -138,15 +138,8 @@ def lint(pack: ResolvedPack) -> list[Finding]:
     if any(f.level == "error" for f in out):
         return out
 
-    # duplicate ids --------------------------------------------------------
-    for cat in ("entity_model.stats", "entity_model.derived", "entity_model.resources",
-                "entity_model.tracks", "entity_model.conditions", "resolution.outcome_scales",
-                "resolution.procedures", "resolution.difficulty_ladders", "resolution.situational_tags",
-                "actions", "gm.meta_currencies", "gm.consequence_tables", "randomizers.tables"):
-        ids = [i["id"] for i in pack.catalogue(cat)]
-        dupes = {i for i in ids if ids.count(i) > 1}
-        if dupes:
-            err("duplicate-id", f"{cat}: {sorted(dupes)}")
+    # Duplicate ids are refused per pack file when the pack loads (packs.py,
+    # D-046): after the merge a catalogue cannot hold one id twice.
 
     stats = pack.by_id("entity_model.stats")
     resources = pack.by_id("entity_model.resources")
@@ -273,6 +266,10 @@ def lint(pack: ResolvedPack) -> list[Finding]:
                 if rolls and not pack.get("gm.gm_rolls", True) and where.startswith(("track ", "resource ")):
                     err("effect", f"{where}: any entity can reach this, and a GM-side one would have to roll "
                                   f"{e.get('procedure')}, but the GM never rolls (gm.gm_rolls: false)")
+        extra = sorted(set(e) - {"primitive"} - set(PRIMITIVES[prim]) - OPTIONAL_PARAMS.get(prim, set()))
+        if extra:  # a misspelt key would be ignored, so it is an error (§2.6)
+            allowed = sorted(set(PRIMITIVES[prim]) | OPTIONAL_PARAMS.get(prim, set()))
+            err("effect", f"{where}: {prim} has no parameter {extra[0]!r}; its parameters are {', '.join(allowed)}")
         missing = [p for p in PRIMITIVES[prim] if p not in e]
         if missing:
             err("effect", f"{where}: {prim} is missing {missing}")
@@ -438,11 +435,6 @@ def lint(pack: ResolvedPack) -> list[Finding]:
     for b in bands:
         if not isinstance(b, dict) or not spatial.ID_RE.match(str(b.get("id", ""))) or not b.get("label"):
             err("spatial", f"band {b!r}: needs a lowercase id and a label")
-    for key in ("terrain", "cover", "bands"):
-        ids = [v.get("id") for v in spatial.values(pack, key)]
-        dupes = {i for i in ids if ids.count(i) > 1}
-        if dupes:
-            err("duplicate-id", f"spatial.{key}: {sorted(dupes)}")
 
     for problem in tactics.lint_profile(pack):
         err("tactical-profile", problem)

@@ -215,6 +215,24 @@ def _int(value) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
+def _stat_samples(pack):
+    """(label, stats with derived values) at the stats' defaults, their lowest,
+    and their highest values, for checking formulas statically."""
+    stats = pack.catalogue(f"{E_}.stats")
+    picks = [("their defaults", lambda s: s.get("default", 0))]
+    if all(s.get("range") for s in stats):
+        picks += [("their lowest", lambda s: s["range"][0]), ("their highest", lambda s: s["range"][1])]
+    rounding = pack.get("presentation.rounding", "floor")
+    for label, pick in picks:
+        own = {s["id"]: int(pick(s)) for s in stats}
+        try:
+            for d in pack.catalogue(f"{E_}.derived"):
+                own[d["id"]] = expr.evaluate(d["expr"], {**own, "actor": own}, rounding)
+        except expr.ExprError:
+            return
+        yield label, own
+
+
 def consistency_problems(pack) -> list[str]:
     """References and ranges the other lints do not cover (§2.3, §2.10)."""
     out = []
@@ -247,9 +265,20 @@ def consistency_problems(pack) -> list[str]:
         default = s.get("default", 0)
         if lo is not None and _int(default) and not lo <= default <= hi:
             out.append(f"stat {s['id']}: default {default} is outside its range {lo}..{hi}")
+    rounding_ok = rounding in expr.ROUNDING
     for r in pack.catalogue(f"{E_}.resources"):
         if _int(r.get("min")) and _int(r.get("max")) and r["min"] > r["max"]:
             out.append(f"resource {r['id']}: min {r['min']} is above max {r['max']}")
+        elif _int(r.get("min")) and isinstance(r.get("max"), str) and rounding_ok:
+            for label, own in _stat_samples(pack):  # a formula maximum, at the stats' extremes
+                try:
+                    cap = expr.evaluate(r["max"], {**own, "actor": own}, rounding)
+                except expr.ExprError:
+                    break  # the name and syntax lints report it
+                if r["min"] > cap:
+                    out.append(f"resource {r['id']}: max {r['max']!r} is {cap} with stats at {label}, "
+                               f"below its min {r['min']}")
+                    break
     for c in pack.catalogue("gm.meta_currencies"):
         start, cap = c.get("start", 0), c.get("max")
         if not _int(start) or start < 0 or (_int(cap) and start > cap):

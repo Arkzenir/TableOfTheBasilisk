@@ -38,6 +38,12 @@ PRIMITIVES: dict[str, tuple[str, ...]] = {
     "request_gm_ruling": ("table",),
 }
 
+# primitive -> optional parameters; anything else on an effect is a lint error.
+OPTIONAL_PARAMS: dict[str, set[str]] = {
+    "remove_condition": {"levels"},  # lower a stacked condition by some levels
+    "trigger_procedure": {"target", "stat", "against", "difficulty", "outcome_effects"},
+}
+
 # Defined by the architecture but not yet implemented by this kernel build: none.
 RESERVED: set[str] = set()
 

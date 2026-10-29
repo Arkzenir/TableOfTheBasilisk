@@ -22,6 +22,17 @@ class EngineError(ValueError):
     pass
 
 
+def plain_copy(value: Any) -> Any:
+    """A deep copy of JSON-shaped data (dicts, lists, scalars), several times
+    faster than `copy.deepcopy`. Engine state is always this shape: it is folded
+    from canonical events (§5.6)."""
+    if isinstance(value, dict):
+        return {k: plain_copy(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [plain_copy(v) for v in value]
+    return value
+
+
 ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,79}$")
 # Names the engine itself uses for sides and actors (§2.4 turn order, §5.7 actor):
 # an entity, clock, or scene with one of these ids would be ambiguous.
@@ -86,7 +97,7 @@ def atomic(fn):
     def wrapper(self, *args, **kwargs):
         if self._atomic_depth:
             return fn(self, *args, **kwargs)
-        backup = copy.deepcopy(self.state)
+        backup = plain_copy(self.state)
         self.store.begin()
         self._atomic_depth += 1
         try:
