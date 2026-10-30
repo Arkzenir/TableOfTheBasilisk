@@ -596,3 +596,28 @@ Template:
   - `current_turn(seat)`.
 
   A player views from its own entity in the scene, and the GM from a named entity or from none (positions only). It writes nothing. The tool is present wherever a spatial backend is declared, and the GM's takes `entity_id`. It counts as a read in the GM-call coverage test.
+
+## D-059 Point-buy chargen; lighting per region (T0.42)
+- Date: 2026-10-30 · Status: accepted (REV-ARCH-1.10 sections G and H, approved as recommended).
+- **Points step (§1.5):** `{id, kind: points, targets, pool, range: [min, max], cost, exact}`.
+  - **Cost:** `cost` is a cost per point above the range's low end (default 1), or a list of costs, one per value from the low end up. The proposal's `{value: cost}` table would have had integer keys, which the canonical pack hash refuses, so a list it is.
+  - **Choice and checks:** the agent supplies `{stat: value}` for every target. Each value must be in range, and the total must spend the pool exactly, or at most the pool with `exact: false`.
+  - **Logging:** the allocation is a `judgement_input` (`chargen_points`) whose options are the pool, range, cost, and `exact`.
+  - **Lint:**
+    - targets are stats;
+    - the range sits inside each target's own range;
+    - the pool is a non-negative integer;
+    - a cost list has one non-negative entry per value and never falls;
+    - `exact` is a boolean;
+    - an exact pool can be spent within the range, and the kernel's own allocation reaches it.
+- **`allocate_points(step, order)`:** a legal allocation for scripted actors and generated tests. Every target starts low and rises one at a time, in the given order, while the pool allows.
+  - The smoke harness and both chargen generators use it, so a pack with a points step gets the same 1,000-character property test as any other.
+  - There is no chargen tool yet; Session 0's chargen surface is P3.1, and it will bound each value as an enum.
+- **No shipped pack uses a points step.** The proposal suggested `lanternlight_house`, but its `assign` step is part of Gate P0 item 12's evidence and of the assign tests, so it stays. The step is proven on a test variant of Lanternlight, including 1,000 allocations.
+- **Lighting (§8.2):** a pack declares `spatial.lighting: [{id, label}]`, and a zone scene's regions may set `lighting`.
+  - A region carries the field only when it is set, so older scene payloads fold the same.
+  - Rules read `actor.region.lighting.<id>` and `target.region.lighting.<id>` (0 where unset), the GM's `set_scene` tool offers the values as an enum, and `get_tactical_view` shows them.
+  - Lanternlight declares bright, dim, and dark, and its `dim_light` tag now derives from `scene.dim or actor.region.lighting.dim`.
+  - The smoke script lights its far region where the pack declares lighting, and the golden fixtures were regenerated.
+  - A mid-scene change of light is not built; the next scene can relight.
+- **Gate time:** on 2026-10-30 the machine was loaded. The gate took 78 s against its 60 s budget, and the T0.39 code took 67 s for 676 tests in the same conditions (33 s when it was committed). The 56 new tests add about 7 s.

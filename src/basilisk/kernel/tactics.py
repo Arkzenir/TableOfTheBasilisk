@@ -136,12 +136,14 @@ class TacticalCommands:
 
     def _region_view(self, actor_id: str, at: str | None) -> dict:
         """The region an entity stands in (or would stand in at `at`), for
-        expressions: elevation, terrain, cover. Neutral where a backend has no regions."""
+        expressions: elevation, terrain, cover, lighting. Neutral where a backend has no regions."""
         spatial = self._spatial()
         region = self._backend(spatial).region(spatial, self.state["entities"], actor_id, at) if spatial else None
         if region is None:
-            return expr.Lenient({"elevation": 0, "terrain": expr.Lenient(), "cover": expr.Lenient()})
+            return expr.Lenient({"elevation": 0, "terrain": expr.Lenient(), "cover": expr.Lenient(),
+                                 "lighting": expr.Lenient()})
         return expr.Lenient({"elevation": region["elevation"],
+                             "lighting": expr.Lenient({region["lighting"]: 1} if region.get("lighting") else {}),
                              "terrain": expr.Lenient({region["terrain"]: 1} if region["terrain"] else {}),
                              "cover": expr.Lenient({region["cover"]: 1} if region["cover"] else {})})
 

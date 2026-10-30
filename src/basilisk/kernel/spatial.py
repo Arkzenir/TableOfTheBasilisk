@@ -36,11 +36,11 @@ PASSIVE_EVENTS = frozenset({"move_provoked"})  # recorded, never folded
 
 MAX_REGIONS = 64       # kernel settings; larger scenes belong to a different backend
 MAX_PARTICIPANTS = 16
-REGION_FIELDS = ("id", "label", "adjacency", "terrain", "elevation", "cover")
+REGION_FIELDS = ("id", "label", "adjacency", "terrain", "elevation", "cover", "lighting")
 
 
 def values(pack, key: str) -> list[dict]:
-    """A pack's spatial catalogue (`terrain`, `cover`, `bands`); empty under `spatial: none`."""
+    """A pack's spatial catalogue (`terrain`, `cover`, `lighting`, `bands`); empty under `spatial: none`."""
     spatial = pack.get("spatial")
     return list(spatial.get(key) or []) if isinstance(spatial, dict) else []
 
@@ -120,7 +120,7 @@ class ZoneGraph(SpatialBackend):
             raise EngineError("regions must be a non-empty list of {id, label, adjacency}")
         if len(regions) > MAX_REGIONS:
             raise EngineError(f"a zone scene has at most {MAX_REGIONS} regions, got {len(regions)}")
-        allowed = {key: {v["id"]: v for v in values(pack, key)} for key in ("terrain", "cover")}
+        allowed = {key: {v["id"]: v for v in values(pack, key)} for key in ("terrain", "cover", "lighting")}
         out: dict[str, dict] = {}
         for raw in regions:
             if not isinstance(raw, dict):
@@ -135,7 +135,7 @@ class ZoneGraph(SpatialBackend):
                 raise EngineError(f"region {rid!r} is listed twice")
             region = {"id": rid, "label": str(raw.get("label") or rid), "adjacency": [],
                       "terrain": None, "elevation": 0, "cover": None}
-            for key in ("terrain", "cover"):
+            for key in ("terrain", "cover", "lighting"):  # lighting is written only when set (§8.2)
                 value = raw.get(key)
                 if value is not None:
                     if value not in allowed[key]:

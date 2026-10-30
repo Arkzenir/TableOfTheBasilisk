@@ -23,6 +23,7 @@ from ..kernel.canonical import hash_obj
 from ..kernel.clocks import limits as clock_limits
 from ..kernel.determinism import STANDARD, STRICT
 from ..kernel.engine import Engine, EngineError, fold
+from ..kernel.entities import allocate_points
 from ..kernel.events import EventStore
 from ..kernel.packs import ResolvedPack, resolve
 from ..kernel.rng import Randomizer
@@ -234,6 +235,10 @@ def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
                 taken = set(engine.state["chargen_taken"].get(step["id"], []))
                 opts = [o["id"] for o in step["options"] if o["id"] not in taken]
                 choices[step["id"]] = opts[0]
+            elif step["kind"] == "points":  # each player raises the stats in a different order
+                targets = list(step["targets"])
+                shift = n % len(targets)
+                choices[step["id"]] = allocate_points(step, targets[shift:] + targets[:shift])
             elif step["kind"] == "assign":  # each player rotates the array differently
                 values = list(step["values"])
                 shift = n % len(values)
@@ -260,7 +265,11 @@ def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
 
     def open_scene(scene_id: str, flags: dict, encounter: bool) -> None:
         if "zone_graph" in backends:
-            engine.set_scene(scene_id, flags=flags, encounter=encounter, regions=SMOKE_REGIONS, placements=placements)
+            regions = [dict(r) for r in SMOKE_REGIONS]
+            light = [v["id"] for v in engine.pack.get("spatial.lighting") or []]
+            if light:  # the far side is lit differently (§8.2)
+                regions[-1]["lighting"] = light[min(1, len(light) - 1)]
+            engine.set_scene(scene_id, flags=flags, encounter=encounter, regions=regions, placements=placements)
         elif "range_bands" in backends:
             bands = [b["id"] for b in engine.pack.get("spatial.bands")]
             everyone = sorted(engine.state["entities"])

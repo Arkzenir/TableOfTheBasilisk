@@ -183,7 +183,7 @@ Each section gives the problem, the options, a recommendation (⚑ marks the dec
 **Options:**
 1. **(Recommended) A `points` step kind.**
    - **Shape:** `{id, kind: points, targets, pool, range: [min, max], cost}`.
-   - **`cost`:** a cost per point (default 1), or a table `{value: cost}` for rising costs.
+   - **`cost`:** a cost per point (default 1), or a table `{value: cost}` for rising costs. *As built (D-059): a list of costs, one per value from the range's low end up, since the canonical pack hash takes only string keys.*
    - **The agent's choice:** it supplies `{stat: value}` for every target.
    - **Checks:** each value is in range, and the total cost equals `pool`. `exact: false` allows spending less.
    - **Logging:** the allocation is a `judgement_input`.

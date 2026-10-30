@@ -399,6 +399,7 @@ class Engine(EntityCommands, CurrencyCommands, ResolutionCommands, EffectCommand
         if ent is None:  # no entity: every field reads 0, nested ones too (target.region.cover.x)
             return expr.Lenient({"conditions": expr.Lenient(), "tags": expr.Lenient(),
                                  "region": expr.Lenient({"elevation": 0, "terrain": expr.Lenient(),
+                                                         "lighting": expr.Lenient(),
                                                          "cover": expr.Lenient()})})
         out = self._derived(ent)
         out.update(ent["resources"])

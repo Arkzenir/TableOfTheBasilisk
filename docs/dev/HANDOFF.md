@@ -4,12 +4,33 @@ Rewritten at the end of every work session, so the next session — any agent or
 
 ## Current state (2026-10-30)
 
-- **Phase 0 is closed. Gate P0 was signed off by the owner on 2026-10-26** (T0.13, D-042). Every build step P0.1 to P0.15 is done, and every gate item is ticked here and in BUILD_PLAN. Four audits after sign-off found gaps, all now fixed: T0.29, T0.31 and T0.32, T0.33 to T0.37 (the third, from scratch), and T0.38 (the fourth, from the ground up, 2026-10-29). Its one design gap, the encounter roster, was approved and built as T0.39 (REV-ARCH-1.9). No gate item changed. **Track 1 is next.** See `ROADMAP.md`.
-- **Design:** ARCHITECTURE 1.9 (§2.3 and §5.7 as built; 1.7 corrected the `gm` block, 1.8 the chargen kit, §2.5 examples, §2.8 baselines, and §7.1's GM ruling, 1.9 the encounter roster and clock limits) and BUILD_PLAN 1.7 (Gate P0 signed off; P0.12 as built). The broadcast pack is the SRD 5.1 under CC-BY 4.0, written last (P4.0). Track 0 is finished before Track 1. Anthropic is the first provider. See D-012 to D-015.
+- **Phase 0 is closed. Gate P0 was signed off by the owner on 2026-10-26** (T0.13, D-042). Every build step P0.1 to P0.15 is done, and every gate item is ticked here and in BUILD_PLAN. Five audits after sign-off found gaps, all now fixed or built:
+  - T0.29;
+  - T0.31 and T0.32;
+  - T0.33 to T0.37 (the third, from scratch);
+  - T0.38 and T0.39 (the fourth, from the ground up, with REV-ARCH-1.9);
+  - T0.40 to T0.42 (the fifth, P0 completeness against its own design, with REV-ARCH-1.10).
+
+  No gate item changed. **Track 1 is next.** See `ROADMAP.md`.
+- **Design:** ARCHITECTURE 1.10 (§2.3 and §5.7 as built; 1.7 corrected the `gm` block, 1.8 the chargen kit, §2.5 examples, §2.8 baselines, and §7.1's GM ruling, 1.9 the encounter roster and clock limits, 1.10 the fifth audit's eight gaps) and BUILD_PLAN 1.7 (Gate P0 signed off; P0.12 as built). The broadcast pack is the SRD 5.1 under CC-BY 4.0, written last (P4.0). Track 0 is finished before Track 1. Anthropic is the first provider. See D-012 to D-015.
 - **Git:** `main` tracks `origin/main` (github.com/Arkzenir/TableOfTheBasilisk). Hooks are installed: pre-commit runs `tob check --quick`; pre-push refuses uncommitted changes to tracked files, then runs the full gate.
 
-## What changed this session (owner decisions on the 1.6 draft, sign-off, four audits)
+## What changed this session (owner decisions on the 1.6 draft, sign-off, five audits)
 
+- **Fifth audit** (P0 completeness against its own design, 2026-10-30). The owner approved REV-ARCH-1.10 as recommended; it was applied as ARCHITECTURE 1.10 and built in three tasks:
+  - **T0.40** (D-057):
+    - `roll_table` rolls lookup tables in play, for the GM, and for players where a table is `players_roll`.
+    - Time advances within per-unit limits (default 1 to 12 per call).
+    - `conclude_campaign` reveals the seed into the log and ends play; the log then verifies itself.
+    - Numeric tool enums sort by value.
+  - **T0.41** (D-058):
+    - Entities are `npc` or `prop`. Props never take turns unless joined and never roll, and scenery (`interactable: false`) cannot be targeted.
+    - `entity_model.templates` are stat blocks the GM spawns by id, so no number crosses the tool.
+    - `get_tactical_view` shows the encounter board.
+  - **T0.42** (D-059):
+    - A `points` chargen step for point-buy, with costs per point or a list per value.
+    - Lighting is a region value that rules read.
+  - Golden fixtures were regenerated for each, as the smoke script now exercises all of it.
 - **T0.39** (D-056, ARCHITECTURE 1.9; the owner approved REV-ARCH-1.9 as recommended):
   - The GM adds an entity to a running encounter (`join_encounter`) or takes one out (`leave_encounter`: defeated, fled or removed), and each turn order places a joiner its own way.
   - Clock limits are pack data (`clocks`: segments, advance, schedule intervals), with the old bounds as kernel defaults.
@@ -65,7 +86,7 @@ Rewritten at the end of every work session, so the next session — any agent or
 
 Refreshed 2026-10-26 after T0.24 to T0.28. Every item below was run on the development desktop:
 
-- `tob check`: **GATE: PASS** in about 30 s (budget 60 s). It runs the noun lint, pack lint for 9 packs, verified smoke campaigns on the 6 playable packs, and pytest with **676 tests passed** (after T0.39, 33 s). On 2026-10-29 the machine was loaded: the gate took 69 s against its 60 s budget, but the pre-T0.33 code took 57 s for 542 tests in the same conditions (30 s when idle), so time per test is unchanged.
+- `tob check`: **GATE: PASS** in about 30 s (budget 60 s). It runs the noun lint, pack lint for 9 packs, verified smoke campaigns on the 6 playable packs, and pytest with **732 tests passed** (after T0.42). On 2026-10-30 the machine was loaded: the gate took 78 s, and the T0.39 code took 67 s in the same conditions (33 s when committed), so the 56 new tests add about 7 s. On 2026-10-29 the machine was loaded: the gate took 69 s against its 60 s budget, but the pre-T0.33 code took 57 s for 542 tests in the same conditions (30 s when idle), so time per test is unchanged.
 - `tob pack lint`: 0 errors and 0 warnings on every pack, every pack strict-ready on every control. Hook counts: 2 in `lanternlight_hooked`, 0 elsewhere. Rules text (P0.6): Lanternlight inline ~167 of 30,000 tokens, Tidewrack ~103, the sectioned variant's digest ~69 of 6,000 with 12 sections.
 
 "Both packs" means the two kernel test games from different families, `lanternlight` (roll-over) and `tidewrack` (banded) (BUILD_PLAN P0.6). The four derivatives are also run.
@@ -98,8 +119,8 @@ Refreshed 2026-10-26 after T0.24 to T0.28. Every item below was run on the devel
 
 ## Open questions for the owner
 
-1. **REV-ARCH-1.10** was approved as recommended and applied as ARCHITECTURE 1.10. T0.40 (tables in play, time limits, concluding a campaign) and T0.41 (props, templates, tactical view) are built. T0.42 (point-buy, region lighting) is next.
-2. **D-045:** whether the Phase 0 audits now count as complete (the fourth is fixed by T0.38 and T0.39; the fifth is REV-ARCH-1.10; BUILD_PLAN §0.4's pre-build checklist is the owner's).
+1. **D-045:** whether the Phase 0 audits now count as complete. The fourth is fixed by T0.38 and T0.39, and the fifth is built as T0.40 to T0.42. BUILD_PLAN §0.4's pre-build checklist is the owner's.
+2. **Point-buy in a shipped pack:** no shipped pack uses the `points` step. `lanternlight_house` kept its `assign` step, which Gate P0 item 12 cites (D-059). Should a demo pack carry one?
 3. **Re-audit when the P0 architecture is finalised:** Gate item 8 (structural evidence only) and the hook return shape (D-033: point-specific results rather than `[events]`).
 4. **When `KERNEL_VERSION` moves:** decided to wait (D-045). It stays `0.1.0` until every Phase 0 audit returns complete; then the owner sets the bump and the policy.
 5. Before T1.5's live tests, the Anthropic API key, set as an environment variable.

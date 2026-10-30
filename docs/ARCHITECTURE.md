@@ -434,7 +434,7 @@ system_pack:
     advances:   [{ id, label, stats: { stat: delta }, tags, requires, once }]
   chargen:      { steps: [{ id, kind: roll | choice | assign | table | points,
                             targets, roll, options, values, table, pool, range, cost, exact, unique_per_table }] }
-                # points: allocate a pool over targets, each within range, at cost per point or a {value: cost} table
+                # points: allocate a pool over targets, each within range, at cost per point or a list of costs per value
                 # options: [{ id, label, stats, tags, items, currencies }]   # starting kit (§1.5)
 
   spatial:

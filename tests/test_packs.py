@@ -128,7 +128,7 @@ MORE_DEFECTS = [
     ("chargen", _assign(targets=["might", "grace"], values=[1]), "needs one value per target (1 values, 2 targets)"),
     ("chargen", _assign(targets=["might"], values=[99]), "value 99 is outside might's range"),
     ("chargen", lambda d: d["chargen"]["steps"].append({"id": "dance", "kind": "dance"}),
-     "kind must be roll, choice, assign or table"),
+     "kind must be roll, choice, assign, table or points"),
     ("rules-text", lambda d: d["rules_text"].__setitem__("full_text", "word " * 30_000),
      "inline rules text is ~37500 tokens; budget 30000"),
 ]

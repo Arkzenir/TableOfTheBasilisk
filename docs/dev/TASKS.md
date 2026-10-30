@@ -187,13 +187,13 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** BUILD_PLAN P0.15.
 - **Acceptance:** BUILD_PLAN P0.15's test and its Gate P0 line.
 
-### T0.42 Point-buy chargen; lighting per region — `ready`
+### T0.42 Point-buy chargen; lighting per region — `done`
 - **Plan:** P0.8, P0.10 · §1.5, §2.3, §8.2 · REV-ARCH-1.10 sections G and H
 - **Deliverables:**
   - a `points` chargen step (pool, ranges, cost per point or table, `exact`), linted, with its tool schema;
   - `spatial.lighting` region values, readable as `region.lighting.<id>`;
-  - `lanternlight_house` uses a points step, and lanternlight's dim light derives per region.
-- **Acceptance:** tests per section; golden fixtures regenerated deliberately; `tob check` passes.
+  - lanternlight's dim light derives per region. As built, no shipped pack uses a points step: `lanternlight_house` keeps its `assign` step, which Gate P0 item 12 cites (D-059).
+- **Acceptance:** `tests/test_points_and_lighting.py`; golden fixtures regenerated (Lanternlight's lighting); `tob check` passes. D-059.
 
 ### T0.41 Props, entity templates, the tactical view — `done`
 - **Plan:** P0.3, P0.10 · §2.3, §5.2, §7.1, §8.2 · REV-ARCH-1.10 sections B, C and D

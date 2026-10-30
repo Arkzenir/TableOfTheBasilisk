@@ -55,7 +55,7 @@ def _difficulty_schema(pack: ResolvedPack, mode: str) -> dict | None:
 
 def _region_schema(pack: ResolvedPack) -> dict:
     region: dict[str, Any] = {"id": ID, "label": NARRATIVE, "adjacency": {"type": "array", "items": ID}}
-    for key in ("terrain", "cover"):
+    for key in ("terrain", "cover", "lighting"):
         values = [v["id"] for v in spatial.values(pack, key)]
         if values:
             region[key] = _enum(values)

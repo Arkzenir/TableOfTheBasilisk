@@ -7,6 +7,7 @@ import pytest
 
 from basilisk.kernel.canonical import hash_obj
 from basilisk.kernel.engine import Engine, EngineError
+from basilisk.kernel.entities import allocate_points
 from basilisk.kernel.packs import discover, resolve
 from conftest import PACKS
 
@@ -27,6 +28,10 @@ def random_choices(pack, rng, taken):
             out[step["id"]] = rng.choice(opts)
             if step.get("unique_per_table"):
                 taken.add(out[step["id"]])
+        elif step["kind"] == "points":  # raise the stats in a random order
+            order = list(step["targets"])
+            rng.shuffle(order)
+            out[step["id"]] = allocate_points(step, order)
         elif step["kind"] == "assign":
             values = list(step["values"])
             rng.shuffle(values)

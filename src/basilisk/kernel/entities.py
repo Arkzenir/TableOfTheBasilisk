@@ -16,6 +16,79 @@ from . import expr
 from .command import EngineError, _suggest, atomic, check_id, check_name, gm_call
 
 KINDS = ("npc", "prop")
+
+
+# ---------------------------------------------------------------- point-buy chargen (§1.5)
+
+def point_cost(step: dict, value: int) -> int:
+    """What one stat at `value` costs in a `points` step: `cost` per point above
+    the range's low end, or, when `cost` is a list, its entry for the value
+    (one cost per value, from the range's low end up)."""
+    cost = step.get("cost", 1)
+    if isinstance(cost, list):
+        return int(cost[value - step["range"][0]])
+    return (value - step["range"][0]) * int(cost)
+
+
+def allocate_points(step: dict, order: list[str] | None = None) -> dict[str, int]:
+    """A legal allocation for a `points` step: every target starts low, then
+    one target at a time (in `order`) rises while the pool allows. For
+    scripted actors and generated tests; agents choose their own."""
+    lo, hi = step["range"]
+    order = list(order or step["targets"])
+    alloc = {t: lo for t in step["targets"]}
+    spent = sum(point_cost(step, lo) for _ in step["targets"])
+    raised = True
+    while raised:
+        raised = False
+        for t in order:
+            if alloc[t] < hi:
+                extra = point_cost(step, alloc[t] + 1) - point_cost(step, alloc[t])
+                if spent + extra <= step["pool"]:
+                    alloc[t] += 1
+                    spent += extra
+                    raised = True
+    return alloc
+
+
+def lint_points(step: dict, stats: dict) -> list[str]:
+    """Problems in one `points` chargen step, for pack lint (§2.10)."""
+    where, out = f"step {step.get('id')}", []
+    targets = step.get("targets") or []
+    if not targets:
+        out.append(f"{where}: a points step needs targets")
+    for target in targets:
+        if target not in stats:
+            out.append(f"{where}: " + _suggest("stat", target, stats))
+    rng, pool, cost = step.get("range"), step.get("pool"), step.get("cost", 1)
+    if not (isinstance(rng, list) and len(rng) == 2 and all(isinstance(v, int) and not isinstance(v, bool)
+                                                            for v in rng) and rng[0] <= rng[1]):
+        return out + [f"{where}: range must be [min, max], integers with min <= max; got {rng!r}"]
+    for target in targets:
+        lo, hi = stats.get(target, {}).get("range", rng)
+        if not (lo <= rng[0] and rng[1] <= hi):
+            out.append(f"{where}: range {rng} goes outside {target}'s range {lo}..{hi}")
+    if isinstance(pool, bool) or not isinstance(pool, int) or pool < 0:
+        out.append(f"{where}: pool must be a non-negative integer, not {pool!r}")
+        return out
+    if isinstance(cost, list):  # one cost per value, low end first (canonical keys are strings, D-059)
+        if len(cost) != rng[1] - rng[0] + 1:
+            return out + [f"{where}: the cost list needs one entry per value from {rng[0]} to {rng[1]} "
+                          f"({rng[1] - rng[0] + 1}), not {len(cost)}"]
+        if any(isinstance(c, bool) or not isinstance(c, int) or c < 0 for c in cost) or cost != sorted(cost):
+            return out + [f"{where}: costs must be non-negative integers that never fall as the value rises"]
+    elif isinstance(cost, bool) or not isinstance(cost, int) or cost < 1:
+        return out + [f"{where}: cost must be a positive integer or a list of costs per value, not {cost!r}"]
+    if "exact" in step and not isinstance(step["exact"], bool):
+        out.append(f"{where}: exact is true or false")
+    low = len(targets) * point_cost(step, rng[0])
+    high = len(targets) * point_cost(step, rng[1])
+    if pool < low or (step.get("exact", True) and pool > high):
+        out.append(f"{where}: a pool of {pool} cannot be spent within the range (it costs {low} to {high})")
+    elif step.get("exact", True) and targets and sum(
+            point_cost(step, v) for v in allocate_points(step).values()) != pool:
+        out.append(f"{where}: no allocation spends the pool of {pool} exactly at these costs")
+    return out
 TEMPLATE_FIELDS = ("kind", "stats", "resources", "tags", "items", "conditions")
 
 
@@ -164,6 +237,25 @@ class EntityCommands:
                     raise EngineError(f"{step['id']}: the values must be exactly {sorted(values)}, each used once; "
                                       f"got {sorted(pick.values())}")
                 self._judge(agent_id, "chargen_assign", None, {t: pick[t] for t in targets}, values, start)
+                stats.update({t: int(pick[t]) for t in targets})
+            elif kind == "points":  # point-buy: spend a pool over the targets (§1.5)
+                pick = choices.get(step["id"])
+                targets, (lo, hi), pool = list(step["targets"]), step["range"], int(step["pool"])
+                if not isinstance(pick, dict) or sorted(pick) != sorted(targets):
+                    raise EngineError(f"{step['id']}: give each of {', '.join(targets)} a value from {lo} to {hi}, "
+                                      "as {stat: value}")
+                for target in targets:
+                    value = pick[target]
+                    if isinstance(value, bool) or not isinstance(value, int) or not lo <= value <= hi:
+                        raise EngineError(f"{step['id']}: {target} must be an integer from {lo} to {hi}, "
+                                          f"not {value!r}")
+                spent = sum(point_cost(step, pick[t]) for t in targets)
+                exact = step.get("exact", True)
+                if spent > pool or (exact and spent != pool):
+                    raise EngineError(f"{step['id']}: that costs {spent} points; spend "
+                                      + (f"exactly {pool}" if exact else f"at most {pool}"))
+                self._judge(agent_id, "chargen_points", None, {t: pick[t] for t in targets},
+                            {"pool": pool, "range": [lo, hi], "cost": step.get("cost", 1), "exact": exact}, start)
                 stats.update({t: int(pick[t]) for t in targets})
             elif kind == "table":
                 table = tables[step["table"]]

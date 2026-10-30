@@ -387,8 +387,11 @@ def lint(pack: ResolvedPack) -> list[Finding]:
                     lo, hi = stats.get(target, {}).get("range", [value, value])
                     if not lo <= value <= hi:
                         err("chargen", f"step {step['id']}: value {value} is outside {target}'s range {lo}..{hi}")
+        elif kind == "points":  # point-buy (§1.5)
+            for problem in entities.lint_points(step, stats):
+                err("chargen", problem)
         else:
-            err("chargen", f"step {step.get('id')}: kind must be roll, choice, assign or table")
+            err("chargen", f"step {step.get('id')}: kind must be roll, choice, assign, table or points")
     for t in rtables.values():
         try:
             rng = dice.value_range(t.get("roll", ""))

@@ -72,7 +72,7 @@ entity_model:
 
 resolution:
   situational_tags:
-    - {id: dim_light, value: -1, derive: "scene.dim"}
+    - {id: dim_light, value: -1, derive: "scene.dim or actor.region.lighting.dim"}
     - {id: aided, value: 1}
     - {id: rushed, value: -1}
 
@@ -184,6 +184,8 @@ turn_structure:
 # game's own factors and annotation text. Order 1 categories reach mid mastery;
 # order 2 only high mastery (§1.4.3).
 spatial:
+  # Light is a region value, like terrain and cover (ARCHITECTURE §8.2).
+  lighting: [{id: bright, label: Bright}, {id: dim, label: Dim}, {id: dark, label: Dark}]
   tactical_profile:
     categories:
       - {id: engagement, order: 1}
