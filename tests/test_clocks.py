@@ -158,3 +158,71 @@ def test_plain_clocks_fold_unchanged_and_replay(lantern):
     faction_clock(eng)
     sessions(eng, 4)
     assert hash_obj(fold(eng.store.read(eng.campaign_id))) == eng.state_hash()
+
+
+# ---------------------------------------------------------------- limits: the pack's, kernel defaults (T0.39, D-056)
+
+def _with_clocks(packs_dir, tmp_path, block):
+    import shutil
+
+    import yaml
+
+    from basilisk.kernel.packs import resolve
+    dst = tmp_path / "packs"
+    shutil.copytree(packs_dir, dst)
+    path = dst / "lanternlight" / "pack.yaml"
+    data = yaml.safe_load(path.read_text())
+    data["clocks"] = block
+    path.write_text(yaml.safe_dump(data, sort_keys=False))
+    return resolve("lanternlight", dst)
+
+
+def test_kernel_defaults_bound_clocks_when_the_pack_says_nothing(lantern):
+    from basilisk.kernel.clocks import DEFAULT_LIMITS, limits
+    assert limits(lantern) == DEFAULT_LIMITS
+    eng = table(lantern)
+    eng.start_session()
+    for call, fragment in [
+        (lambda: eng.create_clock("huge", "Huge", 101), "from 1 to 100 segments"),
+        (lambda: eng.create_clock("none", "None", 0), "from 1 to 100 segments"),
+        (lambda: eng.create_clock("slow", "Slow", 4, schedule={"every": 13, "amount": 1}), "every must be an integer from 1 to 12"),
+        (lambda: eng.create_clock("big", "Big", 4, schedule={"every": 1, "amount": 4}), "amount must be an integer from 1 to 3"),
+    ]:
+        with pytest.raises(EngineError, match=fragment):
+            call()
+    eng.create_clock("doom", "Doom", 100)
+    with pytest.raises(EngineError, match="a clock advances 1 to 3 segments at a time"):
+        eng.advance_clock("doom", 4)
+
+
+def test_a_pack_sets_its_own_clock_limits(packs_dir, tmp_path):
+    from basilisk.kernel.determinism import expand
+    from basilisk.kernel.packlint import errors, lint
+    from basilisk.kernel.tools import generate
+    pack = _with_clocks(packs_dir, tmp_path, {"segments": [4, 12], "advance": [1, 5], "every_sessions": [2, 4]})
+    assert errors(lint(pack)) == []
+    eng = table(pack)
+    eng.start_session()
+    with pytest.raises(EngineError, match="from 4 to 12 segments"):
+        eng.create_clock("tiny", "Tiny", 3)
+    with pytest.raises(EngineError, match="every must be an integer from 2 to 4"):
+        eng.create_clock("fast", "Fast", 8, schedule={"every": 1, "amount": 5})
+    eng.create_clock("doom", "Doom", 12, schedule={"every": 2, "amount": 5})
+    eng.advance_clock("doom", 5)
+    assert eng.state["clocks"]["doom"]["filled"] == 5
+    assert generate(pack, expand({}), "gm")["advance_clock"]["amount"] == {"enum": [1, 2, 3, 4, 5]}
+    judged = [e["payload"] for e in events(eng, "judgement_input") if e["payload"]["control"] == "advance_clock"]
+    assert judged[-1]["options"] == [1, 2, 3, 4, 5]
+
+
+@pytest.mark.parametrize("block, fragment", [
+    ({"segments": [0, 8]}, "clocks.segments must be [min, max]"),
+    ({"advance": [3, 1]}, "clocks.advance must be [min, max]"),
+    ({"every_units": 5}, "clocks.every_units must be [min, max]"),
+    ({"advance": [1, True]}, "clocks.advance must be [min, max]"),
+    ({"segmnts": [1, 8]}, "No clock limit 'segmnts'"),
+])
+def test_bad_clock_limits_fail_lint(packs_dir, tmp_path, block, fragment):
+    from basilisk.kernel.packlint import errors, lint
+    found = [f.message for f in errors(lint(_with_clocks(packs_dir, tmp_path, block)))]
+    assert any(fragment in m for m in found), found

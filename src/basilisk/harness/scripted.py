@@ -20,6 +20,7 @@ import yaml
 
 from ..kernel import KERNEL_VERSION, dice
 from ..kernel.canonical import hash_obj
+from ..kernel.clocks import limits as clock_limits
 from ..kernel.determinism import STANDARD, STRICT
 from ..kernel.engine import Engine, EngineError, fold
 from ..kernel.events import EventStore
@@ -167,11 +168,30 @@ def _play_turn(engine: Engine, actor: str, turn: int, report: RunReport, force: 
         engine.fill_ruling(slot, entries[turn % len(entries)])
 
 
+def _change_roster(engine: Engine) -> None:
+    """The roster changes mid-encounter (§2.4): the first encounter gains a
+    reinforcement, and in every encounter the Warden falls back."""
+    if "npc_reinforcement" not in engine.state["entities"]:
+        backends = declared_backends(engine.pack)
+        spatial = (engine.state["scene"].get("spatial") or {})
+        zone = None
+        if spatial and "zone_graph" in backends:
+            zone = "zone_2"
+        elif spatial and "range_bands" in backends:
+            zone = f"{engine.pack.get('spatial.bands')[0]['id']}:npc_warden"
+        engine.spawn_entity("npc_reinforcement", "A Late Arrival", zone=zone)
+        engine.join_encounter("npc_reinforcement")
+    if "npc_warden" in engine.state["encounter"]["participants"]:
+        engine.leave_encounter("npc_warden", "fled")
+
+
 def _play_encounter(engine: Engine, players: list[str], turn: int, report: RunReport) -> int:
     """One round of encounter mode under the pack's turn structure (§2.4):
     whoever is in play acts until their budget or options run out, then the
     turn passes. NPC turns pass without acting."""
     info = engine.start_encounter()
+    _change_roster(engine)
+    info = engine.current_turn()
     participants = engine.state["encounter"]["participants"]
     if info["order"] == "spotlight":
         for p in players:
@@ -219,11 +239,16 @@ def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
         engine.create_character(p, NAMES.get(p, p), choices)
     for npc_id, name in NPCS:
         engine.spawn_entity(npc_id, name)
-    engine.create_clock("pressure", "Something is coming", 6, visible=False, schedule={"every": 1, "amount": 1},
-                        stages=[{"at": 3, "record": {"type": "event", "name": "The lights go out on the quay",
-                                                     "body": "Something has reached the harbour.", "knowledge": "revealed"}},
-                                {"at": 6, "record": {"type": "event", "name": "The thing arrives",
-                                                     "body": "What was coming is here.", "knowledge": "revealed"}}])
+    bounds = clock_limits(engine.pack)  # the pack's clock limits (§2.3), kernel defaults otherwise
+    total = min(max(6, bounds["segments"][0]), bounds["segments"][1])
+    stages = [{"at": total, "record": {"type": "event", "name": "The thing arrives",
+                                       "body": "What was coming is here.", "knowledge": "revealed"}}]
+    if total >= 2:
+        stages.insert(0, {"at": total // 2, "record": {"type": "event", "name": "The lights go out on the quay",
+                                                       "body": "Something has reached the harbour.",
+                                                       "knowledge": "revealed"}})
+    engine.create_clock("pressure", "Something is coming", total, visible=False,
+                        schedule={"every": bounds["every_sessions"][0], "amount": bounds["advance"][0]}, stages=stages)
 
     backends = declared_backends(engine.pack)
     placements = {**{p: "zone_1" for p in players}, "npc_warden": "zone_0", "npc_shade": "zone_2"}
@@ -268,7 +293,7 @@ def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
                 engine.advance_time(engine.pack.get("time.units")[0]["id"], 1)
             for deck in engine.pack.catalogue("randomizers.decks"):  # one draw per deck per scene
                 engine.draw_card(deck["id"], to=players[sc % len(players)] if sc % 2 else None)
-            engine.advance_clock("pressure", 1)
+            engine.advance_clock("pressure", bounds["advance"][0])
         engine.end_session()
         if (engine.pack.get("progression") or {}).get("model") == "milestone" and engine.progression_active():
             engine.award_milestone()  # the scripted GM marks each session a milestone

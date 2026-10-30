@@ -1,6 +1,6 @@
 # Draft revision: ARCHITECTURE 1.9 (joining and leaving an encounter)
 
-**Status:** proposed, not applied. Nothing in `docs/ARCHITECTURE.md` changes and nothing is built until the owner approves. If it is approved, it is built as its own task (proposed: T0.39) and the 1.9 text is applied then.
+**Status:** approved by the owner on 2026-10-30 as recommended (option 1, explicit GM commands), built as T0.39 (D-056), and applied to `docs/ARCHITECTURE.md` as 1.9. The same revision also makes clock limits pack data with kernel defaults, at the owner's request. Kept as the record of the review.
 
 **Why:** the fourth Phase 0 audit (T0.38) found that an encounter's participants are fixed when it starts.
 - **Late arrivals never act.** An entity spawned while an encounter runs (reinforcements, a summoned creature, a character who walks in) is not a participant. `commit_action` refuses it ("not taking part in this encounter"), and no command adds it.

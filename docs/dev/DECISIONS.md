@@ -217,7 +217,7 @@ Template:
 ## D-023 Off-air clocks: per-clock schedules at session start; stages are prepped canon
 - Date: 2026-10-18 · Status: accepted (T0.11; §7.6.1, §7.6.2 axiom 15, P0.11). The docs say clocks advance off-air "per its own schedule" and that resulting world changes are written as canon before play resumes.
 - Decision:
-  - **Schedule:** `create_clock(..., schedule={every, amount})` advances `amount` (1 to 3) segments once every `every` (1 to 12) gaps between sessions. A gap is passed at `start_session`, before `session_started`, so the canon exists before play resumes. A clock made during session *n* first advances at the start of *n + 1*. Prep, before session 1, has no gap, so the first advance is at the start of session 2. Each advance is a normal `advance_clock` effect with `reason: off_air`. A full or paused clock is skipped.
+  - **Schedule:** `create_clock(..., schedule={every, amount})` advances `amount` (1 to 3 by default) segments once every `every` (1 to 12 by default) gaps between sessions. Since D-056 these bounds are the pack's `clocks` limits, with these as the kernel defaults. A gap is passed at `start_session`, before `session_started`, so the canon exists before play resumes. A clock made during session *n* first advances at the start of *n + 1*. Prep, before session 1, has no gap, so the first advance is at the start of session 2. Each advance is a normal `advance_clock` effect with `reason: off_air`. A full or paused clock is skipped.
   - **Stages:** `stages=[{at, record}]` are the world changes the GM prepped for "if the party never interferes" (§7.6.1). Records are written with `origin: prepped`, are validated by `_canon_record` at creation (missing fields, bad enums, secrets without discovery paths), and are validated again when written. A stage fires when the fill crosses its mark from below, however the clock moved: off-air, `advance_clock` in play, or a pack effect. It fires once only (`fired` list), even if the clock is pushed back and refills. Each firing is `canon_written` followed by `clock_stage_reached`, both by the engine and caused by the advance.
   - **Interference:** `pause_clock(clock, paused)` (GM) holds a scheduled clock; pack effects can lower a clock. Pausing an unscheduled clock is refused.
   - Clocks without a schedule or stages keep their old folded shape, and older logs fold unchanged.
@@ -520,3 +520,30 @@ Template:
 - **Offline rule (§3.3):** an autouse fixture in `tests/conftest.py` fails any test not marked `live` that opens a socket. "The default run makes zero network calls" is now enforced, not assumed.
 - **Scaffold (§2.10):** the smoke harness skips its rules lookup when a pack has no actions. A fresh `tob pack new` scaffold now runs `tob sim --smoke`; it crashed with a division by zero, against the README walkthrough.
 - **Module size:** currencies (`kernel/currencies.py`) and character creation and spawning (`kernel/entities.py`) moved out of `engine.py`, which had passed the ~800-line guideline. No behaviour changed.
+
+## D-056 Encounter roster changes; clock limits as pack data (T0.39)
+- Date: 2026-10-30 · Status: accepted (owner: "Handle joining and leaving according to your recommendation"; "Pack should handle clock limits and ranges but there should be kernel defaults"). ARCHITECTURE 1.9 applied (REV-ARCH-1.9).
+- **Joining (§2.4):** `join_encounter(entity_id, after=None)` adds an entity that is in the scene (anywhere, in a scene without positions) to the running encounter, and logs `participant_joined` with the exact new participants, sequence, and position. Where the joiner goes depends on the order:
+  - **`initiative`:** it rolls the pack's initiative roll now; the roll is logged and is the event's cause. It goes before the first participant whose latest total is lower, or equal with a later id, so nobody else moves. The totals are read back from the encounter's logged rolls, because folded state keeps only the order. If its slot is already past this round, it first acts next round. Under `each_round`, the next round rerolls everyone, the joiner included.
+  - **`fixed`:** it goes after `after`, or last. The participants list is the order under `fixed`, so the place holds in later rounds.
+  - **`deck`:** it joins the next round's shuffle.
+  - **`sides`:** it acts with its side from that side's next turn.
+  - **`spotlight`:** it gets a full budget at once.
+  - **`handoff`:** it can be handed the turn at once.
+- **Leaving:** `leave_encounter(entity_id, reason)` takes a participant out with `reason` one of `defeated`, `fled`, `removed`. The reason is an enum, so the tool is safe under strict. It logs `participant_left` with the exact new roster, sequence, position, and current actor, and the leaver's budget is dropped.
+  - **Its turn passes:** if it was taking its turn, the next turn starts, or a new round when it was last. The same happens if it was the last member of the side in play.
+  - **Handoff:** the GM names who goes next with `end_turn(next=…)`.
+  - **Empty sides:** under `sides`, a side with nobody left is skipped from then on.
+  - **Empty encounter:** when nobody is left, the encounter stays open until the GM joins someone or ends it, and `end_turn` says so.
+  - **Not removed from play:** leaving does not remove an entity from the scene or from state, and it can rejoin.
+- **Logging:** both commands are GM-only and `@gm_call`, so each is a logged judgement input. The options are the entities that could join, or the three reasons.
+- **Replay:** older logs contain neither event, so they fold unchanged, and `KERNEL_VERSION` did not need to move (D-045).
+- **Smoke harness:** each campaign's first encounter gains a reinforcement, and the Warden flees every encounter, so every gated campaign exercises both commands. The golden fixtures were regenerated for this.
+- **Not built:** a pack-declared rule that skips a downed participant's turn automatically (option 3 in REV-ARCH-1.9). It waits for a pack that needs it.
+- **Clock limits (§2.3 `clocks`):** a pack may declare inclusive `[min, max]` limits:
+  - `segments`: a clock's total. Kernel default `[1, 100]`; before this, a total was any positive integer.
+  - `advance`: one GM `advance_clock`, and a schedule's `amount`. Default `[1, 3]`.
+  - `every_sessions`: a schedule's `every`, counted in gaps between sessions. Default `[1, 12]`.
+  - `every_units`: a schedule's `every`, counted in an in-world time unit. Default `[1, 1000]`.
+
+  Lint refuses an unknown key and anything but integers with `1 <= min <= max`. The GM's `advance_clock` tool enumerates the pack's advance range, and its judgement input lists it. A pack's own effects still move a clock by any amount; the limits bound the GM's choices. The defaults live in the kernel (`clocks.DEFAULT_LIMITS`), not in `core`, so no pack hash changed. The smoke harness sizes its clock by the pack's limits; under the defaults it makes the same clock as before.

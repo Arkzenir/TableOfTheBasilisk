@@ -30,6 +30,8 @@ The code-level list of event types (`EVENT_TYPES` in `src/basilisk/kernel/engine
 | `round_started` | folds | `start_encounter`, `end_turn` at the end of a round, `next_round` | `round, sequence` (the round's order: initiative rolls or deck draws precede it as `roll_made`), `budgets` (spotlight: every participant's refreshed budget) |
 | `turn_started` | folds | `start_encounter`, `end_turn` | `round, index, actor` (entity id, or side `players` / `gm`), `budgets` (refreshed for whoever is in play) |
 | `economy_spent` | folds | `commit_action` during an encounter | `entity, key` (slot id or `points`), `amount, remaining` |
+| `participant_joined` | folds | `join_encounter` | `entity, participants, sequence, index` (the exact new roster, order, and position; under initiative the joiner's `roll_made` precedes it as its cause), `budgets` (spotlight: the joiner's full budget) |
+| `participant_left` | folds | `leave_encounter` | `entity, reason` (`defeated`, `fled`, or `removed`), `participants, sequence, index, current` (the exact new roster, order, and position; drops the leaver's budget). A `turn_started` follows when the leaver's turn passes |
 | `encounter_ended` | folds | `end_encounter`; also `set_scene` and `end_session` while an encounter runs | `round` (removes `state.encounter`) |
 | `deck_shuffled` | folds | first draw from a deck, `reshuffle_deck`, reshuffle rules (`every_draw`, `when_empty`, `scene`, `session`) | `deck, counter, cards` (shuffled, in pack order, hands excluded), `order` (the new pile, top first), `reason`; sets `roll_counter` to `counter + 1` (creates `state.decks` on first use) |
 | `card_drawn` | folds | `draw_card` | `deck, card, by, to` (a holder's hand, or `null` for face up onto the discards) |

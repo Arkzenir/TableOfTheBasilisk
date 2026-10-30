@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import canon, decks, fudging, spatial, timekeeping, turns
+from . import canon, clocks, decks, fudging, spatial, timekeeping, turns
 from .determinism import STANDARD, setting_for
 from .packs import ResolvedPack
 
@@ -154,9 +154,14 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
         if order == "handoff":
             tools["start_encounter"]["first"] = ID
         tools["end_encounter"] = {}
+        # the roster changes while it runs (§2.4): reinforcements join, the defeated leave
+        tools["join_encounter"] = {"entity_id": ID}
+        if order == "fixed":
+            tools["join_encounter"]["after"] = ID
+        tools["leave_encounter"] = {"entity_id": ID, "reason": _enum(list(turns.LEAVE_REASONS))}
         if order == "spotlight":
             tools["next_round"] = {}
-        tools["advance_clock"] = {"clock_id": ID, "amount": _enum([1, 2, 3])}
+        tools["advance_clock"] = {"clock_id": ID, "amount": _enum(clocks.advance_amounts(pack))}
         tools["pause_clock"] = {"clock_id": ID, "paused": {"type": "boolean"}}  # the party has interfered
         time_units = [u["id"] for u in timekeeping.units(pack)]
         if time_units:

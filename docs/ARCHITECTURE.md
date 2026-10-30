@@ -1,6 +1,6 @@
 # Table of The Basilisk — Architecture Specification
 
-**Version:** 1.8 (revised design freeze for v1)
+**Version:** 1.9 (revised design freeze for v1)
 **Status:** Design complete. Open items listed in §11.
 **Companion document:** `BUILD_PLAN.md` — phased implementation, gates, and tests.
 
@@ -45,6 +45,10 @@
 - §2.5: the example procedures use the modifier sources and interpret keys the kernel implements (`stat`, `conditions`, `tags`; `margins` for degrees of success).
 - §2.8: `core.pool` is a later baseline; v1 ships `core.roll_over` and `core.banded`, and the pool shape runs on `core`.
 - §7.1: the GM's ruling on a player's action, including substituting a fiction-triggered move (§2.13.1).
+
+**Revision notes (1.9):** after the fourth Phase 0 audit (T0.38, T0.39, D-053 to D-056):
+- §2.4, §5.7, §7.1: the GM adds an entity to a running encounter (`join_encounter`) or takes one out (`leave_encounter`); each turn order places a joiner its own way.
+- §2.3: a pack may set its clock limits (`clocks`: segments, a single advance, and schedule intervals); the kernel's defaults apply otherwise.
 
 ---
 
@@ -395,6 +399,12 @@ system_pack:
     units: [{ id, label, per }]                              # smallest first
     between_sessions: { unit, amount }
 
+  clocks:                                                    # optional; kernel defaults shown, each [min, max]
+    segments: [1, 100]                                       # a clock's total
+    advance: [1, 3]                                          # one GM advance, and a schedule's amount
+    every_sessions: [1, 12]                                  # a schedule counted in gaps between sessions
+    every_units: [1, 1000]                                   # a schedule counted in an in-world time unit
+
   gm:
     gm_rolls: bool                    # false: no GM-side entity rolls, as actor or as an opposed side (§2.4)
     fudgeable_procedures: [procedure_id]
@@ -455,6 +465,8 @@ The kernel is designed against the spread of real systems, not against one. Each
 | Progression | XP thresholds, milestones, mark-on-failure, use-based | — |
 | Space | Zones, range bands, grid, none | — |
 | Arithmetic | Integer-only with declared rounding | Systems that round down vs. up |
+
+The roster of an encounter can change while it runs: the GM adds an entity (`join_encounter`) or takes one out (`leave_encounter`, as defeated, fled, or removed). Each ordering strategy places a joiner its own way: under initiative it rolls on joining, under a deck-drawn order it is shuffled in next round, and under fixed order it goes where the GM puts it. A leaver's turn passes, and a side with nobody left is skipped.
 
 When a new system needs something on neither side of this table, the default response is a hook (§2.7). If several packs need the same hook, it is promoted to a kernel strategy and a config option. **Hook count across packs is a health metric for the configuration language.**
 
@@ -1134,7 +1146,7 @@ types:
   action_committed
   judgement_input             # seat, control, active setting, choice, list or bounds (§2.13)
   hook_ran                    # §2.7
-  encounter_started, round_started, turn_started, economy_spent, encounter_ended
+  encounter_started, round_started, turn_started, economy_spent, participant_joined, participant_left, encounter_ended
   clock_created, clock_stage_reached, clock_paused
   time_advanced
   chargen_started, character_created
@@ -1400,7 +1412,9 @@ resolve(action, ruling)            → map an unmodelled action onto a pack proc
                                      select a ruling-slot entry (when `ruling_slots` is standard)
 rule_on_action(ruling)             → a player's action: difficulty rung and tags by ID; for a
                                      fiction-triggered move, a substitute move (§2.13.1)
-advance_clock(clock_id, amount)
+advance_clock(clock_id, amount)    → amount within the pack's clock limits (§2.3)
+join_encounter(entity_id, after?)  → add an entity to the running encounter; its place per turn order (§2.4)
+leave_encounter(entity_id, reason) → defeated | fled | removed; its turn passes if it is current
 ```
 
 **Break mode (every seat, GM included)**
@@ -2132,6 +2146,7 @@ Numbers nobody can reason their way to. Each must be set empirically (see `BUILD
 | `set_scene` | — | ✓ | — |
 | `resolve` | — | ✓ | — |
 | `advance_clock` | — | ✓ | — |
+| `join_encounter` / `leave_encounter` | — | ✓ | — |
 
 Every "—" in the break column is **absent from the schema**, not denied.
 \* Absent when the pack declares `spatial: none`.

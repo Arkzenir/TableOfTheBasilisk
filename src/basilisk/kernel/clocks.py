@@ -21,6 +21,11 @@ becomes canon (§7.6.1).
   are written.
 - **Interference.** The GM can `pause_clock` (the party has stalled the
   faction); effects in packs can also lower a clock.
+- **Limits are the pack's** (§2.3 `clocks`), with kernel defaults: a clock's
+  `segments` (its total), one GM `advance` (also a schedule's `amount`), and a
+  schedule's `every`, counted in sessions (`every_sessions`) or in an in-world
+  time unit (`every_units`). Each is an inclusive `[min, max]`. A pack's own
+  effects may move a clock by any amount; the limits bound the GM's choices.
 
 Clocks created without a schedule or stages fold exactly as before.
 """
@@ -33,6 +38,49 @@ from . import timekeeping
 from .command import EngineError, _suggest, atomic, check_id, check_name, gm_call
 
 EVENT_TYPES = frozenset({"clock_stage_reached", "clock_paused"})
+
+# Kernel defaults for the pack's `clocks` block (§2.3): inclusive [min, max].
+DEFAULT_LIMITS: dict[str, tuple[int, int]] = {
+    "segments": (1, 100),        # a clock's total
+    "advance": (1, 3),           # one GM advance, and a schedule's amount
+    "every_sessions": (1, 12),   # a schedule counted in gaps between sessions
+    "every_units": (1, 1000),    # a schedule counted in an in-world time unit
+}
+
+
+def limits(pack) -> dict[str, tuple[int, int]]:
+    """The clock limits in force: the pack's, over the kernel defaults."""
+    declared = pack.get("clocks") or {}
+    out = dict(DEFAULT_LIMITS)
+    for key, value in declared.items() if isinstance(declared, dict) else ():
+        if key in out and isinstance(value, list) and len(value) == 2:
+            out[key] = (value[0], value[1])
+    return out
+
+
+def advance_amounts(pack) -> list[int]:
+    lo, hi = limits(pack)["advance"]
+    return list(range(lo, hi + 1))
+
+
+def lint_clocks(pack) -> list[str]:
+    """Problems in a pack's `clocks` block, for pack lint (§2.10)."""
+    declared = pack.get("clocks")
+    if declared is None:
+        return []
+    if not isinstance(declared, dict):
+        return [f"clocks is a mapping of {', '.join(DEFAULT_LIMITS)} to [min, max]"]
+    out = []
+    for key, value in declared.items():
+        if key not in DEFAULT_LIMITS:
+            out.append(_suggest("clock limit", key, DEFAULT_LIMITS))
+            continue
+        if not (isinstance(value, list) and len(value) == 2
+                and all(isinstance(v, int) and not isinstance(v, bool) for v in value) and 1 <= value[0] <= value[1]):
+            lo, hi = DEFAULT_LIMITS[key]
+            out.append(f"clocks.{key} must be [min, max], integers with 1 <= min <= max (default [{lo}, {hi}]); "
+                       f"got {value!r}")
+    return out
 
 
 def apply_event(state: dict, ev: dict) -> None:
@@ -73,8 +121,9 @@ class ClockCommands:
         check_name("a clock's label", label)
         if clock_id in self.state["clocks"]:
             raise EngineError(f"clock {clock_id!r} exists")
-        if isinstance(total, bool) or not isinstance(total, int) or total < 1:
-            raise EngineError("a clock's total must be a positive integer")
+        lo, hi = limits(self.pack)["segments"]
+        if isinstance(total, bool) or not isinstance(total, int) or not lo <= total <= hi:
+            raise EngineError(f"a clock's total must be an integer from {lo} to {hi} segments")
         payload = {"clock_id": clock_id, "label": label, "total": int(total), "visible": bool(visible)}
         if schedule is not None or stages is not None:
             payload.update({"schedule": self._check_schedule(schedule), "stages": self._check_stages(stages, total),
@@ -90,7 +139,9 @@ class ClockCommands:
         if set(schedule) - {"every", "amount", "unit"}:
             raise EngineError("a schedule has every (sessions), amount (segments), and optionally unit: "
                               "an in-world time unit that every then counts instead")
-        for name, value, lo, hi in (("every", every, 1, 1000 if unit else 12), ("amount", amount, 1, 3)):
+        bounds = limits(self.pack)
+        for name, value, (lo, hi) in (("every", every, bounds["every_units" if unit else "every_sessions"]),
+                                      ("amount", amount, bounds["advance"])):
             if isinstance(value, bool) or not isinstance(value, int) or not lo <= value <= hi:
                 raise EngineError(f"schedule {name} must be an integer from {lo} to {hi}")
         if unit is not None:
@@ -117,11 +168,12 @@ class ClockCommands:
         return sorted(out, key=lambda s: s["at"])
 
     @atomic
-    @gm_call(lambda e, a: [1, 2, 3])
+    @gm_call(lambda e, a: advance_amounts(e.pack))
     def advance_clock(self, clock_id: str, amount: int, by: str | None = None) -> None:
         self._gm_only(by, "advance clocks")  # the change is the engine's; gm_call logs whose choice it was
-        if amount not in (1, 2, 3):
-            raise EngineError("clock advances are 1, 2 or 3")
+        amounts = advance_amounts(self.pack)
+        if isinstance(amount, bool) or amount not in amounts:
+            raise EngineError(f"a clock advances {amounts[0]} to {amounts[-1]} segments at a time")
         self._apply_effect({"primitive": "advance_clock", "clock": clock_id, "amount": amount},
                            {"actor": None, "target": None, "self": None}, None, {})
 

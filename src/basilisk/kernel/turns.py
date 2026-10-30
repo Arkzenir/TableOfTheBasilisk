@@ -23,6 +23,21 @@ Economies:
   `slot` or the first one.
 - `points` — a budget per turn, `points: n`; an action costs its `points`, or 1.
 
+The roster can change while an encounter runs (§2.4). The GM adds an entity
+with `join_encounter` and takes one out with `leave_encounter` (defeated, fled,
+or removed). A joiner's place depends on the order:
+- `initiative`: it rolls now and slots in by its total; if that slot is
+  already past this round, it first acts next round.
+- `fixed`: it goes after `after`, or last.
+- `deck`: it joins the next round's shuffle.
+- `sides`: it acts with its side from that side's next turn.
+- `spotlight`: it gets a full budget at once. `handoff`: it can be handed the
+  turn at once.
+
+A leaver's turn passes if it was taking one (under `handoff` the GM names who
+goes next). A side with nobody left is skipped. Both events carry the exact
+roster, sequence, and position, so the reducer only copies them.
+
 A budget refreshes when its owner's turn starts, so an off-turn `reaction`
 spends from the budget that the owner's next turn restores. Off-turn actions
 other than reactions are refused. Nothing applies until the GM starts an
@@ -36,10 +51,12 @@ import copy
 from . import dice
 from .command import EngineError, _suggest, atomic, gm_call
 
-EVENT_TYPES = frozenset({"encounter_started", "round_started", "turn_started", "economy_spent", "encounter_ended"})
+EVENT_TYPES = frozenset({"encounter_started", "round_started", "turn_started", "economy_spent", "encounter_ended",
+                         "participant_joined", "participant_left"})
 ORDERS = ("spotlight", "initiative", "sides", "handoff", "fixed", "deck")
 ECONOMIES = ("none", "slots", "points")
 SIDES = ("players", "gm")
+LEAVE_REASONS = ("defeated", "fled", "removed")
 
 
 def structure(pack) -> dict:
@@ -111,6 +128,13 @@ def apply_event(state: dict, ev: dict) -> None:
         enc["budgets"].update(copy.deepcopy(p.get("budgets") or {}))
     elif t == "economy_spent":
         enc["budgets"].setdefault(p["entity"], {})[p["key"]] = p["remaining"]
+    elif t == "participant_joined":
+        enc.update({"participants": list(p["participants"]), "sequence": list(p["sequence"]), "index": p["index"]})
+        enc["budgets"].update(copy.deepcopy(p.get("budgets") or {}))
+    elif t == "participant_left":
+        enc.update({"participants": list(p["participants"]), "sequence": list(p["sequence"]), "index": p["index"],
+                    "current": p["current"]})
+        enc["budgets"].pop(p["entity"], None)
     elif t == "encounter_ended":
         state.pop("encounter", None)
 
@@ -237,8 +261,10 @@ class TurnCommands:
         if enc["order"] == "spotlight":
             raise EngineError("spotlight order has no turns; the GM uses next_round")
         by = by or self.gm_seat
+        if not enc["participants"]:
+            raise EngineError("nobody is left in the encounter: join_encounter someone, or end_encounter")
         current = enc["current"]
-        allowed = {self.state["entities"][e]["controller"] for e in self._members(current)}
+        allowed = {self.state["entities"][e]["controller"] for e in self._members(current)} if current else set()
         if self._role(by) != "gm" and by not in allowed:
             raise EngineError(f"it is {self._shown(by, current) or 'someone else'}'s turn; "
                               "only its controller or the GM can end it")
@@ -246,13 +272,125 @@ class TurnCommands:
             return self._handoff(current, by, next)
         if next is not None:
             raise EngineError(f"next applies to handoff order; this encounter uses {enc['order']}")
-        index = enc["index"] + 1
-        cause = None
-        if index >= len(enc["sequence"]):
-            cause = self._start_round(enc["round"] + 1, None, by)
-            index = 0
-        self._start_turn(index, self._enc()["sequence"][index], by, cause)
+        self._advance(by, None)
         return self.current_turn(by)
+
+    def _advance(self, by: str, cause: int | None) -> None:
+        """Start the next turn in the sequence, or a new round when it runs out.
+        Under `sides`, a side with nobody left is skipped."""
+        enc = self._enc()
+        index = enc["index"] + 1
+        if enc["order"] == "sides" and index < len(enc["sequence"]) and not self._members(enc["sequence"][index]):
+            index += 1
+        if index >= len(enc["sequence"]):
+            cause = self._start_round(enc["round"] + 1, cause, by)
+            enc, index = self._enc(), 0
+            if enc["order"] == "sides" and not self._members(enc["sequence"][0]):
+                index = 1
+        self._start_turn(index, enc["sequence"][index], by, cause)
+
+    # ------------------------------------------------------------ the roster changes (§2.4)
+
+    def _joinable(self) -> list[str]:
+        enc = self._enc()
+        if enc is None:
+            return []
+        spatial = self._spatial()
+        return [e for e in sorted(self.state["entities"])
+                if e not in enc["participants"] and (spatial is None or self._in_scene(e))]
+
+    def _initiative_totals(self) -> dict[str, int]:
+        """Each participant's latest initiative total in the running encounter,
+        read back from its logged rolls (folded state keeps only the order)."""
+        head, window = self.store.head(self.campaign_id)[0], 256
+        while True:
+            after = max(0, head - window)
+            events = list(self.store.read(self.campaign_id, after=after))
+            starts = [i for i, ev in enumerate(events) if ev["type"] == "encounter_started"]
+            if starts or after == 0:
+                break
+            window *= 4
+        totals = {}
+        for ev in events[starts[-1] if starts else 0:]:
+            purpose = (ev["payload"] or {}).get("purpose", "") if ev["type"] == "roll_made" else ""
+            if purpose.startswith("initiative:"):
+                totals[purpose.split(":", 1)[1]] = ev["payload"]["total"]
+        return totals
+
+    @atomic
+    @gm_call(lambda e, a: e._joinable())
+    def join_encounter(self, entity_id: str, after: str | None = None, by: str | None = None) -> dict:
+        """Add an entity to the running encounter (§2.4): reinforcements, a
+        summoned creature, someone who walks in. Its place depends on the order."""
+        by = self._gm_only(by, "add someone to an encounter")
+        enc = self._enc()
+        if enc is None:
+            raise EngineError("no encounter is running")
+        self._entity(entity_id)
+        if entity_id in enc["participants"]:
+            raise EngineError(f"{entity_id} is already taking part in this encounter")
+        if entity_id not in self._joinable():
+            raise EngineError(f"{entity_id} is not in the scene: place it first (place_entity), then join it")
+        order = enc["order"]
+        if after is not None and order != "fixed":
+            raise EngineError(f"after applies to fixed order; this encounter uses {order}")
+        sequence, index, budgets, cause = list(enc["sequence"]), enc["index"], {}, None
+        if order == "fixed":
+            if after is not None and after not in sequence:
+                raise EngineError(_suggest("participant to follow", after, sequence))
+            pos = sequence.index(after) + 1 if after is not None else len(sequence)
+        elif order == "initiative":
+            spec = structure(self.pack).get("initiative") or {}
+            result, cause = self._roll(spec["roll"], self._derived(self.state["entities"][entity_id]), None,
+                                       f"initiative:{entity_id}")
+            totals = self._initiative_totals()
+            pos = next((i for i, e in enumerate(sequence) if e in totals and
+                        (totals[e] < result.total or (totals[e] == result.total and e > entity_id))), len(sequence))
+        else:
+            pos = None  # deck: next round's shuffle; sides, handoff: by membership
+            if order == "spotlight":
+                budgets = {entity_id: self._full_budget()}
+        if pos is not None:
+            sequence.insert(pos, entity_id)
+            if pos <= index:  # its slot is already past: it first acts next round
+                index += 1
+        # under fixed order the participants are the order, so the joiner's place holds in later rounds
+        participants = list(sequence) if order == "fixed" else enc["participants"] + [entity_id]
+        self._emit("participant_joined", {"entity": entity_id, "participants": participants,
+                                          "sequence": sequence, "index": index, "budgets": budgets},
+                   actor=by, caused_by=cause)
+        return self.current_turn()
+
+    @atomic
+    @gm_call(lambda e, a: list(LEAVE_REASONS))
+    def leave_encounter(self, entity_id: str, reason: str, by: str | None = None) -> dict:
+        """Take an entity out of the running encounter (§2.4): defeated, fled, or
+        removed. It stays in the scene and in state, and can rejoin. If it was
+        taking its turn, the turn passes."""
+        by = self._gm_only(by, "take someone out of an encounter")
+        enc = self._enc()
+        if enc is None:
+            raise EngineError("no encounter is running")
+        if entity_id not in enc["participants"]:
+            raise EngineError(_suggest("participant", entity_id, enc["participants"]))
+        if reason not in LEAVE_REASONS:
+            raise EngineError(_suggest("reason", reason, LEAVE_REASONS))
+        participants = [e for e in enc["participants"] if e != entity_id]
+        sequence, index, current = list(enc["sequence"]), enc["index"], enc["current"]
+        passes = current == entity_id or (current in SIDES and self._side_of(entity_id) == current
+                                          and not [e for e in participants if self._side_of(e) == current])
+        if entity_id in sequence:
+            pos = sequence.index(entity_id)
+            sequence.pop(pos)
+            if pos < index or (pos == index and current == entity_id):
+                index -= 1  # the next turn starts where the leaver's was
+        if current == entity_id:
+            current = None
+        seq = self._emit("participant_left", {"entity": entity_id, "reason": reason, "participants": participants,
+                                              "sequence": sequence, "index": index, "current": current}, actor=by)
+        if passes and participants and enc["order"] not in ("spotlight", "handoff"):
+            self._advance(by, seq)  # under handoff the GM names who goes next with end_turn
+        return self.current_turn()
 
     def _handoff(self, current: str, by: str, nxt: str | None) -> dict:
         enc = self._enc()

@@ -187,6 +187,18 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** BUILD_PLAN P0.15.
 - **Acceptance:** BUILD_PLAN P0.15's test and its Gate P0 line.
 
+### T0.39 Encounter roster changes; clock limits as pack data — `done`
+- **Plan:** P0.4, P0.11 · §2.3, §2.4, §5.7, §7.1 · D-056 · REV-ARCH-1.9
+- **Deliverables:**
+  - `join_encounter` and `leave_encounter`, which are GM-only and logged, with the new events `participant_joined` and `participant_left`;
+  - placement of a joiner under each turn order, and a leaver's turn passing;
+  - empty sides skipped;
+  - the GM tools `join_encounter` (with `after` under `fixed`) and `leave_encounter` (with a `reason` enum);
+  - the smoke harness exercises both, with the golden fixtures regenerated;
+  - the pack's `clocks` limits (`segments`, `advance`, `every_sessions`, `every_units`) with kernel defaults, linted, and read by `create_clock`, schedules, `advance_clock`, and its tool;
+  - ARCHITECTURE 1.9 applied.
+- **Acceptance:** `tests/test_roster.py`; the clock-limit tests in `tests/test_clocks.py`; `tob check` passes.
+
 ### T0.38 Fourth audit: seats, sessions, authority, silent inputs, store and deploy safety — `done`
 - **Plan:** P0.1, P0.4, P0.12, deployment tooling · §3.1, §5.4, §2.6, §2.13.5, §5.6, §3.3 · D-053, D-054, D-055
 - **Deliverables:**

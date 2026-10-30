@@ -22,7 +22,8 @@ from . import expr, tactics
 E_ = "entity_model"
 SCHEMA: dict[str, set[str]] = {
     "": {"meta", "rules_text", "vocabulary", "randomizers", "entity_model", "resolution", "actions",
-         "turn_structure", "time", "gm", "progression", "chargen", "spatial", "presentation", "hooks", "fixtures"},
+         "turn_structure", "time", "clocks", "gm", "progression", "chargen", "spatial", "presentation", "hooks",
+         "fixtures"},
     "meta": {"id", "version", "extends", "name", "license", "attribution_text", "excluded_terms", "kernel_compat",
              "abstract", "attributions", "kernel_version", "lineage"},
     "meta.excluded_terms[]": {"term", "aliases"},
