@@ -613,7 +613,7 @@ Template:
 - **`allocate_points(step, order)`:** a legal allocation for scripted actors and generated tests. Every target starts low and rises one at a time, in the given order, while the pool allows.
   - The smoke harness and both chargen generators use it, so a pack with a points step gets the same 1,000-character property test as any other.
   - There is no chargen tool yet; Session 0's chargen surface is P3.1, and it will bound each value as an enum.
-- **No shipped pack uses a points step.** The proposal suggested `lanternlight_house`, but its `assign` step is part of Gate P0 item 12's evidence and of the assign tests, so it stays. The step is proven on a test variant of Lanternlight, including 1,000 allocations.
+- **No shipped pack used a points step at first** (D-060 adds one). The proposal suggested `lanternlight_house`, but its `assign` step is part of Gate P0 item 12's evidence and of the assign tests, so it stays. The step is proven on a test variant of Lanternlight, including 1,000 allocations.
 - **Lighting (§8.2):** a pack declares `spatial.lighting: [{id, label}]`, and a zone scene's regions may set `lighting`.
   - A region carries the field only when it is set, so older scene payloads fold the same.
   - Rules read `actor.region.lighting.<id>` and `target.region.lighting.<id>` (0 where unset), the GM's `set_scene` tool offers the values as an enum, and `get_tactical_view` shows them.
@@ -621,3 +621,13 @@ Template:
   - The smoke script lights its far region where the pack declares lighting, and the golden fixtures were regenerated.
   - A mid-scene change of light is not built; the next scene can relight.
 - **Gate time:** on 2026-10-30 the machine was loaded. The gate took 78 s against its 60 s budget, and the T0.39 code took 67 s for 676 tests in the same conditions (33 s when it was committed). The 56 new tests add about 7 s.
+
+## D-060 Point-buy in a shipped pack (T0.43)
+- Date: 2026-10-30 · Status: accepted (owner: point-buy is a popular mechanic, make sure it is included). This answers D-059's open question.
+- **`lanternlight_pointbuy`:** a data-only pack extending Lanternlight, beside the house-rules, sectioned, and excluded-terms variants.
+  - **The step:** Lanternlight's rolled `stats` step becomes a `points` step in place, so it still comes before the background choice.
+  - **The numbers:** spend exactly 5 points over Might, Grace, Wits, and Heart. Each is -1 to +2, costing 0, 1, 2, or 4 by value (`cost: [0, 1, 2, 4]`). The background then sets its stat as in Lanternlight.
+  - **Rules text:** the pack's rules text says so.
+- **A merge leftover:** catalogue entries deep-merge (§2.8), so the inherited step's `roll` key survives the override. The pack sets it to `null`; a `points` step never reads it. `lanternlight_house`'s `assign` step carries the same kind of leftover.
+- **Why a new pack:** `lanternlight` keeps its `roll` step and `lanternlight_house` its `assign` step, which Gate P0 item 12 cites. With this pack, every chargen step kind (roll, choice, assign, table, points) is in a shipped pack.
+- **What runs on it:** it is playable, so it runs in every gated smoke campaign and every property test, including 1,000 generated characters. It also runs the Gate P0 tests that sweep all playable packs, and it has its own golden fixture. No other pack's hash or fixture changed.

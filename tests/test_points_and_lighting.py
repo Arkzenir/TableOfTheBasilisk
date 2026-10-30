@@ -167,3 +167,24 @@ def test_a_scene_without_lighting_folds_as_before(lantern):
     eng.set_scene("plain", regions=[{"id": "a", "label": "A"}], placements={"ash": "a"})
     assert "lighting" not in eng.state["scene"]["spatial"]["regions"][0]
     assert eng.view(eng.state["entities"]["ash"])["region"]["lighting"]["dim"] == 0
+
+
+# ---------------------------------------------------------------- point-buy in a shipped pack (D-060)
+
+def test_the_shipped_point_buy_pack_builds_characters_from_a_pool(packs_dir):
+    pack = resolve("lanternlight_pointbuy", packs_dir)
+    step = next(s for s in pack.get("chargen.steps") if s["id"] == "stats")
+    assert step["kind"] == "points" and step["pool"] == 5
+    assert [s["id"] for s in pack.get("chargen.steps")][:2] == ["stats", "background"]  # spend, then background
+    assert errors(lint(pack)) == []
+    eng = table(pack, {"gm": "gm", "ash": "player"})
+    pick = {"might": 2, "grace": 0, "wits": -1, "heart": -1}  # 4 + 1 + 0 + 0 = 5
+    eng.create_character("ash", "Ash", {"stats": pick, "background": "scholar"})
+    stats = eng.state["entities"]["ash"]["stats"]
+    assert {k: stats[k] for k in ("might", "grace", "heart")} == {"might": 2, "grace": 0, "heart": -1}
+    with pytest.raises(EngineError, match="that costs 4 points; spend exactly 5"):
+        eng2 = table(pack, {"gm": "gm", "ash": "player"})
+        eng2.create_character("ash", "Ash", {"stats": {"might": 2, "grace": -1, "wits": -1, "heart": -1},
+                                             "background": "scholar"})
+    assert not any(e["type"] == "roll_made" and "chargen:stats" in e["payload"]["purpose"]
+                   for e in eng.store.read(eng.campaign_id))  # nothing is rolled for stats any more

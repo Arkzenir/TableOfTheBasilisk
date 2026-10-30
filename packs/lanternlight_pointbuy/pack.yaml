@@ -1,0 +1,42 @@
+# Lanternlight with point-buy characters, built as data only (ARCHITECTURE §1.5,
+# §2.3; D-059, D-060). Instead of rolling each stat, a player spends 5 points
+# over the four stats; raising a stat costs more the higher it goes. Every
+# shipped chargen step kind is then in a shipped pack: roll (Lanternlight),
+# choice and table (both demo games), assign (house rules), points (this one).
+meta:
+  id: lanternlight_pointbuy
+  version: 0.1.0
+  extends: lanternlight@0.1.0
+  name: Lanternlight with point-buy characters (demo)
+  license: CC0-1.0
+  attribution_text: "Point-buy characters for Lanternlight (CC0)."
+  kernel_compat: ">=0.1,<0.2"
+
+rules_text:
+  mode: inline
+  full_text: |
+    LANTERNLIGHT (demo), point-buy characters
+    Characters have four stats from -1 to +3: Might, Grace, Wits, Heart.
+    Make a character by spending exactly 5 points: every stat starts at -1, and
+    raising one to 0 costs 1, to +1 costs 2, to +2 costs 4. Your background then
+    sets one stat as it says.
+    To act under pressure, roll a Check: d20 + stat + modifiers, meeting or
+    beating the difficulty the GM sets (Easy 8, Moderate 12, Hard 15, Extreme 18).
+    Strikes are checked against the target's Guard (10 + Grace).
+    Vigor is 8 + 2 x Might. At 0 Vigor you are Down until someone Rallies you.
+    Fatigue has three boxes; filling it leaves you Exhausted until you Rest.
+    In a fight everyone rolls d20 + Grace once for turn order, highest first.
+    On your turn you have one action and one minor action (Recall is minor).
+    Each character starts with 1 Luck (max 3); spend it to Inspire an ally.
+
+chargen:
+  steps:
+    # The inherited rolled step becomes point-buy in place, so it still comes
+    # before the background choice. Its old roll no longer applies.
+    - id: stats
+      kind: points
+      roll: null
+      targets: [might, grace, wits, heart]
+      pool: 5
+      range: [-1, 2]
+      cost: [0, 1, 2, 4]   # what a stat at -1, 0, +1, +2 costs

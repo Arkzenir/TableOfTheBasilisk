@@ -27,6 +27,7 @@ Rewritten at the end of every work session, so the next session — any agent or
     - Entities are `npc` or `prop`. Props never take turns unless joined and never roll, and scenery (`interactable: false`) cannot be targeted.
     - `entity_model.templates` are stat blocks the GM spawns by id, so no number crosses the tool.
     - `get_tactical_view` shows the encounter board.
+  - **T0.43** (D-060): point-buy ships in `lanternlight_pointbuy`, so every chargen step kind is in a shipped pack.
   - **T0.42** (D-059):
     - A `points` chargen step for point-buy, with costs per point or a list per value.
     - Lighting is a region value that rules read.
@@ -86,7 +87,7 @@ Rewritten at the end of every work session, so the next session — any agent or
 
 Refreshed 2026-10-26 after T0.24 to T0.28. Every item below was run on the development desktop:
 
-- `tob check`: **GATE: PASS** in about 30 s (budget 60 s). It runs the noun lint, pack lint for 9 packs, verified smoke campaigns on the 6 playable packs, and pytest with **732 tests passed** (after T0.42). On 2026-10-30 the machine was loaded: the gate took 78 s, and the T0.39 code took 67 s in the same conditions (33 s when committed), so the 56 new tests add about 7 s. On 2026-10-29 the machine was loaded: the gate took 69 s against its 60 s budget, but the pre-T0.33 code took 57 s for 542 tests in the same conditions (30 s when idle), so time per test is unchanged.
+- `tob check`: **GATE: PASS** in about 30 s (budget 60 s). It runs the noun lint, pack lint for 10 packs, verified smoke campaigns on the 7 playable packs, and pytest with **744 tests passed** (after T0.43). On 2026-10-30 the machine was loaded: the gate took 78 s, and the T0.39 code took 67 s in the same conditions (33 s when committed), so the 56 new tests add about 7 s. On 2026-10-29 the machine was loaded: the gate took 69 s against its 60 s budget, but the pre-T0.33 code took 57 s for 542 tests in the same conditions (30 s when idle), so time per test is unchanged.
 - `tob pack lint`: 0 errors and 0 warnings on every pack, every pack strict-ready on every control. Hook counts: 2 in `lanternlight_hooked`, 0 elsewhere. Rules text (P0.6): Lanternlight inline ~167 of 30,000 tokens, Tidewrack ~103, the sectioned variant's digest ~69 of 6,000 with 12 sections.
 
 "Both packs" means the two kernel test games from different families, `lanternlight` (roll-over) and `tidewrack` (banded) (BUILD_PLAN P0.6). The four derivatives are also run.
@@ -120,11 +121,10 @@ Refreshed 2026-10-26 after T0.24 to T0.28. Every item below was run on the devel
 ## Open questions for the owner
 
 1. **D-045:** whether the Phase 0 audits now count as complete. The fourth is fixed by T0.38 and T0.39, and the fifth is built as T0.40 to T0.42. BUILD_PLAN §0.4's pre-build checklist is the owner's.
-2. **Point-buy in a shipped pack:** no shipped pack uses the `points` step. `lanternlight_house` kept its `assign` step, which Gate P0 item 12 cites (D-059). Should a demo pack carry one?
-3. **Re-audit when the P0 architecture is finalised:** Gate item 8 (structural evidence only) and the hook return shape (D-033: point-specific results rather than `[events]`).
-4. **When `KERNEL_VERSION` moves:** decided to wait (D-045). It stays `0.1.0` until every Phase 0 audit returns complete; then the owner sets the bump and the policy.
-5. Before T1.5's live tests, the Anthropic API key, set as an environment variable.
-6. Before P4.0, the SRD source document. Before launch, the legal review in ARCHITECTURE §11.3.
+2. **Re-audit when the P0 architecture is finalised:** Gate item 8 (structural evidence only) and the hook return shape (D-033: point-specific results rather than `[events]`).
+3. **When `KERNEL_VERSION` moves:** decided to wait (D-045). It stays `0.1.0` until every Phase 0 audit returns complete; then the owner sets the bump and the policy.
+4. Before T1.5's live tests, the Anthropic API key, set as an environment variable.
+5. Before P4.0, the SRD source document. Before launch, the legal review in ARCHITECTURE §11.3.
 
 ## Notes for the next session
 

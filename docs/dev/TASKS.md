@@ -187,6 +187,15 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** BUILD_PLAN P0.15.
 - **Acceptance:** BUILD_PLAN P0.15's test and its Gate P0 line.
 
+### T0.43 Point-buy in a shipped pack — `done`
+- **Plan:** P0.6, P0.8 · §1.5, §2.8 · D-060
+- **Deliverables:** `packs/lanternlight_pointbuy`: Lanternlight with its rolled stats replaced by a 5-point buy (-1 to +2, costs 0/1/2/4), as data only, with rules text and a golden fixture.
+- **Acceptance:**
+  - lint-clean and strict-ready;
+  - in every gated campaign and property test;
+  - `tests/test_points_and_lighting.py::test_the_shipped_point_buy_pack_builds_characters_from_a_pool`;
+  - `tob check` passes.
+
 ### T0.42 Point-buy chargen; lighting per region — `done`
 - **Plan:** P0.8, P0.10 · §1.5, §2.3, §8.2 · REV-ARCH-1.10 sections G and H
 - **Deliverables:**
