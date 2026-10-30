@@ -195,13 +195,13 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
   - `lanternlight_house` uses a points step, and lanternlight's dim light derives per region.
 - **Acceptance:** tests per section; golden fixtures regenerated deliberately; `tob check` passes.
 
-### T0.41 Props, entity templates, the tactical view — `ready`
+### T0.41 Props, entity templates, the tactical view — `done`
 - **Plan:** P0.3, P0.10 · §2.3, §5.2, §7.1, §8.2 · REV-ARCH-1.10 sections B, C and D
 - **Deliverables:**
   - entity kind `npc | prop` with `interactable`: props never default participants, never roll, and scenery cannot be targeted;
   - `entity_model.templates`, linted, with `spawn_entity(template=…)` and a GM tool that offers templates by id; the engine command takes the full spec;
   - `tactical_view(seat)` and the `get_tactical_view` tool.
-- **Acceptance:** tests per section; golden fixtures regenerated deliberately; `tob check` passes.
+- **Acceptance:** `tests/test_props_and_templates.py`; golden fixtures regenerated (templates in both demo packs, a prop in the smoke script); `tob check` passes. D-058.
 
 ### T0.40 Lookup tables in play, time limits per unit, concluding a campaign — `done`
 - **Plan:** P0.2, P0.11 · §2.3, §5.5, §5.7, §7.1 · D-057 · REV-ARCH-1.10 sections A, E and F (ARCHITECTURE 1.10 applied)

@@ -619,6 +619,8 @@ class Engine(EntityCommands, CurrencyCommands, ResolutionCommands, EffectCommand
                 if not target:
                     raise EngineError(f"{aid} needs a target entity")
                 tgt = self._entity(target, observer=by)
+                if tgt.get("interactable") is False:
+                    raise EngineError(f"{target} is scenery: nothing can target it")
             elif kind == "zone":
                 if not target:
                     raise EngineError(f"{aid} needs a target zone")

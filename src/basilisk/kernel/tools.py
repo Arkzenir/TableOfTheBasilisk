@@ -106,6 +106,8 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
     zones, bands = "zone_graph" in backends, "range_bands" in backends
     if zones or bands:
         tools["look"] = {}  # the caller's own view of the scene: regions and visible tokens (§7.1, §8.2)
+        # the encounter board: positions, steps, cover, reach, and whose turn (§7.1)
+        tools["get_tactical_view"] = {"entity_id": ID} if role == "gm" else {}
         # Tactical tools (§1.4.2, §7.1). Results are tiered by the seat's rules_mastery,
         # which the dispatcher supplies from campaign traits; it is never a model argument.
         tools["enumerate_moves"] = {}
@@ -172,7 +174,10 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
             tools["advance_time"] = {"unit": _enum(time_units), "amount": _enum(timekeeping.advance_amounts(pack))}
         if (pack.get("progression") or {}).get("model") == "milestone" and advances:
             tools["award_milestone"] = {"entity_id": ID}  # omitted: every player character
-        tools["spawn_entity"] = {"entity_id": ID, "name": NARRATIVE}
+        tools["spawn_entity"] = {"entity_id": ID, "name": NARRATIVE, "kind": _enum(["npc", "prop"])}
+        templates = [t["id"] for t in pack.catalogue("entity_model.templates")]
+        if templates:  # stat blocks by id: no model-supplied number crosses (§1.3.2, §2.13.4)
+            tools["spawn_entity"]["template"] = _enum(templates)
         tools["set_scene"] = {"scene_id": ID}
         if zones:
             tools["set_scene"]["regions"] = _region_schema(pack)

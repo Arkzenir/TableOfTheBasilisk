@@ -228,7 +228,8 @@ class TurnCommands:
         ts = structure(self.pack)
         if participants is None:
             spatial = self._spatial()
-            participants = [e for e in sorted(self.state["entities"]) if spatial is None or self._in_scene(e)]
+            participants = [e for e in sorted(self.state["entities"])  # props only take part when joined (§8.2)
+                            if (spatial is None or self._in_scene(e)) and self.state["entities"][e]["kind"] != "prop"]
         for eid in participants:
             self._entity(eid)
         if not participants or len(set(participants)) != len(participants):

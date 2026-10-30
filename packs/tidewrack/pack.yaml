@@ -67,6 +67,10 @@ entity_model:
   conditions:
     - {id: rattled, modifier: -1, duration: scene}
     - {id: battered, modifier: -2, duration: until_removed}
+  # Stat blocks the GM spawns by id (ARCHITECTURE §2.3, §1.3.2).
+  templates:
+    - {id: reef_raider, label: "Reef raider", stats: {iron: 1, tide: 1}, resources: {grit: 5}, tags: [raider]}
+    - {id: broken_mast, label: "Broken mast", kind: prop, tags: [splintered]}
 
 resolution:
   situational_tags:

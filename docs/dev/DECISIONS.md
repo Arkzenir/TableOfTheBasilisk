@@ -567,3 +567,32 @@ Template:
   - **Verify:** `verify` uses a logged seed when none is passed, so the log verifies itself.
   - **Publishing:** exporting the log, the seed, and the resolved pack stays in BUILD_PLAN P5.7.
 - **Tool enums:** numbers now sort by value (they sorted as strings, so 1, 10, 11, 2 …), then ids alphabetically.
+
+## D-058 Props, entity templates, the tactical view (T0.41)
+- Date: 2026-10-30 · Status: accepted (REV-ARCH-1.10 sections B, C and D, approved as recommended).
+- **Kinds (§8.2):** a spawned entity is `npc` (default) or `prop`.
+  - **Turns:** a prop is not a default encounter participant (`start_encounter` with no list skips props). `join_encounter` can still add one.
+  - **Rolls:** a prop never rolls. A procedure that would have it roll, as actor or as the other side of an opposed check, is refused, so it is also absent from `available_actions`. An action against a prop with a derived difficulty resolves as usual.
+  - **Scenery:** `interactable: false` makes it scenery. Actions cannot target it, and the candidate generator never offers it.
+  - **State:** a prop's state is its pack tags.
+  - **Replay:** `kind` was always on entities; `interactable` is written only when false, so older entities read the same.
+- **Templates (§2.3 `entity_model.templates`):** `{id, label, kind, stats, resources, tags, items, conditions}`.
+  - **Lint:**
+    - stats in range;
+    - starting resources from min to their max at the template's stats;
+    - tags in the pack's declared list when it has one;
+    - conditions exist;
+    - under the weight model, items are catalogued and fit the carry limit.
+
+    Template limits that depend on a broken formula are skipped, since the expression lint reports the formula.
+  - **The GM's tool:** `spawn_entity` offers `template` and `kind` as enums, and no stats, so under either preset no model-supplied number crosses (§1.3.2, §2.13.4).
+  - **The engine command:** takes the same fields directly, for prep (P3) and scripted harnesses. Each is checked against the pack, and they override the template's.
+  - **Demo packs:** Lanternlight gains `watch_guard` and `rope_bridge` (a prop); Tidewrack gains `reef_raider` and `broken_mast` (a prop). Their hashes changed.
+  - **Smoke script:** spawns a prop from a template, and the mid-encounter reinforcement uses a template. The golden fixtures were regenerated.
+- **Tactical view (§7.1 `get_tactical_view`):** `tactical_view(seat, entity_id=None)` returns, for what the seat can see in the scene:
+  - each entity's position, steps from the viewing entity, and band in a band scene;
+  - cover, terrain and lighting where it stands;
+  - the viewing entity's reach;
+  - `current_turn(seat)`.
+
+  A player views from its own entity in the scene, and the GM from a named entity or from none (positions only). It writes nothing. The tool is present wherever a spatial backend is declared, and the GM's takes `entity_id`. It counts as a read in the GM-call coverage test.

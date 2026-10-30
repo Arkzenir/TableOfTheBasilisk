@@ -179,7 +179,9 @@ def _change_roster(engine: Engine) -> None:
             zone = "zone_2"
         elif spatial and "range_bands" in backends:
             zone = f"{engine.pack.get('spatial.bands')[0]['id']}:npc_warden"
-        engine.spawn_entity("npc_reinforcement", "A Late Arrival", zone=zone)
+        npc = next((t["id"] for t in engine.pack.catalogue("entity_model.templates")
+                    if t.get("kind", "npc") == "npc"), None)  # a pack stat block, by id (§1.3.2)
+        engine.spawn_entity("npc_reinforcement", "A Late Arrival", zone=zone, template=npc)
         engine.join_encounter("npc_reinforcement")
     if "npc_warden" in engine.state["encounter"]["participants"]:
         engine.leave_encounter("npc_warden", "fled")
@@ -239,6 +241,9 @@ def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
         engine.create_character(p, NAMES.get(p, p), choices)
     for npc_id, name in NPCS:
         engine.spawn_entity(npc_id, name)
+    prop = next((t for t in engine.pack.catalogue("entity_model.templates") if t.get("kind") == "prop"), None)
+    if prop:  # promoted fiction (§5.2): targetable, but it never takes a turn
+        engine.spawn_entity("prop_" + prop["id"], prop["label"], template=prop["id"])
     bounds = clock_limits(engine.pack)  # the pack's clock limits (§2.3), kernel defaults otherwise
     total = min(max(6, bounds["segments"][0]), bounds["segments"][1])
     stages = [{"at": total, "record": {"type": "event", "name": "The thing arrives",

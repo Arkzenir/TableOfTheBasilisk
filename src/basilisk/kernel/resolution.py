@@ -124,10 +124,17 @@ class ResolutionCommands:
         """Why this roll cannot be made, or None. Where the pack's GM never rolls
         (`gm.gm_rolls: false`, §2.4 who rolls), no GM-side entity rolls: not as
         the actor, and not as the other side of an opposed check."""
-        if self.pack.get("gm.gm_rolls", True) or not self._rolls(proc):
+        if not self._rolls(proc):
             return None
         steps = {k: v for step in proc.get("steps") or [] for k, v in step.items()}
         opposed = steps["interpret"].get("against") == "opposed"
+        if ent["kind"] == "prop":  # a prop never rolls (§8.2)
+            return f"{ent['id']} is a prop and never rolls; {proc['id']} needs a roll. Use an action that does not roll"
+        if opposed and target is not None and target["kind"] == "prop":
+            return (f"{target['id']} is a prop and cannot roll the other side of {proc['id']}; "
+                    "use an action with a derived difficulty")
+        if self.pack.get("gm.gm_rolls", True):
+            return None
         roller = ent if self._side_of(ent["id"]) == "gm" else             target if opposed and target is not None and self._side_of(target["id"]) == "gm" else None
         if roller is None:
             return None

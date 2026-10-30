@@ -31,6 +31,7 @@ from typing import Any
 
 from . import expr
 from .command import EngineError, _suggest
+from .spatial import values as spatial_values
 
 # Kernel settings (Appendix C kernel_config): (highest mastery, min options, max options).
 MASTERY_TIERS = ((33, 4, 5), (66, 7, 8), (100, 10, 12))
@@ -237,6 +238,57 @@ class TacticalCommands:
         spatial = self._spatial()
         return self._backend(spatial).label(spatial, self.state["entities"], position) if spatial else position
 
+    def tactical_view(self, seat: str, entity_id: str | None = None) -> dict:
+        """`get_tactical_view` (§7.1): for one seat, the encounter board it can
+        see, by id and never by coordinate (§1.4.1). Each visible entity's
+        position, its steps (regions crossed, or bands out) from the seat's
+        entity, and the cover and terrain where it stands; the entity's reach;
+        and whose turn it is. A player's entity is its own one in the scene; the
+        GM names one or sees positions only."""
+        if seat not in self.seats and seat != "gm":
+            raise EngineError(_suggest("seat", seat, self.seats))
+        spatial = self._spatial()
+        gm = self._role(seat) == "gm"
+        if entity_id is not None:
+            ent = self._entity(entity_id, observer=seat)
+            if not gm and ent["controller"] != seat:
+                raise EngineError(f"{seat} can view the board from its own entity only")
+        elif not gm:
+            own = [e for e, x in sorted(self.state["entities"].items())
+                   if x["controller"] == seat and (spatial is None or self._in_scene(e))]
+            entity_id = own[0] if len(own) == 1 else None
+            if len(own) > 1:
+                raise EngineError(f"{seat} has several entities here; name one of: {', '.join(own)}")
+        view = {"scene_id": self.state["scene"]["id"], "mode": spatial["mode"] if spatial else None,
+                "self": None, "others": [], "turn": self.current_turn(seat)}
+        if spatial is None:
+            return view
+        backend = self._backend(spatial)
+        steps = self.steps_from(entity_id) if entity_id else {}
+        bands = [b["id"] for b in spatial_values(self.pack, "bands")]
+
+        def where(eid: str) -> dict:
+            region = backend.region(spatial, self.state["entities"], eid, None) or {}
+            out = {"position": backend.position_of(spatial, self.state["entities"], eid)}
+            for key in ("cover", "terrain", "lighting"):
+                if region.get(key):
+                    out[key] = region[key]
+            return out
+
+        if entity_id:
+            view["self"] = {"id": entity_id, **where(entity_id), "reach": self.reachable(entity_id)}
+        for eid in sorted(self.state["entities"]):
+            if eid == entity_id or not self._in_scene(eid) or not self.visible(seat, eid):
+                continue
+            ent = self.state["entities"][eid]
+            row = {"id": eid, "name": ent["name"], "kind": ent["kind"], **where(eid)}
+            if eid in steps:
+                row["steps"] = steps[eid]
+                if spatial["mode"] == "bands" and steps[eid] < len(bands):
+                    row["band"] = bands[steps[eid]]
+            view["others"].append(row)
+        return view
+
     def enumerate_moves(self, entity_id: str, mastery: int) -> list[dict]:
         """Ranked, tiered move candidates for an entity (§1.4.2). Empty outside a
         spatial scene or when the entity is not placed in it. The same shape
@@ -263,8 +315,9 @@ class TacticalCommands:
 
     def _action_targets(self, entity_id: str, action: dict, position: str | None) -> list[str | None]:
         kind = action.get("target", "none")
-        if kind == "entity":
-            return self._seen(self._observer(entity_id), entity_id)
+        if kind == "entity":  # scenery is never a target (§8.2)
+            return [e for e in self._seen(self._observer(entity_id), entity_id)
+                    if self.state["entities"][e].get("interactable") is not False]
         if kind == "zone":
             return self.reachable(entity_id, at=position) if self._spatial() is not None else []
         return [None]

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from . import clocks, decks, dice, expr, tables, packschema, progression, rules, sheets, spatial, tactics, terms, timekeeping, turns
+from . import clocks, decks, dice, entities, expr, tables, packschema, progression, rules, sheets, spatial, tactics, terms, timekeeping, turns
 from .command import _suggest
 from .determinism import CONTROLS, ROLES, STRICT, expand
 from .effects import OPTIONAL_PARAMS, PRIMITIVES, RESERVED, TARGET_SYMBOLS, references
@@ -464,6 +464,8 @@ def lint(pack: ResolvedPack) -> list[Finding]:
         err("clock", problem)
     for problem in tables.lint_tables(pack):
         err("table", problem)
+    for problem in entities.lint_templates(pack):
+        err("template", problem)
     for problem in sheets.lint_sheet(pack):
         err("sheet", problem)
     for problem in sheets.lint_harm(pack):

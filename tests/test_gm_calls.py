@@ -8,7 +8,7 @@ from basilisk.kernel.tools import generate
 
 # Tools that change nothing: table talk (P1) and reads.
 READS = {"post_to_table", "pass", "read_sheet", "read_party_sheets", "query_canon", "query_rules",
-         "enumerate_actions", "look", "enumerate_moves", "preview"}
+         "enumerate_actions", "look", "enumerate_moves", "preview", "get_tactical_view"}
 # Tools whose command already logs each choice under its own control (§2.13).
 JUDGED = {"commit_action": "action_selection", "rule_on_action": "difficulty", "fill_ruling": "ruling_slots",
           "resolve_unmodelled": "unmodelled_actions", "peek_roll": "fudging", "take_advance": "advance"}
