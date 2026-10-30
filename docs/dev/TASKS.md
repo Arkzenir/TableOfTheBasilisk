@@ -187,6 +187,27 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** BUILD_PLAN P0.15.
 - **Acceptance:** BUILD_PLAN P0.15's test and its Gate P0 line.
 
+### T0.38 Fourth audit: seats, sessions, authority, silent inputs, store and deploy safety — `done`
+- **Plan:** P0.1, P0.4, P0.12, deployment tooling · §3.1, §5.4, §2.6, §2.13.5, §5.6, §3.3 · D-053, D-054, D-055
+- **Deliverables:**
+  - campaign seats and GM traits are validated, with at most four players and one GM;
+  - sessions open and close in turn, and a scene needs an open session;
+  - `set_scene`, `create_clock` and `advance_clock` are GM-only; session control is the GM's or the operator's;
+  - a currency amount that rolls below zero counts as zero, and self-transfers are refused (both linted);
+  - GM inputs a procedure would not use are refused, not dropped;
+  - `resolve_unmodelled` names bad stats, takes an opposed `target`, and picks the ladder by rung;
+  - deck hands follow control;
+  - forks are atomic and range-checked;
+  - the CLI refuses missing stores and empty backups;
+  - a release history makes rollback and pruning safe, and dirty deploys need `--allow-dirty`;
+  - the pre-push hook refuses uncommitted changes;
+  - offline tests cannot open sockets;
+  - a fresh scaffold runs a smoke campaign;
+  - `engine.py` is split.
+
+  The encounter join/leave gap is proposed as REV-ARCH-1.9, not built.
+- **Acceptance:** `tests/test_authority_and_lifecycle.py`; golden fixtures unchanged; `tob check` passes.
+
 ### T0.37 Leak sweep, effect parameters, formula maxima, canon speed — `done`
 - **Plan:** P0.4, P0.7, P0.9 · P3, §2.6, §2.10, §6.5 · D-052
 - **Deliverables:** every player-reachable command and read swept for hidden-entity names: `current_turn(seat)` and the results of `end_turn` and `next_round` hide unseen entities, out-of-turn and turn-ending errors say "someone else", a player hands off only to someone they can see; effect parameters closed per primitive (`OPTIONAL_PARAMS`); a resource `min` checked against a formula `max` at the stats' defaults and extremes; the dead post-merge duplicate-id checks removed; canon writes no longer rebuild the index (it extends in place) and near-collision checks only compare names whose length could match; command backups use a JSON-shaped copy instead of `deepcopy`; the session-open scan is incremental.

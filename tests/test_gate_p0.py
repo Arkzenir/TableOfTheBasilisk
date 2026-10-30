@@ -40,10 +40,8 @@ def test_fork_at_every_seq_gives_a_correct_divergent_branch(pack_id, packs_dir):
     late = len(events) - 1
     a = Engine.load(pack, script["seed"], store, f"fork-{late}", clock=lambda: None)
     b = Engine.load(pack, script["seed"], store, f"fork-{late}", clock=lambda: None)  # same fork, two engines
-    a.start_session()
-    a.set_scene("branch_a")
+    a.set_scene("branch_a")  # both forks end before session_ended: the session is still open
     c = Engine.load(pack, script["seed"], store, f"fork-{late - 1}", clock=lambda: None)
-    c.start_session()
     c.set_scene("branch_c", encounter=True)
     assert store.head(cid) == head
     assert store.head(f"fork-{late}") != store.head(f"fork-{late - 1}")

@@ -44,3 +44,21 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if "live" in item.keywords:
             item.add_marker(skip)
+
+
+@pytest.fixture(autouse=True)
+def _no_network(request, monkeypatch):
+    """The default run makes zero network calls (AGENTS.md, §3.3): any attempt to
+    open a connection fails the test, so the rule is enforced, not hoped for.
+    Tests marked `live` (opt-in with TOB_LIVE=1) are exempt."""
+    if "live" in request.keywords:
+        return
+    import socket
+
+    def refuse(*args, **kwargs):
+        raise RuntimeError("network access in an offline test; mark it @pytest.mark.live (docs/dev/TESTING.md)")
+
+    monkeypatch.setattr(socket.socket, "connect", refuse)
+    monkeypatch.setattr(socket.socket, "connect_ex", refuse)
+    monkeypatch.setattr(socket, "create_connection", refuse)
+    monkeypatch.setattr(socket, "getaddrinfo", refuse)

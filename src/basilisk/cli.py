@@ -231,8 +231,11 @@ def cmd_verify(args) -> int:
     from .kernel.events import EventStore
     from .kernel.packs import resolve
 
-    store = EventStore(args.db)
+    store = EventStore(args.db, create=False)
     campaigns = [args.campaign] if args.campaign else store.campaigns()
+    if not campaigns:
+        print(f"{args.db}: no campaigns to verify")
+        return 1
     code = 0
     for cid in campaigns:
         first = next(store.read(cid), None)
@@ -244,6 +247,9 @@ def cmd_verify(args) -> int:
                 pack = None
         problems = verify(store, cid, pack, args.seed)
         print(f"{cid}: {'OK' if not problems else 'FAIL'}")
+        if pack is None and first:
+            print(f"   note: pack {first['payload'].get('pack_id')!r} is not in this checkout; "
+                  "its pinned hash was not compared")
         for p in problems:
             print("  ", p)
         code |= bool(problems)
@@ -252,7 +258,7 @@ def cmd_verify(args) -> int:
 
 def cmd_fork(args) -> int:
     from .kernel.events import EventStore
-    n = EventStore(args.db).fork(args.campaign, args.seq, args.new_campaign)
+    n = EventStore(args.db, create=False).fork(args.campaign, args.seq, args.new_campaign)
     print(f"forked {n} events of {args.campaign} into {args.new_campaign} (debugging only - never editorial, P6)")
     return 0
 
@@ -260,7 +266,7 @@ def cmd_fork(args) -> int:
 def cmd_db(args) -> int:
     from .kernel.events import EventStore
     if args.db_cmd == "backup":
-        EventStore(args.src).backup_to(args.dst)
+        EventStore(args.src, create=False).backup_to(args.dst)
         print(f"backed up {args.src} -> {args.dst}")
         return 0
     return 2
@@ -277,7 +283,7 @@ def cmd_soak(args) -> int:
 def cmd_deploy(args) -> int:
     from .ops.deploy import deploy
     from .ops.remote import load_host
-    deploy(load_host(args.host), dry_run=args.dry_run)
+    deploy(load_host(args.host), dry_run=args.dry_run, allow_dirty=args.allow_dirty)
     return 0
 
 
@@ -331,6 +337,9 @@ def cmd_backup(args) -> int:
     bad = {cid: verify(store, cid) for cid in store.campaigns()}
     bad = {k: v for k, v in bad.items() if v}
     print(f"saved {dest} ({dest.stat().st_size // 1024} KiB, {len(store.campaigns())} campaign(s))")
+    if not store.campaigns():  # an empty copy is not a backup
+        print("integrity: PROBLEM - the backup holds no campaigns")
+        return 1
     print("integrity:", "OK" if not bad else f"PROBLEMS in {sorted(bad)}")
     return 1 if bad else 0
 
@@ -410,6 +419,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("deploy", help="package, upload, gate and switch a release on a host")
     s.add_argument("host")
     s.add_argument("--dry-run", action="store_true")
+    s.add_argument("--allow-dirty", action="store_true", help="deploy uncommitted changes (not recommended)")
     s.set_defaults(fn=cmd_deploy)
 
     s = sub.add_parser("rollback", help="switch a host back to its previous release")

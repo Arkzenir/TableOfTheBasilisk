@@ -59,8 +59,12 @@ def build_tarball() -> tuple[bytes, list[str]]:
     return buf.getvalue(), names
 
 
-def deploy(host: dict, dry_run: bool = False) -> str:
+def deploy(host: dict, dry_run: bool = False, allow_dirty: bool = False) -> str:
     release = release_name()
+    if release.endswith("-dirty") and not (dry_run or allow_dirty):
+        # uncommitted changes would go live without passing the local gate or being in history
+        raise RuntimeError("the working tree has uncommitted changes: commit them (the pre-push gate runs), "
+                           "or pass --allow-dirty to deploy them anyway")
     blob, names = build_tarball()
     print(f"release {release}: {len(names)} files, {len(blob) // 1024} KiB -> {host['ssh']}:{host['app_dir']}")
     if dry_run:

@@ -466,3 +466,57 @@ Template:
 - **Formula maxima:** a resource whose `max` is a formula is evaluated at the stats' defaults, lowest, and highest values (when every stat has a range); a `min` above it at any of them is a lint error.
 - **Dead checks removed:** the post-merge duplicate-id lint over catalogues and spatial lists could not fire after D-046's per-file refusal. The per-module duplicate checks stay, since they also catch entries without ids.
 - **Speed (§6.5):** a canon write extended a fresh copy of the whole canon index and compared every name for near-collisions. Now an append-only change extends the cached index in place (a rollback drops the cache), equal to a fresh build. Near-collision candidates are limited to keys whose length passes difflib's own `real_quick_ratio` bound, so the flags are unchanged. With varied names a write costs about 4 ms at 1,000 records. `atomic` backs state up with `plain_copy`, a copier for JSON-shaped data, several times faster than `deepcopy`. Event streams and golden fixtures did not change.
+
+## D-053 Seats, sessions, and who may change the world (T0.38)
+- Date: 2026-10-30 · Status: accepted (owner: "Fix as T0.38", after the fourth Phase 0 audit).
+- **Seats (§3.1):** `start_campaign` refuses:
+  - more than four player seats, or more than one GM seat;
+  - seat ids outside the id pattern;
+  - the engine's own actor names (`players`, `engine`, `operator`, `audience_service`) as seats;
+  - a seat called `gm` that is not the GM's. `gm` always names the GM in commands, so a player seat with that name would have held GM powers.
+
+  `gm_traits.lethality` and `gm_traits.fudging` must be integers from 0 to 100; they were coerced with `int()` and unbounded. `determinism` must be a mapping. Each refusal is a named `EngineError`.
+- **Sessions:** a session is open between `session_started` and `session_ended`. That is read from the log, as canon already did (`_session_open`), so folded state and state hashes are unchanged.
+  - `start_session` refuses while a session is open.
+  - `end_session` refuses when none is open.
+  - `set_scene` needs an open session.
+
+  Before this, a second `end_session` awarded session-end progression again, and a second `start_session` skipped the end-of-session expiry and awards.
+- **Authority (§5.4):** `start_session` and `end_session` accept the GM, the operator, or the engine. `set_scene`, `create_clock`, and `advance_clock` accept only the GM (`Engine._gm_only`); all three used to accept a player seat. An `advance_clock` command still emits its effect as the engine, and `gm_call` logs whose choice it was, so existing event streams are unchanged.
+
+## D-054 Effects and inputs that silently did the wrong thing (T0.38)
+- Date: 2026-10-30 · Status: accepted (as D-053).
+- **Currencies (§2.6):** an `earn_currency` or `spend_currency` amount that rolls below zero counts as zero, so earning never takes and spending never gives. Before, a negative roll drove a currency below 0 or turned a spend into a gain. Lint refuses a negative literal amount on either primitive and names the other one. Earning never lowers a currency that already sits above its max.
+- **`transfer_item`** from a holder to itself is refused. It duplicated the item, because both inventory writes landed on one path. Lint refuses an effect that names the same holder twice.
+- **GM inputs are used or refused (§2.13.5):** each of these is now refused with what to leave out:
+  - a difficulty given to a procedure with no difficulty input, with a derived difficulty, or with an opposed roll;
+  - tags or a free modifier given to a procedure that does not read tags;
+  - any of these on an automatic procedure or a direct outcome;
+  - an unknown key in a ruling (`gm={...}`);
+  - `spend` on an action with a fixed cost or none.
+
+  These inputs used to be dropped, so the GM believed they had counted. The smoke harness now offers tags only where the procedure reads them. The golden streams did not change, since a dropped input had produced no events.
+- **`resolve_unmodelled`:**
+  - An unknown stat is a named error listing the stats and derived values; it used to be `KeyError: 'zzz'`.
+  - It takes `target`, so the GM can resolve an unmodelled opposed check. `gm_resolution` carries `target` only when one is given, so older logs read the same. The GM tool offers `target` when the pack has an opposed procedure.
+  - A difficulty rung picks the ladder that defines it, instead of always the first ladder.
+- **Decks:** a player discards from, and draws into, only their own seat's hand or the hand of an entity they control; `deck_view` already showed those hands as theirs. Before, a player whose character's entity id differed from the seat could not discard that character's cards, and a player could draw into anyone's hand. The GM deals to anyone.
+- **Lint:** a consequence entry's `weight` must be a positive integer, since a 0 was still drawn (the engine floors weights at 1). Its `severity` must be an integer. A deck's `players_draw` must be a boolean.
+
+## D-055 Event store, CLI, deploys, and the offline rule (T0.38)
+- Date: 2026-10-30 · Status: accepted (as D-053).
+- **Fork (§5.6):** `EventStore.fork` checks `1 <= at_seq <= head` before copying and runs as one transaction. A fork past the head used to leave a full copy without its `campaign_forked` marker, which loaded as a genuine campaign. A fork at 0 left a campaign holding only the marker.
+- **Missing stores:** `EventStore(path, create=False)` refuses a file that is not there.
+  - `tob verify`, `tob fork` and `tob db backup` use it. At a mistyped path they used to create an empty database, and `verify` then printed nothing and exited 0.
+  - `tob verify` fails on a store with no campaigns. It also notes when the campaign's pack is not in the checkout, so the pinned hash was not compared.
+  - `tob backup pull` fails on a copy that holds no campaigns, which is what a missing remote database used to produce.
+- **Deploys:** `$APP_DIR/history` lists, oldest first, every release that went live. `install_release.sh` appends to it only after the gate passes.
+  - **Rollback:** `rollback.sh` steps back one entry in the history, so it can never activate a release that failed the gate. It used to pick the newest release directory that was not current, which after a failed deploy was the failed release. A second rollback now goes further back instead of forward.
+  - **Pruning:** keeps the last `KEEP_RELEASES` history entries and removes every other release directory. It can no longer delete the live release after a rollback.
+  - **Older hosts:** a host deployed before this change seeds the history with its live release on its next deploy.
+  - **Dirty trees:** `tob deploy` refuses a working tree with uncommitted changes unless given `--allow-dirty`, since those changes have passed no local gate.
+  - **Testing:** the scripts were exercised with a stand-in for the symlink, because no Linux host or WSL was available. Watch the first real deploy.
+- **Pre-push hook:** refuses when tracked files have uncommitted changes. The gate runs on the working tree, so it would otherwise test something other than the commits being pushed.
+- **Offline rule (§3.3):** an autouse fixture in `tests/conftest.py` fails any test not marked `live` that opens a socket. "The default run makes zero network calls" is now enforced, not assumed.
+- **Scaffold (§2.10):** the smoke harness skips its rules lookup when a pack has no actions. A fresh `tob pack new` scaffold now runs `tob sim --smoke`; it crashed with a division by zero, against the README walkthrough.
+- **Module size:** currencies (`kernel/currencies.py`) and character creation and spawning (`kernel/entities.py`) moved out of `engine.py`, which had passed the ~800-line guideline. No behaviour changed.

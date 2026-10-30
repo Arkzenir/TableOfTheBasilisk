@@ -68,6 +68,7 @@ class ClockCommands:
     @gm_call()
     def create_clock(self, clock_id: str, label: str, total: int, visible: bool = True, by: str | None = None,
                      schedule: dict | None = None, stages: list[dict] | None = None) -> None:
+        by = self._gm_only(by, "create clocks")
         check_id("clock", clock_id)
         check_name("a clock's label", label)
         if clock_id in self.state["clocks"]:
@@ -80,7 +81,7 @@ class ClockCommands:
                             "created_session": self.state["session"]})
             if (schedule or {}).get("unit"):  # scheduled on in-world time: count from now
                 payload["created_elapsed"] = self.elapsed()
-        self._emit("clock_created", payload, actor=by or self.gm_seat)
+        self._emit("clock_created", payload, actor=by)
 
     def _check_schedule(self, schedule: dict | None) -> dict | None:
         if schedule is None:
@@ -118,6 +119,7 @@ class ClockCommands:
     @atomic
     @gm_call(lambda e, a: [1, 2, 3])
     def advance_clock(self, clock_id: str, amount: int, by: str | None = None) -> None:
+        self._gm_only(by, "advance clocks")  # the change is the engine's; gm_call logs whose choice it was
         if amount not in (1, 2, 3):
             raise EngineError("clock advances are 1, 2 or 3")
         self._apply_effect({"primitive": "advance_clock", "clock": clock_id, "amount": amount},

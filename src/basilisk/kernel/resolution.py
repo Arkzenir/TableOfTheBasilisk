@@ -47,7 +47,9 @@ class ResolutionCommands:
     @atomic
     def resolve_unmodelled(self, entity_id: str, procedure_id: str, *, stat: str | None = None,
                            difficulty: Any = None, tags: list[str] | None = None, outcome: str | None = None,
-                           by: str | None = None, peek: bool = False) -> dict:
+                           by: str | None = None, peek: bool = False, target: str | None = None) -> dict:
+        """The GM maps an action no pack action covers onto a procedure (§2.13.1
+        `unmodelled_actions`); `target` is the other side of an opposed check."""
         self._require_settled()
         by = by or self.gm_seat
         if self._role(by) != "gm":
@@ -56,15 +58,28 @@ class ResolutionCommands:
         if procedure_id not in procs:
             raise EngineError(_suggest("procedure", procedure_id, procs))
         ent = self._entity(entity_id)
+        target_ent = self._entity(target, observer=by) if target is not None else None
+        if stat is not None:
+            known = self._derived(ent)
+            if stat not in known:
+                raise EngineError(_suggest("stat", stat, known))
         mode = self.mode("unmodelled_actions", by)
         if outcome is not None and mode == STRICT:
             raise EngineError("under strict settings the GM maps the action onto a procedure; the engine rolls")
-        seq = self._emit("gm_resolution", {"entity": entity_id, "procedure": procedure_id, "stat": stat,
-                                           "direct_outcome": outcome}, actor=by)
-        self._judge(by, "unmodelled_actions", mode, {"procedure": procedure_id, "stat": stat, "outcome": outcome},
-                    sorted(procs), seq)
-        ladder = (self.pack.catalogue("resolution.difficulty_ladders") or [{}])[0].get("id")
-        out, rank, _ = self._run_procedure(procs[procedure_id], ent, None, stat,
+        payload = {"entity": entity_id, "procedure": procedure_id, "stat": stat, "direct_outcome": outcome}
+        if target is not None:
+            payload["target"] = target  # optional: only an opposed resolution names one
+        seq = self._emit("gm_resolution", payload, actor=by)
+        choice = {"procedure": procedure_id, "stat": stat, "outcome": outcome}
+        if target is not None:
+            choice["target"] = target
+        self._judge(by, "unmodelled_actions", mode, choice, sorted(procs), seq)
+        ladders = self.pack.catalogue("resolution.difficulty_ladders")
+        # a rung names its ladder; a number is measured on the first ladder's range
+        ladder = next((lad["id"] for lad in ladders if isinstance(difficulty, str)
+                       and difficulty in {r["id"] for r in lad.get("rungs") or []}), None)
+        ladder = ladder or (ladders[0]["id"] if ladders else None)
+        out, rank, _ = self._run_procedure(procs[procedure_id], ent, target_ent, stat,
                                            {"ladder": ladder} if ladder else None,
                                            {"difficulty": difficulty, "tags": tags or [], "peek": peek}, seq,
                                            direct_outcome=outcome, continuation={"kind": "unmodelled"})
@@ -139,6 +154,7 @@ class ResolutionCommands:
 
         if gm_inputs.get("peek") and (interp.get("automatic") or direct_outcome is not None):
             raise EngineError(f"peek refused: {proc['id']} has no roll to peek at")
+        self._check_gm_inputs(proc, steps, difficulty_spec, gm_inputs, direct_outcome)
         if interp.get("automatic"):
             outcome = scale[-1]
         elif direct_outcome is not None:
@@ -194,6 +210,28 @@ class ResolutionCommands:
         seq = self._resolved(proc["id"], ent["id"], outcome, total, difficulty, modifiers, roll_seq,
                              direct_outcome is not None, cause)
         return outcome, scale.index(outcome), seq
+
+    def _check_gm_inputs(self, proc: dict, steps: dict, difficulty_spec: dict | None, gm_inputs: dict,
+                         direct_outcome: str | None) -> None:
+        """Refuse a GM input the procedure would not use: a dropped input would
+        let the GM believe it counted (§2.13.5, every judgement input is real)."""
+        modifiers = bool(gm_inputs.get("tags")) or bool(gm_inputs.get("free_modifier"))
+        difficulty = gm_inputs.get("difficulty") is not None
+        if not (modifiers or difficulty):
+            return
+        given = ", ".join(n for n, on in (("a difficulty", difficulty), ("situational modifiers", modifiers)) if on)
+        if steps["interpret"].get("automatic") or direct_outcome is not None:
+            raise EngineError(f"{proc['id']} has no roll here, so {given} cannot apply; leave them out")
+        if modifiers and "tags" not in (steps.get("modifiers") or {}).get("from", []):
+            raise EngineError(f"{proc['id']} takes no situational modifiers; leave out tags and free_modifier")
+        if difficulty:
+            if steps["interpret"].get("against") == "opposed":
+                raise EngineError(f"{proc['id']} is opposed: the other side's roll is the difficulty; leave it out")
+            if "difficulty" not in (proc.get("inputs") or []):
+                raise EngineError(f"{proc['id']} takes no difficulty; leave it out")
+            if difficulty_spec and "derived" in difficulty_spec:
+                raise EngineError(f"this difficulty is derived from state ({difficulty_spec['derived']}); "
+                                  "leave it out")
 
     def _resolution_hook(self, name: str, proc: dict, ent: dict, target: dict | None, result, total: int,
                          outcome: str, modifiers: list, difficulty: dict | None, roll_seq: int) -> tuple[int, str]:

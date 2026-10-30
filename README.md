@@ -84,8 +84,8 @@ tob check
 | `tob fork DB CAMPAIGN SEQ NEW` | Branch a campaign for debugging (never editorial, P6) |
 | `tob db backup SRC DST` | Consistent online copy of an event store |
 | `tob soak --hours H` | Back-to-back verified campaigns for stability testing |
-| `tob deploy HOST [--dry-run]` | Package, upload, gate on the host, switch atomically |
-| `tob rollback HOST` | Switch back to the previous release |
+| `tob deploy HOST [--dry-run] [--allow-dirty]` | Package, upload, gate on the host, switch atomically; refuses uncommitted changes |
+| `tob rollback HOST` | Switch back to the release that was live before (never one that failed the gate) |
 | `tob host bootstrap HOST` | One-time host setup |
 | `tob remote HOST status\|doctor\|encode-test\|logs\|soak-start\|soak-stop` | Operate the host |
 | `tob backup pull HOST [--db NAME]` | Pull an event store to `backups/` and verify it |

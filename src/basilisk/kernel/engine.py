@@ -16,10 +16,12 @@ from . import KERNEL_VERSION, canon, clocks, decks, dice, expr, fudging, hooks, 
 from .canon import CanonCommands
 from .canonical import hash_obj
 from .clocks import ClockCommands
+from .currencies import CurrencyCommands
 from .decks import DeckCommands
-from .command import ID_PATTERN, EngineError, _suggest, atomic, check_id, check_name, gm_call
+from .command import ID_PATTERN, RESERVED_IDS, EngineError, _suggest, atomic, check_id, gm_call
 from .determinism import STANDARD, STRICT, apply_change, expand, setting_for, unsupported_strict
 from .effects import EffectCommands
+from .entities import EntityCommands
 from .events import EventStore
 from .fudging import FudgeCommands
 from .packlint import readiness
@@ -152,10 +154,39 @@ def fold(events: Iterable[dict], state: dict | None = None) -> dict:
     return state
 
 
+GM_RULING_KEYS = frozenset({"difficulty", "tags", "free_modifier", "peek", "substitute"})  # rule_on_action (§7.1)
+MAX_PLAYERS = 4  # §3.1: four players and one GM, a hard ceiling
+
+
+def _check_seats(seats: Any) -> dict[str, str]:
+    """The campaign's seats (§3.1): ids in the id pattern, roles gm or player,
+    at most one GM and four players. `gm` is always the GM's name, so a seat
+    called gm must hold that role; the engine's other actor names are refused."""
+    if seats is None:
+        return {}
+    if not isinstance(seats, dict):
+        raise EngineError("seats is a mapping of seat id to gm or player")
+    for seat, role in seats.items():
+        if not isinstance(seat, str) or not ID_PATTERN.match(seat):
+            raise EngineError(f"seat {seat!r}: seat ids are lowercase letters, digits, and underscores")
+        if seat in RESERVED_IDS - {"gm"}:
+            raise EngineError(f"seat {seat!r}: {', '.join(sorted(RESERVED_IDS - {'gm'}))} are the engine's own names")
+        if role not in ("gm", "player"):
+            raise EngineError(f"seat {seat!r}: roles are gm or player, not {role!r}")
+        if seat == "gm" and role != "gm":
+            raise EngineError("a seat called gm must be the GM's seat")
+    roles = list(seats.values())
+    if roles.count("gm") > 1:
+        raise EngineError("at most one GM seat")
+    if roles.count("player") > MAX_PLAYERS:
+        raise EngineError(f"at most {MAX_PLAYERS} player seats (§3.1); got {roles.count('player')}")
+    return dict(seats)
+
+
 # ====================================================================== engine
 
-class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands, TacticalCommands,
-             TurnCommands, DeckCommands, FudgeCommands, SheetCommands, ClockCommands, RulesCommands,
+class Engine(EntityCommands, CurrencyCommands, ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
+             TacticalCommands, TurnCommands, DeckCommands, FudgeCommands, SheetCommands, ClockCommands, RulesCommands,
              TermCommands, TimeCommands, ProgressionCommands):
     def __init__(self, pack: ResolvedPack, seed: str, store: EventStore | None = None,
                  campaign_id: str = "campaign", clock: Callable[[], str | None] | None = None):
@@ -182,12 +213,16 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         eng = cls(pack, seed, store, campaign_id, clock)
         if eng.store.head(campaign_id)[0]:
             raise EngineError(f"campaign {campaign_id!r} already exists in this store")
-        seats = dict(config.get("seats") or {})
-        if list(seats.values()).count("gm") > 1:
-            raise EngineError("at most one GM seat")
-        bad = {s: r for s, r in seats.items() if r not in ("gm", "player")}
-        if bad:
-            raise EngineError(f"seat roles must be gm or player: {bad}")
+        seats = _check_seats(config.get("seats"))
+        traits = config.get("gm_traits") or {}
+        if not isinstance(traits, dict):
+            raise EngineError("gm_traits is a mapping of trait to an integer from 0 to 100")
+        for trait in ("lethality", "fudging"):
+            value = traits.get(trait, 50)
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 100:
+                raise EngineError(f"gm_traits.{trait} must be an integer from 0 to 100, not {value!r} (§3.4)")
+        if config.get("determinism") is not None and not isinstance(config.get("determinism"), dict):
+            raise EngineError("determinism is a mapping: players, gm, overrides, seat_overrides (§2.13.2)")
         effective = expand(config.get("determinism"))
         unsupported = unsupported_strict(effective, eng.readiness)
         if unsupported:
@@ -199,8 +234,8 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
             "kernel_version": KERNEL_VERSION,
             "seed_commitment": eng.rng.commitment(),
             "seats": seats,
-            "gm_lethality": int((config.get("gm_traits") or {}).get("lethality", 50)),
-            "gm_fudging": int((config.get("gm_traits") or {}).get("fudging", 50)),
+            "gm_lethality": traits.get("lethality", 50),
+            "gm_fudging": traits.get("fudging", 50),
         }, actor="engine")
         eng._emit("determinism_settings_recorded", {"settings": effective}, actor="engine")
         return eng
@@ -270,6 +305,14 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         if seat in ("gm", self.gm_seat) or self.seats.get(seat) == "gm":
             return "gm"
         return "players"
+
+    def _gm_only(self, by: str | None, what: str, operator: bool = False) -> str:
+        """The acting seat, if it may do this (§5.4 mutation authority): the GM,
+        and with `operator` also the operator and the engine (session control)."""
+        by = by or self.gm_seat
+        if not (self._role(by) == "gm" or (operator and by in ("operator", "engine"))):
+            raise EngineError(f"only the GM{' or the operator' if operator else ''} can {what}, not {by!r}")
+        return by
 
     def mode(self, control: str, seat: str) -> str:
         eff = self.state["determinism"]["effective"]
@@ -349,47 +392,6 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
                    caused_by=cause)
         return result
 
-    # ------------------------------------------------------------ currencies (§2.3, §2.4)
-
-    def _pool_of(self, ent: dict) -> str:
-        """The shared pool an entity draws on: `gm` for the GM's side, else `party`."""
-        return "gm" if self._role(ent["controller"]) == "gm" else "party"
-
-    def _pool_value(self, holder: str, currency_id: str) -> int:
-        """A shared pool's value: its `start` until the first change creates
-        `state.currencies.<holder>`."""
-        cdef = self.pack.by_id("gm.meta_currencies")[currency_id]
-        return (self.state.get("currencies") or {}).get(holder, {}).get(currency_id, int(cdef.get("start", 0)))
-
-    def _currencies(self, ent: dict) -> dict[str, int]:
-        """What the entity holds or can spend (§2.3 `holder`): its own currencies,
-        plus its side's shared pools: the party's for a player character, the
-        GM's for a GM-side entity."""
-        out = dict(ent.get("currencies", {}))
-        pool = self._pool_of(ent)
-        if pool == "party" and ent["kind"] != "pc":
-            return out
-        for c in self.pack.catalogue("gm.meta_currencies"):
-            if c.get("holder") == pool:
-                out[c["id"]] = self._pool_value(pool, c["id"])
-        return out
-
-    def _currency_path(self, ent: dict, currency_id: str) -> list[str]:
-        """Where a change to this entity's currency lands."""
-        holder = self.pack.by_id("gm.meta_currencies")[currency_id].get("holder", "each_player")
-        if holder == "party" and (ent["kind"] != "pc" or self._pool_of(ent) != "party"):
-            raise EngineError(f"{currency_id} belongs to the party, and {ent['id']} is not a player character")
-        if holder == "gm" and self._pool_of(ent) != "gm":
-            raise EngineError(f"{currency_id} belongs to the GM's side, and {ent['id']} is not GM-controlled; "
-                              "an effect feeds it with target: gm")
-        if holder in ("party", "gm"):
-            return ["currencies", holder, currency_id]
-        return ["entities", ent["id"], "currencies", currency_id]
-
-    def currency(self, entity_id: str, currency_id: str) -> int:
-        """How much of a currency the entity can spend now (own or shared)."""
-        return self._currencies(self._entity(entity_id)).get(currency_id, 0)
-
     def view(self, ent: dict | None) -> dict:
         if ent is None:  # no entity: every field reads 0, nested ones too (target.region.cover.x)
             return expr.Lenient({"conditions": expr.Lenient(), "tags": expr.Lenient(),
@@ -438,10 +440,13 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
 
     @atomic
     def start_session(self, by: str | None = None) -> int:
+        by = self._gm_only(by, "start a session", operator=True)
+        if self._session_open():
+            raise EngineError(f"session {self.state['session']} is still open: end_session first")
         self._time_between_sessions()  # in-world time passes off-air, if the pack says how much
         self._advance_off_air()  # axiom 15: world changes are canon before play resumes
         self._boundary()
-        seq = self._emit("session_started", {"number": self.state["session"] + 1}, actor=by or self.gm_seat)
+        seq = self._emit("session_started", {"number": self.state["session"] + 1}, actor=by)
         self._reshuffle_at("session")
         self._snapshot_due = True
         return seq
@@ -458,13 +463,16 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
 
     @atomic
     def end_session(self, by: str | None = None) -> int:
+        by = self._gm_only(by, "end a session", operator=True)
+        if not self._session_open():
+            raise EngineError("no session is open: start_session first")
         self._require_settled()
-        self._close_encounter(by or self.gm_seat)
+        self._close_encounter(by)
         self._expire({"scene", "session"})
-        self._close_scene(by or self.gm_seat, "session_ended")
+        self._close_scene(by, "session_ended")
         self._progress_on_session_end()
         self._snapshot_due = True
-        return self._emit("session_ended", {"number": self.state["session"]}, actor=by or self.gm_seat)
+        return self._emit("session_ended", {"number": self.state["session"]}, actor=by)
 
     @atomic
     @gm_call()
@@ -474,7 +482,8 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         """Open a scene (§8.2). With `regions` it is a zone scene and `placements`
         puts entities in its regions; with `participants` it is a range-band scene
         and `ranges` sets bands between pairs (§1.4)."""
-        if not self.state["session"]:
+        by = self._gm_only(by, "set a scene")
+        if not self._session_open():
             raise EngineError("start a session before setting a scene")
         check_id("scene", scene_id)
         self._require_settled()
@@ -484,7 +493,6 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
             raise EngineError("ranges need participants: a band scene measures between its participants")
         spatial_scene = regions is not None or participants is not None
         layout = self._spatial_spec(regions, participants, ranges) if spatial_scene else None
-        by = by or self.gm_seat
         self._close_encounter(by)
         self._expire({"scene"})
         self._close_scene(by, "next_scene")
@@ -526,132 +534,6 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         if new == det["effective"]:
             raise EngineError("requested settings are identical to the current ones")
         return self._emit("determinism_change_requested", {"from": det["effective"], "to": new}, actor=by)
-
-    # ------------------------------------------------------------ entities
-
-    def _new_entity(self, entity_id: str, name: str, kind: str, controller: str, stats: dict[str, int]) -> dict:
-        ent = {
-            "id": entity_id, "name": name, "kind": kind, "controller": controller,
-            "stats": {}, "resources": {}, "tracks": {}, "conditions": {}, "tags": [],
-            "inventory": [], "zone": None, "currencies": {}, "details": [],
-        }
-        for s in self.pack.catalogue("entity_model.stats"):
-            value = int(stats.get(s["id"], s.get("default", 0)))
-            lo, hi = s.get("range", [value, value])
-            ent["stats"][s["id"]] = max(lo, min(hi, value))
-        unknown = set(stats) - set(ent["stats"])
-        if unknown:
-            raise EngineError(_suggest("stat", sorted(unknown)[0], ent["stats"]))
-        for r in self.pack.catalogue("entity_model.resources"):
-            ent["resources"][r["id"]] = self._max(ent, r)
-        for t in self.pack.catalogue("entity_model.tracks"):
-            ent["tracks"][t["id"]] = 0
-        for c in self.pack.catalogue("gm.meta_currencies"):
-            if c.get("holder", "each_player") == "each_player" and kind == "pc":  # pools are shared (§2.3)
-                ent["currencies"][c["id"]] = int(c.get("start", 0))
-        return ent
-
-    @atomic
-    def create_character(self, agent_id: str, name: str, choices: dict[str, str] | None = None,
-                         entity_id: str | None = None) -> str:
-        if self.seats.get(agent_id) != "player":
-            raise EngineError(f"{agent_id!r} is not a player seat")
-        entity_id = check_id("entity", entity_id or agent_id)
-        check_name("a character's name", name)
-        if entity_id in self.state["entities"]:
-            raise EngineError(f"entity {entity_id!r} already exists")
-        choices = dict(choices or {})
-        start = self._emit("chargen_started", {"agent": agent_id, "entity": entity_id}, actor=agent_id)
-        stats: dict[str, int] = {}
-        tags: list[str] = []
-        details: list[str] = []
-        unique: dict[str, str] = {}
-        items: list[str] = []  # starting equipment and currencies from choices (§1.5)
-        grants: dict[str, int] = {}
-        tables = self.pack.by_id("randomizers.tables")
-        for step in self.pack.get("chargen.steps") or []:
-            kind = step["kind"]
-            if kind == "roll":
-                for target in step["targets"]:
-                    result, _ = self._roll(step["roll"], {}, start, f"chargen:{step['id']}:{target}", actor="engine")
-                    stats[target] = result.total
-            elif kind == "choice":
-                options = {o["id"]: o for o in step.get("options") or []}
-                taken = set(self.state["chargen_taken"].get(step["id"], [])) if step.get("unique_per_table") else set()
-                available = [o for o in options if o not in taken]
-                pick = choices.get(step["id"])
-                if pick not in options:
-                    raise EngineError(_suggest(f"option for {step['id']}", pick, available))
-                if pick in taken:
-                    raise EngineError(f"{pick!r} is already taken at this table ({step['id']} is unique per table)")
-                self._judge(agent_id, "chargen_choice", None, pick, available, start)
-                stats.update(options[pick].get("stats") or {})
-                tags += options[pick].get("tags") or []
-                items += options[pick].get("items") or []
-                for cid, amount in (options[pick].get("currencies") or {}).items():
-                    grants[cid] = grants.get(cid, 0) + int(amount)
-                if step.get("unique_per_table"):
-                    unique[step["id"]] = pick
-            elif kind == "assign":  # place a fixed array of values onto stats (§1.5)
-                pick = choices.get(step["id"])
-                values, targets = list(step["values"]), list(step["targets"])
-                if not isinstance(pick, dict) or sorted(pick) != sorted(targets):
-                    raise EngineError(f"{step['id']}: assign each of {', '.join(targets)} one of the values "
-                                      f"{values}, as {{stat: value}}")
-                if sorted(pick.values()) != sorted(values):
-                    raise EngineError(f"{step['id']}: the values must be exactly {sorted(values)}, each used once; "
-                                      f"got {sorted(pick.values())}")
-                self._judge(agent_id, "chargen_assign", None, {t: pick[t] for t in targets}, values, start)
-                stats.update({t: int(pick[t]) for t in targets})
-            elif kind == "table":
-                table = tables[step["table"]]
-                result, roll_seq = self._roll(table["roll"], {}, start, f"chargen:{step['id']}", actor="engine")
-                entry = next(e for e in table["entries"] if e["range"][0] <= result.total <= e["range"][1])
-                self._emit("table_rolled", {"table": table["id"], "value": result.total, "text": entry.get("text", "")},
-                           caused_by=roll_seq)
-                details.append(entry.get("text", ""))
-        ent = self._new_entity(entity_id, name, "pc", agent_id, stats)
-        ent["tags"] = sorted(set(tags))
-        ent["details"] = details
-        ent["inventory"] = list(items)
-        currencies = self.pack.by_id("gm.meta_currencies")
-        for cid, amount in sorted(grants.items()):
-            ent["currencies"][cid] = min(int(currencies[cid].get("max", 10**6)), ent["currencies"].get(cid, 0) + amount)
-        limit = self.capacity(ent)
-        if limit is not None and self.carried(ent) > limit:
-            raise EngineError(f"{entity_id} would start carrying {self.carried(ent)} of {limit}: "
-                              "these choices give more equipment than the character can carry")
-        for hook in self._hooks_at("sheet.validate"):  # cross-field constraints (§2.7)
-            problems = self._call_hook(hook["name"], "sheet.validate", self._sheet_view(ent), {}, start, rolls=False)
-            if problems:
-                raise EngineError(f"{entity_id}'s sheet breaks {hook['name']}: {'; '.join(map(str, problems))}")
-        self._emit("character_created", {"entity": ent, "unique_choices": unique, "choices": choices},
-                   actor=agent_id, caused_by=start)
-        return entity_id
-
-    @atomic
-    @gm_call()
-    def spawn_entity(self, entity_id: str, name: str, stats: dict[str, int] | None = None,
-                     zone: str | None = None, by: str | None = None) -> str:
-        by = by or self.gm_seat
-        if self._role(by) != "gm":
-            raise EngineError("only the GM can spawn entities")
-        check_id("entity", entity_id)
-        check_name("an entity's name", name)
-        for sid, value in (stats or {}).items():
-            if isinstance(value, bool) or not isinstance(value, int):
-                raise EngineError(f"stat {sid!r} must be an integer, not {value!r}")
-        if entity_id in self.state["entities"]:
-            raise EngineError(f"entity {entity_id!r} already exists")
-        if zone is not None:
-            self._check_position(zone)
-        relative = zone is not None and (self._spatial() or {}).get("mode") == "bands"
-        ent = self._new_entity(entity_id, name, "npc", "gm", stats or {})
-        ent["zone"] = None if relative else zone
-        self._emit("entity_spawned", {"entity": ent}, actor=by)
-        if relative:  # a band position is relative to others: join the scene there
-            self._place(entity_id, zone, by)
-        return entity_id
 
     # ------------------------------------------------------------ actions
 
@@ -704,6 +586,9 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         by = by or ent["controller"]
         if by != ent["controller"] and self._role(by) != "gm":
             raise EngineError(f"{by!r} does not control {entity_id!r}")
+        unknown = sorted(set(gm or {}) - GM_RULING_KEYS)
+        if unknown:  # a misspelt ruling would be dropped silently
+            raise EngineError(f"gm has no {unknown[0]!r}; a ruling sets {', '.join(sorted(GM_RULING_KEYS))}")
         actions = self.pack.by_id("actions")
 
         def legal(aid: str) -> tuple[dict, dict | None, str]:
@@ -761,6 +646,9 @@ class Engine(ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
         cost = action.get("cost") or {}
         amount = None
         spend_mode = None
+        if spend is not None and "amounts" not in cost and "range" not in cost:
+            raise EngineError(f"{action_id} " + (f"costs a fixed {cost['amount']} {cost['currency']}"
+                                                if "amount" in cost else "has no cost") + "; leave out spend")
         if cost:
             if "amount" in cost:
                 amount = int(cost["amount"])

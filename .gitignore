@@ -10,3 +10,5 @@ backups/
 *.db-shm
 config/hosts.yaml
 .env
+.env.*
+!.env.example

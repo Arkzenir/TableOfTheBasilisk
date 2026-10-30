@@ -1,3 +1,13 @@
 #!/usr/bin/env sh
 # Full gate before anything leaves the machine.
+if ! command -v tob >/dev/null 2>&1; then
+  echo "pre-push: 'tob' not found - activate the venv (pip install -e \".[dev]\")" >&2
+  exit 1
+fi
+# The gate runs on the working tree; with uncommitted changes it would test
+# something other than the commits being pushed.
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  echo "pre-push: uncommitted changes to tracked files - commit or stash them so the gate tests what you push" >&2
+  exit 1
+fi
 tob check

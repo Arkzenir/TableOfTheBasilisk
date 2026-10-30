@@ -133,7 +133,7 @@ def test_hands_are_kept_out_of_reshuffles_and_views(variant):
     assert view == {"deck": "omens", "in_pile": 3, "discard": [], "hands": {"ash": [mine]}}
     assert set(eng.deck_view("omens", "gm")["hands"]) == {"ash", "bram"}
     assert "draw" not in view and "order" not in view  # pile order is never shown
-    with pytest.raises(EngineError, match="only bram or the GM"):
+    with pytest.raises(EngineError, match="only bram.s controller or the GM"):
         eng.discard_card("omens", eng.state["decks"]["omens"]["held"]["bram"][0], "bram", by="ash")
     eng.discard_card("omens", mine, "ash", by="ash")
     assert eng.deck_view("omens", "ash")["hands"] == {} and mine in eng.deck_view("omens", "ash")["discard"]

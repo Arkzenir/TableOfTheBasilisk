@@ -96,6 +96,10 @@ class DeckCommands:
             raise EngineError(_suggest("deck", deck_id, decks))
         return decks[deck_id]
 
+    def _own_hands(self, seat: str) -> set[str]:
+        """The hands a player seat holds: its own and those of the entities it controls."""
+        return {seat} | {e for e, ent in self.state["entities"].items() if ent["controller"] == seat}
+
     def _deck_state(self, deck_id: str) -> dict | None:
         return (self.state.get("decks") or {}).get(deck_id)
 
@@ -126,6 +130,9 @@ class DeckCommands:
         if to is not None and to not in self.seats and (to not in self.state["entities"] or not self.visible(by, to)):
             holders = list(self.seats) + [e for e in self.state["entities"] if self.visible(by, e)]
             raise EngineError(_suggest("holder", to, holders))  # never names an entity the drawer cannot see
+        if to is not None and self._role(by) != "gm" and to not in self._own_hands(by):
+            raise EngineError(f"a player draws into their own hand ({', '.join(sorted(self._own_hands(by)))}); "
+                              "the GM deals to other holders")
         rule = deck["reshuffle_rule"]
         state = self._deck_state(deck_id)
         if state is None:
@@ -162,8 +169,8 @@ class DeckCommands:
         """Return a held card to the discards."""
         self._deck_def(deck_id)
         by = by or self.gm_seat
-        if self._role(by) != "gm" and by != holder:
-            raise EngineError(f"only {holder} or the GM can discard {holder}'s cards")
+        if self._role(by) != "gm" and holder not in self._own_hands(by):
+            raise EngineError(f"only {holder}'s controller or the GM can discard {holder}'s cards")
         hand = ((self._deck_state(deck_id) or {}).get("held") or {}).get(holder, [])
         if card not in hand:
             raise EngineError(_suggest(f"card in {holder}'s hand", card, hand))
@@ -178,6 +185,6 @@ class DeckCommands:
         if self._role(seat) == "gm":
             hands = copy.deepcopy(held)
         else:  # the seat's own hand and the hands of entities it controls
-            mine = {seat} | {e for e, ent in self.state["entities"].items() if ent["controller"] == seat}
+            mine = self._own_hands(seat)
             hands = {h: list(cards) for h, cards in held.items() if h in mine}
         return {"deck": deck_id, "in_pile": len(state["draw"]), "discard": list(state["discard"]), "hands": hands}

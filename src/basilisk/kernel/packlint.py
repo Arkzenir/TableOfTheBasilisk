@@ -273,6 +273,12 @@ def lint(pack: ResolvedPack) -> list[Finding]:
         missing = [p for p in PRIMITIVES[prim] if p not in e]
         if missing:
             err("effect", f"{where}: {prim} is missing {missing}")
+        amount = e.get("amount")
+        if prim in ("earn_currency", "spend_currency") and isinstance(amount, int) and amount < 0:
+            err("effect", f"{where}: a {prim} amount cannot be negative ({amount}); "
+                          f"use {'spend_currency' if prim == 'earn_currency' else 'earn_currency'}")
+        if prim == "transfer_item" and e.get("from") is not None and e.get("from") == e.get("to"):
+            err("effect", f"{where}: transfer_item from and to are the same holder ({e.get('from')})")
         tgt = e.get("target")
         if tgt == "gm":  # the GM's pool (§2.3): only for a currency the GM's side holds
             held = (currencies.get(e.get("currency")) or {}).get("holder", "each_player")
@@ -284,6 +290,18 @@ def lint(pack: ResolvedPack) -> list[Finding]:
         for kind, ref in references(e).items():
             if kind in known and ref not in known[kind]:
                 err("reference", f"{where}: unknown {kind} {ref!r}")
+
+    for table in pack.catalogue("gm.consequence_tables"):  # an engine draw needs positive weights (§2.6)
+        for entry in table.get("entries") or []:
+            where = f"consequence {table.get('id')}.{entry.get('id')}"
+            weight, severity = entry.get("weight", 1), entry.get("severity", 2)
+            if isinstance(weight, bool) or not isinstance(weight, int) or weight < 1:
+                err("consequence", f"{where}: weight must be a positive integer, not {weight!r}")
+            if isinstance(severity, bool) or not isinstance(severity, int):
+                err("consequence", f"{where}: severity must be an integer, not {severity!r}")
+    for deck in pack.catalogue("randomizers.decks"):
+        if not isinstance(deck.get("players_draw", False), bool):
+            err("deck", f"deck {deck.get('id')}: players_draw is true or false, not {deck.get('players_draw')!r}")
 
     # conditions have exits ------------------------------------------------
     removable = {e.get("condition") for _, e in _effects_in(pack) if e.get("primitive") == "remove_condition"}

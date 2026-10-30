@@ -54,8 +54,12 @@ def event_hash(prev_hash: str, body: dict) -> str:
 
 
 class EventStore:
-    def __init__(self, path: str | Path = ":memory:"):
+    def __init__(self, path: str | Path = ":memory:", create: bool = True):
+        """Open an event store. With `create=False` a missing file is an error,
+        so a mistyped path is never mistaken for an empty, healthy store."""
         self.path = str(path)
+        if not create and self.path != ":memory:" and not Path(self.path).is_file():
+            raise EventStoreError(f"no event store at {self.path}")
         if self.path != ":memory:":
             Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(self.path, isolation_level=None)
@@ -172,22 +176,26 @@ class EventStore:
         Fork is for debugging and recovery, never editorial use (§5.6, P6)."""
         if self.head(new_campaign_id)[0]:
             raise EventStoreError(f"campaign {new_campaign_id} already exists")
-        last_hash = GENESIS
-        n = 0
-        for ev in self.read(campaign_id, upto=at_seq):
-            copied = {k: ev[k] for k in EVENT_FIELDS}
-            copied["campaign_id"] = new_campaign_id
-            last_hash = self.append(copied)["hash"]
-            n += 1
-        if n != at_seq:
-            raise EventStoreError(f"campaign {campaign_id} has only {n} events")
-        _, source_hash = self.head(campaign_id) if at_seq == 0 else (at_seq, self._hash_at(campaign_id, at_seq))
-        self.append({
-            "campaign_id": new_campaign_id, "type": "campaign_forked", "actor": "operator",
-            "ts": None, "session_id": None, "scene_id": None, "caused_by": None,
-            "payload": {"source_campaign": campaign_id, "source_seq": at_seq, "source_hash": source_hash},
-        })
-        return n
+        head = self.head(campaign_id)[0]
+        if isinstance(at_seq, bool) or not isinstance(at_seq, int) or not 1 <= at_seq <= head:
+            raise EventStoreError(f"fork seq must be from 1 to {head} (campaign {campaign_id} has {head} events)")
+        self.begin()  # all or nothing: a half-copied fork would read as a real campaign
+        try:
+            for ev in self.read(campaign_id, upto=at_seq):
+                copied = {k: ev[k] for k in EVENT_FIELDS}
+                copied["campaign_id"] = new_campaign_id
+                self.append(copied)
+            self.append({
+                "campaign_id": new_campaign_id, "type": "campaign_forked", "actor": "operator",
+                "ts": None, "session_id": None, "scene_id": None, "caused_by": None,
+                "payload": {"source_campaign": campaign_id, "source_seq": at_seq,
+                            "source_hash": self._hash_at(campaign_id, at_seq)},
+            })
+            self.commit()
+        except BaseException:
+            self.rollback()
+            raise
+        return at_seq
 
     def _hash_at(self, campaign_id: str, seq: int) -> str:
         row = self.db.execute("SELECT hash FROM events WHERE campaign_id=? AND seq=?", (campaign_id, seq)).fetchone()

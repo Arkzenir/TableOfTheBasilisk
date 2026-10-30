@@ -135,6 +135,9 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
         stats = [s["id"] for s in pack.catalogue("entity_model.stats")]
         if procs:
             unmodelled: dict[str, Any] = {"actor": ID, "procedure": _enum(procs)}
+            if any(({k: v for st in p.get("steps") or [] for k, v in st.items()}.get("interpret") or {})
+                   .get("against") == "opposed" for p in pack.catalogue("resolution.procedures")):
+                unmodelled["target"] = ID  # the other side of an opposed check
             if stats:
                 unmodelled["stat"] = _enum(stats)
             if diff:

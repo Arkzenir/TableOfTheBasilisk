@@ -46,7 +46,7 @@ The code-level list of event types (`EVENT_TYPES` in `src/basilisk/kernel/engine
 | `judgement_input` | passive | any model-chosen mechanical input; and every GM call (`@gm_call`, D-044), after the call's own events and caused by the first of them | `seat, control, setting, choice, options`; for a GM call, `control` is the command's name, `setting` is null, `choice` its arguments (null ones omitted), and `options` the list it was chosen from where the engine has one, else null |
 | `procedure_resolved` | passive | resolution runner | `procedure, entity, scale, outcome, rank, ranks, total, difficulty, modifiers, roll_seq, direct`; for an opposed check `difficulty` is `{value, origin: opposed, rung: null, roll_seq, stat}`, naming the other side's roll |
 | `table_rolled` | passive | chargen table step | `table, value, text` |
-| `gm_resolution` | passive | `resolve_unmodelled` | `entity, procedure, stat, direct_outcome` |
+| `gm_resolution` | passive | `resolve_unmodelled` | `entity, procedure, stat, direct_outcome`; optional `target`, the other side of an opposed check (D-054) |
 | `rules_queried` | passive | `query_rules` | `seat, query, via` (`id`, `ref`, `alias`, `partial`, or `null` for a miss), `sections` (ids returned, never their text), `suggestions` (titles, on a miss) |
 | `move_provoked` | passive | a `move` effect that leaves a threat's reach, when the pack declares `spatial.provokes` | `mover, by` (the provoking entities), `to`; a reaction may answer it (§2.4) |
 | `hook_ran` | passive | every pack hook invocation (`resolution.step`, `sheet.validate` at chargen) | `hook, point, result` (what the hook returned, after its double run agreed), `roll_seq` (its draws, if any) |

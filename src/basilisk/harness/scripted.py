@@ -106,6 +106,9 @@ def _gm_inputs(engine: Engine, action: dict, turn: int) -> dict:
             gm["difficulty"] = (lo + hi) // 2
         else:
             gm["difficulty"] = rungs[turn % len(rungs)]["id"]
+    steps = {k: v for step in proc.get("steps") or [] for k, v in step.items()}
+    if "tags" not in (steps.get("modifiers") or {}).get("from", []) or (steps.get("interpret") or {}).get("automatic"):
+        return gm  # the procedure takes no situational modifiers: offering some is refused
     choosable = [t["id"] for t in pack.catalogue("resolution.situational_tags") if "derive" not in t]
     if choosable and turn % 2 == 0:
         gm["tags"] = [choosable[turn % len(choosable)]]
@@ -253,7 +256,8 @@ def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
                 report.settings_changes += 1
             open_scene(f"s{s + 1}_scene{sc + 1}", flags, encounter)
             action_ids = sorted(engine.pack.by_id("actions"))  # a player looks a rule up (§2.11)
-            engine.query_rules(players[sc % len(players)], action_ids[(s + sc) % len(action_ids)])
+            if action_ids:  # a freshly scaffolded pack has none yet (§2.10)
+                engine.query_rules(players[sc % len(players)], action_ids[(s + sc) % len(action_ids)])
             if encounter:
                 turn = _play_encounter(engine, players, turn, report)
             else:

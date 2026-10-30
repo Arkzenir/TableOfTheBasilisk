@@ -192,6 +192,8 @@ class EffectCommands:
             changes.append({"path": ["entities", target_id, "inventory"], "value": inv})
         elif prim == "transfer_item":
             src, dst = resolve_target("from"), resolve_target("to")
+            if src == dst:  # writing both inventories would duplicate the item
+                raise EngineError(f"transfer_item: {src} cannot give {effect['item']!r} to itself")
             inv_src = list(self.state["entities"][src]["inventory"])
             if effect["item"] not in inv_src:
                 raise EngineError(f"{src} has no {effect['item']!r}")
@@ -223,13 +225,14 @@ class EffectCommands:
                 old = self._currencies(ent).get(effect["currency"], 0)
                 path = self._currency_path(ent, effect["currency"])
                 holder = target_id
-            amt = self._amount(effect["amount"], variables, cause)
+            # a rolled amount below zero counts as zero: earning never takes and spending never gives (D-053)
+            amt = max(0, self._amount(effect["amount"], variables, cause))
             if prim == "spend_currency":
                 if amt > old:
                     raise EngineError(f"{holder} has only {old} {effect['currency']}")
                 new = old - amt
             else:
-                new = min(int(cdef.get("max", 10**6)), old + amt)
+                new = max(old, min(int(cdef.get("max", 10**6)), old + amt))  # never lowered by a max below it
             params.update({"amount": amt, "old": old, "new": new})
             changes.append({"path": path, "value": new})
 

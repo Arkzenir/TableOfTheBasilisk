@@ -11,7 +11,7 @@ The git hooks run `tob check --quick` on commit and the full `tob check` on push
 
 ## Rules for every test
 
-- **Offline.** The default run makes no network calls. Provider tests use the mock adapter or recorded cassettes.
+- **Offline.** The default run makes no network calls, and cannot: an autouse fixture in `tests/conftest.py` fails any test not marked `live` that opens a socket. Provider tests use the mock adapter or recorded cassettes.
 - **Deterministic.** Seeds are explicit. The engine uses a logical clock (`clock=lambda: None`), never wall time. No `sleep`, and no retry-until-pass.
 - **Isolated.** Use `tmp_path` for files, `EventStore(":memory:")` for logs, and copies of `packs/` when a test mutates a pack (see `tests/test_packs.py`).
 - **Behaviour, not implementation.** Assert on events, state, and returned errors, not on private attributes, wherever possible.
