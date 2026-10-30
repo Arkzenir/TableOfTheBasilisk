@@ -1,6 +1,6 @@
 # Table of The Basilisk — Architecture Specification
 
-**Version:** 1.9 (revised design freeze for v1)
+**Version:** 1.10 (revised design freeze for v1)
 **Status:** Design complete. Open items listed in §11.
 **Companion document:** `BUILD_PLAN.md` — phased implementation, gates, and tests.
 
@@ -49,6 +49,16 @@
 **Revision notes (1.9):** after the fourth Phase 0 audit (T0.38, T0.39, D-053 to D-056):
 - §2.4, §5.7, §7.1: the GM adds an entity to a running encounter (`join_encounter`) or takes one out (`leave_encounter`); each turn order places a joiner its own way.
 - §2.3: a pack may set its clock limits (`clocks`: segments, a single advance, and schedule intervals); the kernel's defaults apply otherwise.
+
+**Revision notes (1.10):** after the fifth Phase 0 audit (T0.40 to T0.42, D-057 to D-059; REV-ARCH-1.10 approved as recommended):
+- §2.3, §7.1: lookup tables roll in play (`roll_table`), for the GM and, where the pack allows, players.
+- §2.3, §5.2, §8.2: an entity is an `npc` or a `prop`; props never take turns unless joined.
+- §2.3, §7.1: pack-declared entity templates; the GM spawns from a template by ID.
+- §7.1: `get_tactical_view` is the encounter view of positions, ranges, cover, and whose turn it is.
+- §2.3: in-world time advances within per-unit limits the pack sets, with kernel defaults.
+- §5.5, §5.7: `conclude_campaign` reveals the master seed into the log once the campaign is over.
+- §1.5, §2.3: a `points` chargen step for point-buy systems.
+- §2.3, §8.2: lighting is a region value the pack declares, readable by rules.
 
 ---
 
@@ -293,7 +303,7 @@ Same engine, same rules, same legality. A low-mastery agent genuinely plays wors
 Engine provides: whatever the pack's chargen procedure produces — rolled stats or an assigned array, a class or playbook, starting equipment, background — plus 1–2 random details (a debt, a scar, a stolen thing) from the campaign's detail tables.
 Agent provides: name, voice, backstory, goals, relationships, how they feel about what they got.
 
-Where a system uses choices rather than rolls — picking a playbook, spending points — the pack marks those steps `choice` and the engine enumerates the legal options; the agent picks by ID, exactly as with movement (§1.4.1). The pack may mark a choice `unique_per_table`, so two agents cannot take the same playbook.
+Where a system uses choices rather than rolls, the pack marks the step: picking a playbook is a `choice` step, spending points a `points` step. The engine enumerates or bounds the legal options, and the agent picks by ID or within the bounds, exactly as with movement (§1.4.1). The pack may mark a choice `unique_per_table`, so two agents cannot take the same playbook.
 
 Two benefits: the sheet is **valid by construction**, and randomness or exclusive choice forces divergence — five agents building freely will produce five haunted loners with dead mentors. It also makes the agent react to something it did not fully choose, which is the same dynamic that makes public dice rolls good television. An optimizer handed terrible stats is a character beat before play begins.
 
@@ -359,7 +369,7 @@ system_pack:
     dice_grammar: { operators: [sum, keep, explode, count, fate, step], max_dice, max_sides,
                     step_sizes }                         # legal step-die sizes
     decks:   [{ id, cards: [{ id, label } | id], reshuffle_rule, players_draw }]
-    tables:  [{ id, roll, entries: [{ range, text }] }]
+    tables:  [{ id, roll, entries: [{ range, text }], players_roll }]   # rolled in play by roll_table (§7.1), or by a chargen table step
 
   entity_model:
     stats:      [{ id, range, default, private }]     # private (sheet views, §7.1)
@@ -371,6 +381,7 @@ system_pack:
     tags:       [id]
     inventory:  { model: abstract | weight, limit_expr }
     items:      [{ id, label, weight }]               # the weight model's catalogue
+    templates:  [{ id, label, kind: npc | prop, stats, resources, tags, items, conditions }]   # stat blocks the GM spawns by id (§7.1)
     harm:       { targets: [resource or track id] }
 
   resolution:
@@ -396,7 +407,7 @@ system_pack:
                  economy: none | slots | points, slots?: [{ id, count }], points?: n }
 
   time:                                                      # new (§2.2 Clocks and time)
-    units: [{ id, label, per }]                              # smallest first
+    units: [{ id, label, per, advance }]                     # smallest first; advance: [min, max] per GM call (default [1, 12])
     between_sessions: { unit, amount }
 
   clocks:                                                    # optional; kernel defaults shown, each [min, max]
@@ -421,14 +432,15 @@ system_pack:
     thresholds: [points]                                     # xp, marks: one advance per threshold
     use:        { threshold }                                # use: uses of a stat before it rises
     advances:   [{ id, label, stats: { stat: delta }, tags, requires, once }]
-  chargen:      { steps: [{ id, kind: roll | choice | assign | table,
-                            targets, roll, options, values, table, unique_per_table }] }
+  chargen:      { steps: [{ id, kind: roll | choice | assign | table | points,
+                            targets, roll, options, values, table, pool, range, cost, exact, unique_per_table }] }
+                # points: allocate a pool over targets, each within range, at cost per point or a {value: cost} table
                 # options: [{ id, label, stats, tags, items, currencies }]   # starting kit (§1.5)
 
   spatial:
     backends: [zone_graph | range_bands | square_grid] | none
     bands: [{ id, label }]                     # closest first (range_bands)
-    terrain: [{ id }], cover: [{ id }]         # region values (zone_graph)
+    terrain: [{ id }], cover: [{ id }], lighting: [{ id }]   # region values (zone_graph)
     movement: { steps_per_move }
     provokes: { when }
     tactical_profile: { categories: [{ id, order: 1 | 2 }], weights, factors, annotation_templates }
@@ -1086,7 +1098,7 @@ An agent with write access to its own HP — or stress, or harm boxes — would 
 
 This buys: trait tuning with dice held constant, fork-and-replay for debugging, and proof the dice were honest — which matters, because on a stream full of AI agents, someone **will** accuse you of scripting.
 
-**Publication policy:** roll results are public live. The master seed is published **after the campaign concludes** — verifiable after the fact, but nobody can precompute the next crit. The resolved pack is published with it, since verification needs the exact rules.
+**Publication policy:** roll results are public live. The master seed is published **after the campaign concludes** — verifiable after the fact, but nobody can precompute the next crit. The resolved pack is published with it, since verification needs the exact rules. The operator ends a campaign with `conclude_campaign`, which checks the seed against the commitment in the first event and logs it as `campaign_concluded`. Nothing can be played after it, and the log then verifies itself.
 
 **Fudging.** The GM alone gets `peek_roll()` — see a result before it goes public, with a bounded ability to reroll. Every fudge is logged. The `fudging` axis sets the frequency cap. It exists only where the pack declares `gm_rolls: true`, only for procedures the pack lists as fudgeable, and only while the GM's `fudging` control is standard — which it is by default. Otherwise the tool is absent and the axis dormant.
 
@@ -1129,6 +1141,7 @@ event:
 types:
   # system
   campaign_started            # pins pack_hash, kernel_version, seed commitment (§2.9)
+  campaign_concluded          # reveals the master seed (§5.5); nothing is played after it
   campaign_forked
   axis_dormant                # P2.5 (traits)
   determinism_settings_recorded, determinism_change_requested, determinism_changed
@@ -1383,7 +1396,8 @@ read_party_sheets()                → summary view of others, not full detail
 
 **Tactical (encounters only; absent under `spatial: none`)**
 ```
-get_tactical_view()
+get_tactical_view()                → positions, ranges, and cover of what you can see, your reach,
+                                     and whose turn it is
 enumerate_moves()                  → mastery-tiered
 enumerate_actions(position_id)     → mastery-tiered; drawn from the pack's action catalogue,
                                      including eligible fiction-triggered moves
@@ -1405,7 +1419,9 @@ reveal(fact_id)                    → secret → revealed
 read_prep()                        → private prep store
 peek_roll()                        → bounded by fudging axis, logged;
                                      absent if the pack's GM does not roll
-spawn_entity(spec)                 → instantiate fiction into state
+spawn_entity(spec)                 → instantiate fiction into state from a pack template (by id)
+                                     and a name; kind npc | prop
+roll_table(table_id)               → a seeded roll on a pack lookup table; the entry is narrated
 set_scene(spec)                    → transition; triggers pre-fetch + snapshot
 resolve(action, ruling)            → map an unmodelled action onto a pack procedure
                                      (procedure, difficulty rung, tags — all by ID);
@@ -1613,7 +1629,7 @@ Three fields earning their place:
 
 **`visible_to[]` on tokens.** Visibility is per-observer, which makes `look()` and `get_tactical_view()` correct without extra work. It also lets the broadcast render an **omniscient** view while agents see partial ones — the audience knows the ambush is there, the party does not. Enormous tension for one field.
 
-**`props[]` is the promotion target.** The frayed rope bridge (§5.2) becomes a prop the moment someone interacts, via `spawn_entity`. Props are where improvised fiction lands in state.
+**`props[]` is the promotion target.** The frayed rope bridge (§5.2) becomes a prop the moment someone interacts, via `spawn_entity`. Props are where improvised fiction lands in state. A prop is an entity of kind `prop` (§2.3): it can be targeted, damaged, and tagged like any entity, but it never takes a turn unless the GM joins it to an encounter, and it never rolls. `state` is its pack tags; `interactable: false` makes it scenery no action can target. A region's `lighting` is a pack value like terrain and cover, so rules read the light where an entity stands; `source_id` is presentation.
 
 **`clocks[]` with a visible flag.** Faction clocks render directly. A hidden clock filling in the corner of the overlay while the party dawdles is dramatic irony at zero cost.
 
@@ -2143,6 +2159,7 @@ Numbers nobody can reason their way to. Each must be set empirically (see `BUILD
 | `read_prep` | **absent from schema** | ✓ | — |
 | `peek_roll` | **absent from schema** | ✓ (capped) † | — |
 | `spawn_entity` | — | ✓ | — |
+| `roll_table` | ✓ ‡ | ✓ | — |
 | `set_scene` | — | ✓ | — |
 | `resolve` | — | ✓ | — |
 | `advance_clock` | — | ✓ | — |
@@ -2151,6 +2168,7 @@ Numbers nobody can reason their way to. Each must be set empirically (see `BUILD
 Every "—" in the break column is **absent from the schema**, not denied.
 \* Absent when the pack declares `spatial: none`.
 † Absent when the pack declares `gm_rolls: false`, or while the GM's `fudging` control is strict.
+‡ Only for tables the pack marks `players_roll`.
 For a role on strict settings, every argument with mechanical effect on its tools is an enum; on standard, a bounded value (§2.13).
 
 ## Appendix C — Configuration surface

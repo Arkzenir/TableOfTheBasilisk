@@ -547,3 +547,23 @@ Template:
   - `every_units`: a schedule's `every`, counted in an in-world time unit. Default `[1, 1000]`.
 
   Lint refuses an unknown key and anything but integers with `1 <= min <= max`. The GM's `advance_clock` tool enumerates the pack's advance range, and its judgement input lists it. A pack's own effects still move a clock by any amount; the limits bound the GM's choices. The defaults live in the kernel (`clocks.DEFAULT_LIMITS`), not in `core`, so no pack hash changed. The smoke harness sizes its clock by the pack's limits; under the defaults it makes the same clock as before.
+
+## D-057 Lookup tables in play, per-unit time limits, concluding a campaign (T0.40)
+- Date: 2026-10-30 · Status: accepted (owner approved REV-ARCH-1.10 as recommended; ARCHITECTURE 1.10 applied, sections A, E and F built here).
+- **Tables (§2.3, §7.1):** `roll_table(table_id)` rolls a pack lookup table in play.
+  - The roll goes through the logged randomizer with purpose `table:<id>`, and is the cause of `table_rolled`, which gains `by` and `purpose: play`.
+  - The GM may roll any table. A player may roll only a table the pack marks `players_roll: true` (a boolean, linted), and the players' tool lists only those.
+  - Entries are text; the result is narrated.
+  - The GM's call is a logged judgement.
+  - A roll waits for any open peek or ruling (`_require_settled`).
+  - The smoke harness rolls a table once per scene, so the golden fixtures were regenerated.
+- **Time (§2.3 `time.units[].advance`):** a GM `advance_time` moves a unit within that unit's `[min, max]`, kernel default `[1, 12]`.
+  - Before this, a call allowed 1 to 1000 of any unit. The engine's own advances (off-air time) keep the 1000 ceiling.
+  - The tool's amount enum spans every unit's range, and the engine checks the unit's own.
+  - One test advanced 27 days at once; it now advances in steps.
+- **Concluding (§5.5):** `conclude_campaign(seed)` is operator-only and needs no open session. It checks the seed against the first event's commitment and logs `campaign_concluded {seed}`, whose reducer sets `campaign.concluded`.
+  - **After it:** `atomic` refuses every command. Reads still work.
+  - **Fork:** a fork is refused at or after the conclusion.
+  - **Verify:** `verify` uses a logged seed when none is passed, so the log verifies itself.
+  - **Publishing:** exporting the log, the seed, and the resolved pack stays in BUILD_PLAN P5.7.
+- **Tool enums:** numbers now sort by value (they sorted as strings, so 1, 10, 11, 2 …), then ids alphabetically.

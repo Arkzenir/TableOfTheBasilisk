@@ -179,6 +179,8 @@ class EventStore:
         head = self.head(campaign_id)[0]
         if isinstance(at_seq, bool) or not isinstance(at_seq, int) or not 1 <= at_seq <= head:
             raise EventStoreError(f"fork seq must be from 1 to {head} (campaign {campaign_id} has {head} events)")
+        if any(ev["type"] == "campaign_concluded" for ev in self.read(campaign_id, upto=at_seq)):
+            raise EventStoreError(f"campaign {campaign_id} has concluded by seq {at_seq}; fork at an earlier seq")
         self.begin()  # all or nothing: a half-copied fork would read as a real campaign
         try:
             for ev in self.read(campaign_id, upto=at_seq):

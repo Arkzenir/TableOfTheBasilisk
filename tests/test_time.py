@@ -30,11 +30,12 @@ def test_time_carries_into_larger_units(lantern):
     assert eng.current_time()["units"] == {"watch": 4, "day": 1, "moon": 1}
     eng.advance_time("watch", 1)
     assert eng.current_time()["units"] == {"watch": 1, "day": 2, "moon": 1}
-    eng.advance_time("day", 27)
+    for days in (12, 12, 3):  # a GM call moves at most 12 of a unit by default (D-057)
+        eng.advance_time("day", days)
     assert eng.current_time()["units"] == {"watch": 1, "day": 1, "moon": 2}
     assert eng.elapsed() == 4 + 27 * 4
     assert [(e["unit"], e["amount"], e["from"], e["to"]) for e in events(eng, "time_advanced")] == [
-        ("watch", 3, 0, 3), ("watch", 1, 3, 4), ("day", 27, 4, 112)]
+        ("watch", 3, 0, 3), ("watch", 1, 3, 4), ("day", 12, 4, 52), ("day", 12, 52, 100), ("day", 3, 100, 112)]
     assert hash_obj(fold(eng.store.read(eng.campaign_id))) == eng.state_hash()
 
 
@@ -81,8 +82,10 @@ def test_refusals(lantern, tide):
         eng.advance_time("watch", 1, by="ash")
     with pytest.raises(EngineError, match="No time unit 'hour'"):
         eng.advance_time("hour", 1)
-    with pytest.raises(EngineError, match="1 to 1000"):
+    with pytest.raises(EngineError, match="1 to 12 watch"):
         eng.advance_time("watch", 0)
+    with pytest.raises(EngineError, match="1 to 12 watch"):
+        eng.advance_time("watch", 13)
     with pytest.raises(EngineError, match="No time unit 'hour'"):
         eng.create_clock("c", "C", 4, schedule={"every": 1, "unit": "hour"})
     t = Engine.start_campaign(tide, "t", {"seats": {"gm": "gm"}}, clock=lambda: None)

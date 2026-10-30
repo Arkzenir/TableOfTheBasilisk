@@ -7,6 +7,7 @@ The code-level list of event types (`EVENT_TYPES` in `src/basilisk/kernel/engine
 | Type | Kind | Emitted by | Payload |
 |---|---|---|---|
 | `campaign_started` | folds | `Engine.start_campaign` | `campaign_id, pack_id, pack_hash, kernel_version, seed_commitment, seats, gm_lethality` |
+| `campaign_concluded` | folds | `conclude_campaign` (operator) | `seed` (the master seed, checked against the commitment; sets `campaign.concluded`, after which every command is refused and the log verifies itself, D-057) |
 | `determinism_settings_recorded` | folds | `Engine.start_campaign` | `settings` (fully expanded) |
 | `determinism_change_requested` | folds | `request_determinism_change` | `from, to` |
 | `determinism_changed` | folds | scene or session boundary | `from, to, request_seq, scene_index` |
@@ -47,7 +48,7 @@ The code-level list of event types (`EVENT_TYPES` in `src/basilisk/kernel/engine
 | `chargen_started` | passive | `create_character` | `agent, entity` |
 | `judgement_input` | passive | any model-chosen mechanical input; and every GM call (`@gm_call`, D-044), after the call's own events and caused by the first of them | `seat, control, setting, choice, options`; for a GM call, `control` is the command's name, `setting` is null, `choice` its arguments (null ones omitted), and `options` the list it was chosen from where the engine has one, else null |
 | `procedure_resolved` | passive | resolution runner | `procedure, entity, scale, outcome, rank, ranks, total, difficulty, modifiers, roll_seq, direct`; for an opposed check `difficulty` is `{value, origin: opposed, rung: null, roll_seq, stat}`, naming the other side's roll |
-| `table_rolled` | passive | chargen table step | `table, value, text` |
+| `table_rolled` | passive | chargen table step, `roll_table` | `table, value, text`; from `roll_table` also `by` and `purpose: play` (the `roll_made` with purpose `table:<id>` is its cause, D-057) |
 | `gm_resolution` | passive | `resolve_unmodelled` | `entity, procedure, stat, direct_outcome`; optional `target`, the other side of an opposed check (D-054) |
 | `rules_queried` | passive | `query_rules` | `seat, query, via` (`id`, `ref`, `alias`, `partial`, or `null` for a miss), `sections` (ids returned, never their text), `suggestions` (titles, on a miss) |
 | `move_provoked` | passive | a `move` effect that leaves a threat's reach, when the pack declares `spatial.provokes` | `mover, by` (the provoking entities), `to`; a reaction may answer it (§2.4) |

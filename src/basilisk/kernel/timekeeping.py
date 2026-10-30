@@ -22,11 +22,27 @@ from __future__ import annotations
 from .command import EngineError, _suggest, atomic, gm_call
 
 EVENT_TYPES = frozenset({"time_advanced"})
-MAX_ADVANCE = 1_000  # units per call; a kernel setting
+MAX_ADVANCE = 1_000  # units per engine advance (off-air time included); a kernel ceiling
+DEFAULT_ADVANCE = (1, 12)  # a GM call's range per unit, unless the unit declares `advance`
 
 
 def units(pack) -> list[dict]:
     return list((pack.get("time") or {}).get("units") or [])
+
+
+def advance_limits(pack, unit_id: str) -> tuple[int, int]:
+    """How much of `unit_id` one GM `advance_time` may move (§2.3 `units[].advance`)."""
+    unit = next((u for u in units(pack) if u["id"] == unit_id), None)
+    if unit is None:
+        raise EngineError(_suggest("time unit", unit_id, [u["id"] for u in units(pack)]))
+    value = unit.get("advance")
+    return (value[0], value[1]) if isinstance(value, list) and len(value) == 2 else DEFAULT_ADVANCE
+
+
+def advance_amounts(pack) -> list[int]:
+    """Every amount some unit allows, for the GM tool's enum; the engine checks per unit."""
+    spans = [advance_limits(pack, u["id"]) for u in units(pack)]
+    return list(range(min(lo for lo, _ in spans), max(hi for _, hi in spans) + 1)) if spans else []
 
 
 def unit_size(pack, unit_id: str) -> int:
@@ -65,6 +81,12 @@ def lint_time(pack) -> list[str]:
             out.append(f"time unit {u.get('id')}: per must be an integer of 2 or more (how many make a {us[i + 1].get('id')})")
         if not u.get("label"):
             out.append(f"time unit {u.get('id')}: needs a label")
+        adv = u.get("advance")
+        if adv is not None and not (isinstance(adv, list) and len(adv) == 2
+                                    and all(isinstance(v, int) and not isinstance(v, bool) for v in adv)
+                                    and 1 <= adv[0] <= adv[1] <= MAX_ADVANCE):
+            out.append(f"time unit {u.get('id')}: advance must be [min, max], integers with 1 <= min <= max "
+                       f"<= {MAX_ADVANCE} (default [{DEFAULT_ADVANCE[0]}, {DEFAULT_ADVANCE[1]}]); got {adv!r}")
     between = (pack.get("time") or {}).get("between_sessions")
     if between is not None:
         if between.get("unit") not in ids:
@@ -105,6 +127,10 @@ class TimeCommands:
         if by != "engine" and self._role(by) != "gm":
             raise EngineError("only the GM moves in-world time")
         self._require_settled()
+        if by != "engine" and units(self.pack):
+            lo, hi = advance_limits(self.pack, unit)
+            if isinstance(amount, bool) or not isinstance(amount, int) or not lo <= amount <= hi:
+                raise EngineError(f"advance time by {lo} to {hi} {unit}")
         return self._advance_time(unit, amount, by)
 
     def _advance_time(self, unit: str, amount: int, by: str, reason: str | None = None) -> dict:

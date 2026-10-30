@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import canon, clocks, decks, fudging, spatial, timekeeping, turns
+from . import canon, clocks, decks, fudging, spatial, tables, timekeeping, turns
 from .determinism import STANDARD, setting_for
 from .packs import ResolvedPack
 
@@ -21,7 +21,8 @@ ID = {"type": "string", "format": "id"}
 
 
 def _enum(values: list) -> dict:
-    return {"enum": sorted(set(values), key=str)}
+    """An enum in a stable order: numbers by value, then ids alphabetically."""
+    return {"enum": sorted(set(values), key=lambda v: (isinstance(v, str), v if not isinstance(v, str) else 0, str(v)))}
 
 
 def _spend_schema(pack: ResolvedPack, mode: str) -> dict | None:
@@ -94,6 +95,9 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
     if drawable:  # deck order is never offered: draws only (§5.5)
         tools["draw_card"] = {"deck_id": _enum(drawable), "to": ID}
         tools["discard_card"] = {"deck_id": _enum(drawable), "card_id": ID}
+    rollable = [t["id"] for t in pack.catalogue("randomizers.tables")] if role == "gm" else tables.player_tables(pack)
+    if rollable:  # lookup tables in play (§2.3, §7.1)
+        tools["roll_table"] = {"table_id": _enum(rollable)}
     if role == "gm" and all_decks:
         tools["reshuffle_deck"] = {"deck_id": _enum([d["id"] for d in all_decks])}
     if order != "spotlight":
@@ -165,7 +169,7 @@ def generate(pack: ResolvedPack, effective: dict, role: str, seat: str | None = 
         tools["pause_clock"] = {"clock_id": ID, "paused": {"type": "boolean"}}  # the party has interfered
         time_units = [u["id"] for u in timekeeping.units(pack)]
         if time_units:
-            tools["advance_time"] = {"unit": _enum(time_units), "amount": _enum(list(range(1, 13)))}
+            tools["advance_time"] = {"unit": _enum(time_units), "amount": _enum(timekeeping.advance_amounts(pack))}
         if (pack.get("progression") or {}).get("model") == "milestone" and advances:
             tools["award_milestone"] = {"entity_id": ID}  # omitted: every player character
         tools["spawn_entity"] = {"entity_id": ID, "name": NARRATIVE}

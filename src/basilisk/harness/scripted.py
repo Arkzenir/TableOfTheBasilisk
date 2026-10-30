@@ -293,6 +293,8 @@ def _run_smoke(engine: Engine, script: dict, report: RunReport) -> None:
                 engine.advance_time(engine.pack.get("time.units")[0]["id"], 1)
             for deck in engine.pack.catalogue("randomizers.decks"):  # one draw per deck per scene
                 engine.draw_card(deck["id"], to=players[sc % len(players)] if sc % 2 else None)
+            for table in engine.pack.catalogue("randomizers.tables")[:1]:  # the GM consults a table (§2.3)
+                engine.roll_table(table["id"])
             engine.advance_clock("pressure", bounds["advance"][0])
         engine.end_session()
         if (engine.pack.get("progression") or {}).get("model") == "milestone" and engine.progression_active():
@@ -321,7 +323,7 @@ def _take_advances(engine: Engine, players: list[str], salt: int) -> None:
             engine.take_advance(p, options[(salt + players.index(p)) % len(options)])
 
 
-def _run_steps(engine: Engine, steps: list[dict], report: RunReport) -> None:
+def _run_steps(engine: Engine, steps: list[dict], report: RunReport, script_seed: str | None = None) -> None:
     for i, step in enumerate(steps):
         step = dict(step)
         do = step.pop("do")
@@ -373,6 +375,10 @@ def _run_steps(engine: Engine, steps: list[dict], report: RunReport) -> None:
                 engine.draw_card(step["deck"], step.get("by"), step.get("to"))
             elif do == "reshuffle_deck":
                 engine.reshuffle_deck(step["deck"])
+            elif do == "roll_table":
+                engine.roll_table(step["table"], step.get("by"))
+            elif do == "conclude_campaign":
+                engine.conclude_campaign(step.get("seed", script_seed), by=step.get("by", "operator"))
             elif do == "discard_card":
                 engine.discard_card(step["deck"], step["card"], step["holder"], step.get("by"))
             elif do == "commit_action":
@@ -409,7 +415,7 @@ def run_script(script: dict, packs_dir: str | Path, store: EventStore | None = N
     report = RunReport(script["campaign_id"], pack.id, pack.hash, 0, "", "")
     if script.get("smoke"):
         _run_smoke(engine, script, report)
-    _run_steps(engine, script.get("steps") or [], report)
+    _run_steps(engine, script.get("steps") or [], report, script["seed"])
     engine.snapshot()
     report.actions_never_taken = sorted(set(pack.by_id("actions")) - set(report.actions_taken))
     seq, head = store.head(script["campaign_id"])
@@ -438,6 +444,9 @@ def verify(store: EventStore, campaign_id: str, pack: ResolvedPack | None = None
     if expected_state_hash and hash_obj(state) != expected_state_hash:
         problems.append("replayed state differs from live state")
     first = events[0]["payload"]
+    revealed = next((ev["payload"]["seed"] for ev in events if ev["type"] == "campaign_concluded"), None)
+    if seed is None:
+        seed = revealed  # a concluded campaign verifies itself (§5.5)
     if first.get("kernel_version") != KERNEL_VERSION:
         problems.append(f"pinned kernel {first.get('kernel_version')} != running {KERNEL_VERSION}")
     snap = store.latest_snapshot(campaign_id)

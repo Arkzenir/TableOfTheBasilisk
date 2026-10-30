@@ -97,6 +97,9 @@ def atomic(fn):
     def wrapper(self, *args, **kwargs):
         if self._atomic_depth:
             return fn(self, *args, **kwargs)
+        if self.state["campaign"].get("concluded"):
+            raise EngineError(f"campaign {self.campaign_id} has concluded (§5.5); nothing more can be played. "
+                              "Fork it at an earlier seq to experiment (debugging only, P6)")
         backup = plain_copy(self.state)
         self.store.begin()
         self._atomic_depth += 1

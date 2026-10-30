@@ -98,11 +98,12 @@ Refreshed 2026-10-26 after T0.24 to T0.28. Every item below was run on the devel
 
 ## Open questions for the owner
 
-1. **D-045:** whether the Phase 0 audits now count as complete (the fourth is fixed by T0.38 and T0.39; BUILD_PLAN §0.4's pre-build checklist is the owner's).
-2. **Re-audit when the P0 architecture is finalised:** Gate item 8 (structural evidence only) and the hook return shape (D-033: point-specific results rather than `[events]`).
-3. **When `KERNEL_VERSION` moves:** decided to wait (D-045). It stays `0.1.0` until every Phase 0 audit returns complete; then the owner sets the bump and the policy.
-4. Before T1.5's live tests, the Anthropic API key, set as an environment variable.
-5. Before P4.0, the SRD source document. Before launch, the legal review in ARCHITECTURE §11.3.
+1. **REV-ARCH-1.10** was approved as recommended and applied as ARCHITECTURE 1.10. T0.40 is built (tables in play, time limits, concluding a campaign). T0.41 (props, templates, tactical view) and T0.42 (point-buy, region lighting) are next.
+2. **D-045:** whether the Phase 0 audits now count as complete (the fourth is fixed by T0.38 and T0.39; the fifth is REV-ARCH-1.10; BUILD_PLAN §0.4's pre-build checklist is the owner's).
+3. **Re-audit when the P0 architecture is finalised:** Gate item 8 (structural evidence only) and the hook return shape (D-033: point-specific results rather than `[events]`).
+4. **When `KERNEL_VERSION` moves:** decided to wait (D-045). It stays `0.1.0` until every Phase 0 audit returns complete; then the owner sets the bump and the policy.
+5. Before T1.5's live tests, the Anthropic API key, set as an environment variable.
+6. Before P4.0, the SRD source document. Before launch, the legal review in ARCHITECTURE §11.3.
 
 ## Notes for the next session
 

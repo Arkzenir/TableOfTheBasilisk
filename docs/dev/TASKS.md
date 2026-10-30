@@ -187,6 +187,32 @@ Agent-sized work packages. Each one cites its build-plan step (P…) and design 
 - **Deliverables:** BUILD_PLAN P0.15.
 - **Acceptance:** BUILD_PLAN P0.15's test and its Gate P0 line.
 
+### T0.42 Point-buy chargen; lighting per region — `ready`
+- **Plan:** P0.8, P0.10 · §1.5, §2.3, §8.2 · REV-ARCH-1.10 sections G and H
+- **Deliverables:**
+  - a `points` chargen step (pool, ranges, cost per point or table, `exact`), linted, with its tool schema;
+  - `spatial.lighting` region values, readable as `region.lighting.<id>`;
+  - `lanternlight_house` uses a points step, and lanternlight's dim light derives per region.
+- **Acceptance:** tests per section; golden fixtures regenerated deliberately; `tob check` passes.
+
+### T0.41 Props, entity templates, the tactical view — `ready`
+- **Plan:** P0.3, P0.10 · §2.3, §5.2, §7.1, §8.2 · REV-ARCH-1.10 sections B, C and D
+- **Deliverables:**
+  - entity kind `npc | prop` with `interactable`: props never default participants, never roll, and scenery cannot be targeted;
+  - `entity_model.templates`, linted, with `spawn_entity(template=…)` and a GM tool that offers templates by id; the engine command takes the full spec;
+  - `tactical_view(seat)` and the `get_tactical_view` tool.
+- **Acceptance:** tests per section; golden fixtures regenerated deliberately; `tob check` passes.
+
+### T0.40 Lookup tables in play, time limits per unit, concluding a campaign — `done`
+- **Plan:** P0.2, P0.11 · §2.3, §5.5, §5.7, §7.1 · D-057 · REV-ARCH-1.10 sections A, E and F (ARCHITECTURE 1.10 applied)
+- **Deliverables:**
+  - `roll_table` for the GM, and for players where the pack sets `players_roll`;
+  - `time.units[].advance` limits with the default `[1, 12]`;
+  - `conclude_campaign` reveals the seed and ends play: forks only before it, and `verify` reads the seed from the log;
+  - numeric tool enums sort by value;
+  - harness steps `roll_table` and `conclude_campaign`.
+- **Acceptance:** `tests/test_tables_and_conclusion.py`; golden fixtures regenerated (the smoke script rolls a table each scene); `tob check` passes.
+
 ### T0.39 Encounter roster changes; clock limits as pack data — `done`
 - **Plan:** P0.4, P0.11 · §2.3, §2.4, §5.7, §7.1 · D-056 · REV-ARCH-1.9
 - **Deliverables:**

@@ -32,6 +32,7 @@ from .sheets import SheetCommands
 from .rng import Randomizer
 from .rules import RulesCommands
 from .spatial import SpatialCommands
+from .tables import TableCommands
 from .terms import TermCommands
 from .timekeeping import TimeCommands
 from .tactics import TacticalCommands
@@ -77,7 +78,7 @@ EVENT_TYPES = frozenset({
     "campaign_started", "determinism_settings_recorded", "determinism_change_requested",
     "determinism_changed", "session_started", "session_ended", "scene_set", "scene_closed", "roll_made",
     "effect_applied", "character_created", "entity_spawned", "clock_created",
-    "action_committed", "gm_ruling_requested", "gm_ruling_filled",
+    "action_committed", "gm_ruling_requested", "gm_ruling_filled", "campaign_concluded",
 }) | canon.EVENT_TYPES | spatial.EVENT_TYPES | turns.EVENT_TYPES | decks.EVENT_TYPES | fudging.EVENT_TYPES \
     | clocks.EVENT_TYPES | timekeeping.EVENT_TYPES | progression.EVENT_TYPES | _PASSIVE
 
@@ -94,6 +95,8 @@ def apply_event(state: dict, ev: dict) -> None:
         state["determinism"]["effective"] = copy.deepcopy(p["to"])
         state["determinism"]["pending"] = None
         state["determinism"]["last_change_scene"] = p["scene_index"]
+    elif t == "campaign_concluded":
+        state["campaign"]["concluded"] = True  # only logs with the event carry the flag
     elif t == "session_started":
         state["session"] = p["number"]
     elif t == "session_ended":
@@ -187,7 +190,7 @@ def _check_seats(seats: Any) -> dict[str, str]:
 
 class Engine(EntityCommands, CurrencyCommands, ResolutionCommands, EffectCommands, CanonCommands, SpatialCommands,
              TacticalCommands, TurnCommands, DeckCommands, FudgeCommands, SheetCommands, ClockCommands, RulesCommands,
-             TermCommands, TimeCommands, ProgressionCommands):
+             TermCommands, TimeCommands, ProgressionCommands, TableCommands):
     def __init__(self, pack: ResolvedPack, seed: str, store: EventStore | None = None,
                  campaign_id: str = "campaign", clock: Callable[[], str | None] | None = None):
         if pack.data["meta"].get("abstract"):
@@ -512,6 +515,19 @@ class Engine(EntityCommands, CurrencyCommands, ResolutionCommands, EffectCommand
         self._boundary()
         self._snapshot_due = True
         return index
+
+    @atomic
+    def conclude_campaign(self, seed: str, by: str = "operator") -> int:
+        """End the campaign and reveal its master seed (§5.5): the seed must match
+        the commitment in the first event. Nothing can be played afterwards, and
+        the log then verifies itself (`tob verify` reads the seed from it)."""
+        if by not in ("operator", "engine"):
+            raise EngineError(f"only the operator concludes a campaign, not {by!r}")
+        if self._session_open():
+            raise EngineError(f"session {self.state['session']} is still open: end_session first")
+        if not isinstance(seed, str) or Randomizer(seed).commitment() != self.state["campaign"].get("seed_commitment"):
+            raise EngineError("that seed does not match the campaign's seed commitment")
+        return self._emit("campaign_concluded", {"seed": seed}, actor=by)
 
     # ------------------------------------------------------------ settings changes (§2.13.3)
 
